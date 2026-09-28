@@ -56,7 +56,7 @@ export interface ProductSearchResult extends Product {
 export interface ProductSearchOptions {
   query?: string
   categoryId?: number | null
-  productType?: ProductType
+  productType?: ProductType | 'sellable' | 'all'
   parentId?: number | null
   onlySellable?: boolean
   limit?: number

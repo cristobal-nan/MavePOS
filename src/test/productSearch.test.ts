@@ -188,4 +188,44 @@ describe('Fase 4: Motor de Búsqueda de Productos (% wildcard, normalización y 
     const allSellable = productService.searchProducts({ query: 'Algodón Rústico', onlySellable: true })
     expect(allSellable.every((p) => p.product_type !== 'variable')).toBe(true)
   })
+
+  it('orden alfabético por nombre del padre (o simple) para que variaciones queden agrupadas por su producto padre', () => {
+    // Padre que empieza con "A"
+    productService.saveVariableProduct(
+      { name: 'Algodón Modelo A', attribute_name: 'Color' },
+      [
+        {
+          code: 'VAR_Z',
+          name: 'Algodón Modelo A Zafiro',
+          attribute_value: 'Zafiro',
+          sale_price: 3000,
+          stock: 10
+        }
+      ]
+    )
+
+    // Producto Simple que empieza con "B"
+    productService.upsertProduct({
+      code: 'PROD_B',
+      name: 'Botones Dorados',
+      product_type: 'simple',
+      sale_price: 500,
+      stock: 50
+    })
+
+    // Listamos productos vendibles (excluye padre variable) ordenados por nombre
+    const results = productService.searchProducts({ onlySellable: true, orderBy: 'name', orderDir: 'ASC' })
+
+    const codes = results.map((r) => r.code)
+    const indexZ = codes.indexOf('VAR_Z')
+    const indexB = codes.indexOf('PROD_B')
+
+    // Aunque la variación sea "Zafiro", pertenece al padre "Algodón...", por lo que debe quedar ANTES de "Botones..." (B)
+    expect(indexZ).toBeGreaterThanOrEqual(0)
+    expect(indexB).toBeGreaterThanOrEqual(0)
+    expect(indexZ).toBeLessThan(indexB)
+
+    // Ningún padre variable debe aparecer en la lista de vendibles
+    expect(results.some((r) => r.product_type === 'variable')).toBe(false)
+  })
 })

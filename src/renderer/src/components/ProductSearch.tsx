@@ -267,10 +267,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
 
                     {/* Nombre */}
                     <td className="py-2.5 px-3 text-slate-900 font-medium truncate" title={p.name}>
-                      <div className="flex items-center gap-1.5">
-                        {isVariation && <span className="text-slate-300">↳</span>}
-                        <span>{p.name}</span>
-                      </div>
+                      <span className="truncate">{p.name}</span>
                     </td>
 
                     {/* Tipo / Variación */}

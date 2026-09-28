@@ -5,7 +5,7 @@ interface CatalogState {
   products: ProductSearchResult[]
   categories: Category[]
   selectedCategory: number | null
-  selectedProductType: ProductType | 'all'
+  selectedProductType: 'sellable' | 'simple' | 'variation' | 'variable' | 'all'
   searchQuery: string
   orderBy: 'name' | 'stock' | 'sale_price'
   orderDir: 'ASC' | 'DESC'
@@ -26,7 +26,7 @@ interface CatalogState {
   fetchProducts: (customQuery?: string) => Promise<void>
   setSearchQuery: (query: string) => void
   setSelectedCategory: (catId: number | null) => void
-  setSelectedProductType: (type: ProductType | 'all') => void
+  setSelectedProductType: (type: 'sellable' | 'simple' | 'variation' | 'variable' | 'all') => void
   toggleSort: (column: 'name' | 'stock' | 'sale_price') => void
   setColumnWidth: (column: string, width: number) => void
   saveProduct: (input: ProductInput) => Promise<Product>
@@ -42,7 +42,7 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
   products: [],
   categories: [],
   selectedCategory: null,
-  selectedProductType: 'all',
+  selectedProductType: 'sellable',
   searchQuery: '',
   orderBy: 'name',
   orderDir: 'ASC',
@@ -74,10 +74,22 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     const query = customQuery !== undefined ? customQuery : searchQuery
 
     try {
+      let onlySellable: boolean | undefined = undefined
+      let pType: ProductType | undefined = undefined
+
+      if (selectedProductType === 'sellable') {
+        onlySellable = true
+      } else if (selectedProductType === 'all') {
+        onlySellable = false
+      } else {
+        pType = selectedProductType as ProductType
+      }
+
       const results = await window.api.searchProducts({
         query,
         categoryId: selectedCategory,
-        productType: selectedProductType === 'all' ? undefined : selectedProductType,
+        productType: pType,
+        onlySellable,
         orderBy,
         orderDir,
         limit: 300
@@ -99,7 +111,7 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     get().fetchProducts()
   },
 
-  setSelectedProductType: (type: ProductType | 'all') => {
+  setSelectedProductType: (type: 'sellable' | 'simple' | 'variation' | 'variable' | 'all') => {
     set({ selectedProductType: type })
     get().fetchProducts()
   },

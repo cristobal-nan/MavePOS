@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Plus, Layers, Filter, RefreshCw, Sparkles, Box } from 'lucide-react'
-import { ProductSearchResult, ProductType } from '@shared/types'
+import { ProductSearchResult } from '@shared/types'
 import { useCatalogStore } from '../store/catalogStore'
 import { ProductSearch } from '../components/ProductSearch'
 import { ProductFormModal } from '../components/ProductFormModal'
@@ -108,13 +108,14 @@ export const CatalogView: React.FC = () => {
             <Box className="w-3 h-3 text-slate-400" />
             <select
               value={selectedProductType}
-              onChange={(e) => setSelectedProductType(e.target.value as ProductType | 'all')}
+              onChange={(e) => setSelectedProductType(e.target.value as any)}
               className="bg-transparent text-slate-700 focus:outline-none cursor-pointer"
             >
-              <option value="all">Todos los tipos</option>
+              <option value="sellable">Productos vendibles (Simples y Variaciones)</option>
               <option value="simple">Solo Simples</option>
-              <option value="variable">Solo Variables (Padres)</option>
               <option value="variation">Solo Variaciones</option>
+              <option value="variable">Solo Variables (Padres)</option>
+              <option value="all">Ver todo el catálogo (incluyendo padres)</option>
             </select>
           </div>
 

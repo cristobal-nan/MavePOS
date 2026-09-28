@@ -173,9 +173,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
     const finalCategoryId = selectedSubcatId || selectedDeptoId || null
 
-    if (productType === 'simple') {
+    if (productType === 'simple' || productType === 'variation') {
       if (!code.trim()) {
-        setError('El código de barras / SKU es obligatorio para productos simples.')
+        setError('El código de barras / SKU es obligatorio.')
         return
       }
 
@@ -193,7 +193,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         id: product?.id,
         code: code.trim(),
         name: name.trim(),
-        product_type: 'simple',
+        product_type: productType,
+        parent_id: product?.parent_id || null,
+        attribute_name: product?.attribute_name || attributeName.trim(),
+        attribute_value: product?.attribute_value || null,
         sale_price: parsedSalePrice,
         cost_price: parsedCostPrice,
         category_id: finalCategoryId,
@@ -394,9 +397,20 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             </div>
           </div>
 
-          {/* VISTA ESPECÍFICA: PRODUCTO SIMPLE */}
-          {productType === 'simple' && (
+          {/* VISTA ESPECÍFICA: PRODUCTO SIMPLE O VARIACIÓN INDIVIDUAL */}
+          {(productType === 'simple' || productType === 'variation') && (
             <div className="space-y-4 pt-2 border-t border-slate-100">
+              {productType === 'variation' && product?.parent_name && (
+                <div className="p-3 bg-lilac-50 border border-lilac-200 rounded-xl text-xs text-lilac-800 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold">Producto Padre:</span>
+                    <span>{product.parent_name}</span>
+                    {product.attribute_name && (
+                      <span className="text-slate-600 font-medium">({product.attribute_name}: {product.attribute_value})</span>
+                    )}
+                  </div>
+                </div>
+              )}
               {/* Código */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">

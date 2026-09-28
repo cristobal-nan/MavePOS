@@ -289,20 +289,17 @@ export class ProductService {
     }
 
     // Product Type filter
-    if (productType) {
+    if (productType && productType !== 'all') {
       conditions.push('p.product_type = ?')
       params.push(productType)
+    } else if (onlySellable) {
+      conditions.push("p.product_type IN ('simple', 'variation')")
     }
 
     // Parent product filter (for getting variations of a specific product)
     if (parentId !== null && parentId !== undefined) {
       conditions.push('p.parent_id = ?')
       params.push(parentId)
-    }
-
-    // Only sellable products filter (simple + variations, excluding variable parents)
-    if (onlySellable) {
-      conditions.push("p.product_type IN ('simple', 'variation')")
     }
 
     // Algorithm from Specification Section 5
@@ -328,8 +325,8 @@ export class ProductService {
         const nameConditions: string[] = []
         fragments.forEach((f) => {
           const pattern = f.isInitial ? `${f.text}%` : `%${f.text}%`
-          nameConditions.push("p.search_name LIKE ? ESCAPE '\\'")
-          params.push(pattern)
+          nameConditions.push("(p.search_name LIKE ? ESCAPE '\\' OR (parent.search_name IS NOT NULL AND parent.search_name LIKE ? ESCAPE '\\'))")
+          params.push(pattern, pattern)
         })
 
         // Also check if raw query matches code literally (Section 5.3)
@@ -344,9 +341,16 @@ export class ProductService {
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
 
-    // Allowed sort columns
-    const safeOrderBy = ['name', 'stock', 'sale_price'].includes(orderBy) ? `p.${orderBy}` : 'p.name'
     const safeOrderDir = orderDir.toUpperCase() === 'DESC' ? 'DESC' : 'ASC'
+    let orderClause: string
+    if (orderBy === 'stock') {
+      orderClause = `ORDER BY p.stock ${safeOrderDir}, COALESCE(parent.search_name, p.search_name) ASC, p.search_name ASC`
+    } else if (orderBy === 'sale_price') {
+      orderClause = `ORDER BY p.sale_price ${safeOrderDir}, COALESCE(parent.search_name, p.search_name) ASC, p.search_name ASC`
+    } else {
+      // Orden alfabético según el producto padre (o simple), y luego por la variación
+      orderClause = `ORDER BY COALESCE(parent.search_name, p.search_name) ${safeOrderDir}, p.search_name ${safeOrderDir}`
+    }
 
     const sql = `
       SELECT
@@ -360,7 +364,7 @@ export class ProductService {
       LEFT JOIN categories pc ON c.parent_id = pc.id
       LEFT JOIN products parent ON p.parent_id = parent.id
       ${whereClause}
-      ORDER BY ${safeOrderBy} ${safeOrderDir}
+      ${orderClause}
       LIMIT ? OFFSET ?
     `
 
