@@ -10,22 +10,20 @@ export interface Category {
   parent_id: number | null
 }
 
-export interface Family {
-  id: number
-  name: string
-  category_id: number | null
-  created_at: string
-}
+export type ProductType = 'simple' | 'variable' | 'variation'
 
 export interface Product {
-  code: string
+  id?: number
+  code: string | null
   name: string
   search_name: string
+  product_type: ProductType
+  parent_id: number | null
+  attribute_name: string | null
+  attribute_value: string | null
   sale_price: number
   cost_price: number | null
   category_id: number | null
-  family_id: number | null
-  variant_label: string | null
   stock: number
   min_stock: number
   active: number // 1: active, 0: soft-deleted
@@ -34,13 +32,16 @@ export interface Product {
 }
 
 export interface ProductInput {
-  code: string
+  id?: number
+  code?: string | null
   name: string
-  sale_price: number
+  product_type?: ProductType
+  parent_id?: number | null
+  attribute_name?: string | null
+  attribute_value?: string | null
+  sale_price?: number
   cost_price?: number | null
   category_id?: number | null
-  family_id?: number | null
-  variant_label?: string | null
   stock?: number
   min_stock?: number
 }
@@ -48,13 +49,16 @@ export interface ProductInput {
 export interface ProductSearchResult extends Product {
   category_name?: string | null
   parent_category_name?: string | null
-  family_name?: string | null
+  parent_name?: string | null
+  variations_count?: number
 }
 
 export interface ProductSearchOptions {
   query?: string
   categoryId?: number | null
-  familyId?: number | null
+  productType?: ProductType
+  parentId?: number | null
+  onlySellable?: boolean
   limit?: number
   offset?: number
   orderBy?: 'name' | 'stock' | 'sale_price'
@@ -87,6 +91,46 @@ export interface SalePayment {
   sale_id: number
   method: PaymentMethod
   amount: number
+}
+
+export interface CartItem {
+  product_code: string
+  name: string
+  unit_price: number
+  quantity: number
+  stock: number
+  variant_label?: string | null
+}
+
+export interface PendingTicket {
+  id: number // database sale ID
+  folio: number
+  total: number
+  created_at: string
+  items: CartItem[]
+}
+
+export interface CompleteSaleInput {
+  saleId?: number
+  cashSessionId: number
+  items: {
+    product_code: string
+    name: string
+    unit_price: number
+    quantity: number
+  }[]
+  payments: {
+    method: PaymentMethod
+    amount: number
+  }[]
+  cashPaid?: number
+}
+
+export interface CompletedSaleResult {
+  sale: Sale
+  items: SaleItem[]
+  payments: SalePayment[]
+  change: number
 }
 
 export interface InventoryMovement {

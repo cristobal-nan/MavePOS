@@ -5,8 +5,9 @@ import {
   ArrowUp,
   ArrowDown,
   Layers,
-  Tag,
-  AlertTriangle
+  AlertTriangle,
+  GitBranch,
+  CheckCircle2
 } from 'lucide-react'
 import { ProductSearchResult } from '@shared/types'
 import { formatCLP } from '../utils/formatters'
@@ -151,6 +152,20 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                 />
               </th>
 
+              {/* Tipo de Producto */}
+              <th
+                style={{ width: `${columnWidths.type}px` }}
+                className="py-2.5 px-3 relative border-r border-slate-200/60"
+              >
+                <span>Tipo / Variación</span>
+                <div
+                  onMouseDown={(e) => handleMouseDownResize('type', e)}
+                  className={`absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-lilac-400 transition-colors ${
+                    resizingCol === 'type' ? 'bg-lilac-600' : ''
+                  }`}
+                />
+              </th>
+
               {/* Categoría */}
               <th
                 style={{ width: `${columnWidths.category}px` }}
@@ -161,20 +176,6 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                   onMouseDown={(e) => handleMouseDownResize('category', e)}
                   className={`absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-lilac-400 transition-colors ${
                     resizingCol === 'category' ? 'bg-lilac-600' : ''
-                  }`}
-                />
-              </th>
-
-              {/* Familia / Variante */}
-              <th
-                style={{ width: `${columnWidths.variant}px` }}
-                className="py-2.5 px-3 relative border-r border-slate-200/60"
-              >
-                <span>Familia / Variante</span>
-                <div
-                  onMouseDown={(e) => handleMouseDownResize('variant', e)}
-                  className={`absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-lilac-400 transition-colors ${
-                    resizingCol === 'variant' ? 'bg-lilac-600' : ''
                   }`}
                 />
               </th>
@@ -244,23 +245,54 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
               products.map((p) => {
                 const isSelected = selectedProductCode === p.code
                 const isLowStock = p.stock <= p.min_stock
+                const isVariable = p.product_type === 'variable'
+                const isVariation = p.product_type === 'variation'
 
                 return (
                   <tr
-                    key={p.code}
+                    key={p.id || p.code || Math.random()}
                     onClick={() => onSelectProduct?.(p)}
                     className={`hover:bg-lilac-50/70 transition-colors cursor-pointer ${
                       isSelected ? 'bg-lilac-100 font-semibold' : ''
-                    }`}
+                    } ${isVariable ? 'bg-slate-50/70' : ''}`}
                   >
                     {/* Código */}
                     <td className="py-2.5 px-3 font-mono text-slate-700 truncate">
-                      {p.code}
+                      {p.code ? (
+                        p.code
+                      ) : (
+                        <span className="text-slate-400 italic">Padre</span>
+                      )}
                     </td>
 
                     {/* Nombre */}
                     <td className="py-2.5 px-3 text-slate-900 font-medium truncate" title={p.name}>
-                      {p.name}
+                      <div className="flex items-center gap-1.5">
+                        {isVariation && <span className="text-slate-300">↳</span>}
+                        <span>{p.name}</span>
+                      </div>
+                    </td>
+
+                    {/* Tipo / Variación */}
+                    <td className="py-2.5 px-3 text-slate-600 truncate">
+                      {isVariable ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-lilac-700 bg-lilac-50 border border-lilac-200 px-2 py-0.5 rounded-md">
+                          <GitBranch className="w-3 h-3 text-lilac-500" />
+                          <span>Variable ({p.variations_count || 0})</span>
+                        </span>
+                      ) : isVariation ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md">
+                          <span>
+                            {p.attribute_name ? `${p.attribute_name}: ` : ''}
+                            {p.attribute_value || 'Variación'}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                          <span>Simple</span>
+                        </span>
+                      )}
                     </td>
 
                     {/* Categoría (Depto / Subcat) */}
@@ -278,40 +310,33 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                       )}
                     </td>
 
-                    {/* Familia / Variante */}
-                    <td className="py-2.5 px-3 text-slate-600 truncate">
-                      {p.family_name ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-lilac-700 bg-lilac-50 border border-lilac-200 px-2 py-0.5 rounded-md">
-                          <Tag className="w-3 h-3 text-lilac-500" />
-                          <span>
-                            {p.family_name}
-                            {p.variant_label ? ` / ${p.variant_label}` : ''}
-                          </span>
-                        </span>
-                      ) : (
-                        <span className="text-slate-300 italic">-</span>
-                      )}
-                    </td>
-
                     {/* Precio */}
                     <td className="py-2.5 px-3 text-right font-semibold text-slate-800">
-                      {formatCLP(p.sale_price)}
+                      {isVariable ? (
+                        <span className="text-slate-400 font-normal italic">—</span>
+                      ) : (
+                        formatCLP(p.sale_price)
+                      )}
                     </td>
 
                     {/* Existencia / Stock */}
                     <td className="py-2.5 px-3 text-right">
-                      <span
-                        className={`inline-flex items-center gap-1 font-bold ${
-                          p.stock <= 0
-                            ? 'text-rose-600'
-                            : isLowStock
-                            ? 'text-amber-600'
-                            : 'text-slate-800'
-                        }`}
-                      >
-                        {isLowStock && <AlertTriangle className="w-3 h-3 text-amber-500" />}
-                        <span>{p.stock}</span>
-                      </span>
+                      {isVariable ? (
+                        <span className="text-slate-400 italic">—</span>
+                      ) : (
+                        <span
+                          className={`inline-flex items-center gap-1 font-bold ${
+                            p.stock <= 0
+                              ? 'text-rose-600'
+                              : isLowStock
+                              ? 'text-amber-600'
+                              : 'text-slate-800'
+                          }`}
+                        >
+                          {isLowStock && <AlertTriangle className="w-3 h-3 text-amber-500" />}
+                          <span>{p.stock}</span>
+                        </span>
+                      )}
                     </td>
 
                     {/* Acciones */}

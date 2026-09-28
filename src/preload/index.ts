@@ -1,14 +1,17 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import {
   Category,
-  Family,
   Product,
   ProductInput,
   ProductSearchResult,
   ProductSearchOptions,
   CashSession,
   CashMovement,
-  BackupInfo
+  BackupInfo,
+  CartItem,
+  PendingTicket,
+  CompleteSaleInput,
+  CompletedSaleResult
 } from '../shared/types'
 
 export interface WindowAPI {
@@ -28,19 +31,19 @@ export interface WindowAPI {
 
   // Products
   saveProduct: (input: ProductInput) => Promise<Product>
+  saveVariableProduct: (parent: ProductInput, variations: ProductInput[]) => Promise<{ parent: Product; variations: Product[] }>
   getProductByCode: (code: string, includeInactive?: boolean) => Promise<Product | null>
-  deleteProduct: (code: string) => Promise<boolean>
+  getProductById: (id: number, includeInactive?: boolean) => Promise<Product | null>
+  getVariations: (parentId: number, includeInactive?: boolean) => Promise<Product[]>
+  deleteProduct: (codeOrId: string | number) => Promise<boolean>
   getActiveProducts: (limit?: number, offset?: number) => Promise<Product[]>
   searchProducts: (options?: ProductSearchOptions) => Promise<ProductSearchResult[]>
   seedSampleData: () => Promise<boolean>
 
-  // Categories & Families
+  // Categories
   getCategories: () => Promise<Category[]>
   saveCategory: (name: string, parentId?: number | null, id?: number) => Promise<Category>
   deleteCategory: (id: number) => Promise<void>
-  getFamilies: () => Promise<Family[]>
-  saveFamily: (name: string, categoryId?: number | null, id?: number) => Promise<Family>
-  deleteFamily: (id: number) => Promise<void>
 
   // Cash Session
   getCurrentCashSession: () => Promise<CashSession | null>
@@ -58,6 +61,13 @@ export interface WindowAPI {
   createBackup: () => Promise<string>
   listBackups: () => Promise<BackupInfo[]>
   getBackupDirectory: () => Promise<string>
+
+  // Sales & Tickets
+  getNextFolio: () => Promise<number>
+  getPendingSales: (cashSessionId?: number) => Promise<PendingTicket[]>
+  savePendingSale: (data: { id?: number; cashSessionId: number | null; items: CartItem[] }) => Promise<PendingTicket>
+  deletePendingSale: (saleId: number) => Promise<boolean>
+  completeSale: (input: CompleteSaleInput) => Promise<CompletedSaleResult>
 }
 
 const api: WindowAPI = {
@@ -85,8 +95,11 @@ const api: WindowAPI = {
   pingDb: () => ipcRenderer.invoke('db:ping'),
 
   saveProduct: (input) => ipcRenderer.invoke('products:save', input),
+  saveVariableProduct: (parent, variations) => ipcRenderer.invoke('products:saveVariable', parent, variations),
   getProductByCode: (code, includeInactive) => ipcRenderer.invoke('products:getByCode', code, includeInactive),
-  deleteProduct: (code) => ipcRenderer.invoke('products:delete', code),
+  getProductById: (id, includeInactive) => ipcRenderer.invoke('products:getById', id, includeInactive),
+  getVariations: (parentId, includeInactive) => ipcRenderer.invoke('products:getVariations', parentId, includeInactive),
+  deleteProduct: (codeOrId) => ipcRenderer.invoke('products:delete', codeOrId),
   getActiveProducts: (limit, offset) => ipcRenderer.invoke('products:getActive', limit, offset),
   searchProducts: (options) => ipcRenderer.invoke('products:search', options),
   seedSampleData: () => ipcRenderer.invoke('products:seed'),
@@ -94,9 +107,6 @@ const api: WindowAPI = {
   getCategories: () => ipcRenderer.invoke('categories:getAll'),
   saveCategory: (name, parentId, id) => ipcRenderer.invoke('categories:save', name, parentId, id),
   deleteCategory: (id) => ipcRenderer.invoke('categories:delete', id),
-  getFamilies: () => ipcRenderer.invoke('families:getAll'),
-  saveFamily: (name, categoryId, id) => ipcRenderer.invoke('families:save', name, categoryId, id),
-  deleteFamily: (id) => ipcRenderer.invoke('families:delete', id),
 
   getCurrentCashSession: () => ipcRenderer.invoke('cash:getCurrentSession'),
   openCashSession: (openingFund) => ipcRenderer.invoke('cash:openSession', openingFund),
@@ -110,7 +120,13 @@ const api: WindowAPI = {
 
   createBackup: () => ipcRenderer.invoke('backup:create'),
   listBackups: () => ipcRenderer.invoke('backup:list'),
-  getBackupDirectory: () => ipcRenderer.invoke('backup:getDirectory')
+  getBackupDirectory: () => ipcRenderer.invoke('backup:getDirectory'),
+
+  getNextFolio: () => ipcRenderer.invoke('sales:getNextFolio'),
+  getPendingSales: (cashSessionId) => ipcRenderer.invoke('sales:getPending', cashSessionId),
+  savePendingSale: (data) => ipcRenderer.invoke('sales:savePending', data),
+  deletePendingSale: (saleId) => ipcRenderer.invoke('sales:deletePending', saleId),
+  completeSale: (input) => ipcRenderer.invoke('sales:complete', input)
 }
 
 if (process.contextIsolated) {

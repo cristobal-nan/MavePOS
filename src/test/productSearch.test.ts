@@ -151,33 +151,41 @@ describe('Fase 4: Motor de Búsqueda de Productos (% wildcard, normalización y 
     expect(all3.length).toBe(10)
   })
 
-  it('CRUD completo de familias y asociación con productos', () => {
-    const family = productService.saveFamily('Algodón Rústico')
-    expect(family.id).toBeGreaterThan(0)
+  it('Gestión de Producto Variable con Variaciones e identificación por atributo', () => {
+    const { parent, variations } = productService.saveVariableProduct(
+      {
+        name: 'Algodón Rústico',
+        attribute_name: 'Color'
+      },
+      [
+        {
+          code: 'VAR1',
+          name: 'Algodón Rústico Azul',
+          attribute_value: 'Azul',
+          sale_price: 3200,
+          stock: 20
+        },
+        {
+          code: 'VAR2',
+          name: 'Algodón Rústico Rojo',
+          attribute_value: 'Rojo',
+          sale_price: 3200,
+          stock: 15
+        }
+      ]
+    )
 
-    // Crear variantes agrupadas bajo la misma familia
-    productService.upsertProduct({
-      code: 'VAR1',
-      name: 'Algodón Rústico Azul',
-      family_id: family.id,
-      variant_label: 'Azul',
-      sale_price: 3200,
-      stock: 20
-    })
+    expect(parent.id).toBeGreaterThan(0)
+    expect(variations.length).toBe(2)
 
-    productService.upsertProduct({
-      code: 'VAR2',
-      name: 'Algodón Rústico Rojo',
-      family_id: family.id,
-      variant_label: 'Rojo',
-      sale_price: 3200,
-      stock: 15
-    })
+    // Búsqueda filtrada por producto padre
+    const variationsFound = productService.searchProducts({ parentId: parent.id })
+    expect(variationsFound.length).toBe(2)
+    expect(variationsFound[0].parent_name).toBe('Algodón Rústico')
+    expect(variationsFound.map((p) => p.attribute_value)).toEqual(['Azul', 'Rojo'])
 
-    // Búsqueda filtrada por familia
-    const familyProducts = productService.searchProducts({ familyId: family.id })
-    expect(familyProducts.length).toBe(2)
-    expect(familyProducts[0].family_name).toBe('Algodón Rústico')
-    expect(familyProducts.map((p) => p.variant_label)).toEqual(['Azul', 'Rojo'])
+    // Búsqueda filtrada con onlySellable excluye el producto padre variable
+    const allSellable = productService.searchProducts({ query: 'Algodón Rústico', onlySellable: true })
+    expect(allSellable.every((p) => p.product_type !== 'variable')).toBe(true)
   })
 })

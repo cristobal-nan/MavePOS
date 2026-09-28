@@ -1,21 +1,19 @@
 import React, { useState, useEffect } from 'react'
-import { Plus, Layers, Tag, Filter, RefreshCw, Sparkles } from 'lucide-react'
-import { ProductSearchResult } from '@shared/types'
+import { Plus, Layers, Filter, RefreshCw, Sparkles, Box } from 'lucide-react'
+import { ProductSearchResult, ProductType } from '@shared/types'
 import { useCatalogStore } from '../store/catalogStore'
 import { ProductSearch } from '../components/ProductSearch'
 import { ProductFormModal } from '../components/ProductFormModal'
 import { CategoryModal } from '../components/CategoryModal'
-import { FamilyModal } from '../components/FamilyModal'
 
 export const CatalogView: React.FC = () => {
   const {
     products,
     categories,
-    families,
     selectedCategory,
     setSelectedCategory,
-    selectedFamily,
-    setSelectedFamily,
+    selectedProductType,
+    setSelectedProductType,
     loadMetadata,
     fetchProducts,
     deleteProduct,
@@ -25,7 +23,6 @@ export const CatalogView: React.FC = () => {
   const [selectedProductForEdit, setSelectedProductForEdit] = useState<ProductSearchResult | null>(null)
   const [isProductModalOpen, setIsProductModalOpen] = useState(false)
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
-  const [isFamilyModalOpen, setIsFamilyModalOpen] = useState(false)
 
   useEffect(() => {
     loadMetadata()
@@ -43,8 +40,13 @@ export const CatalogView: React.FC = () => {
   }
 
   const handleDeleteProduct = async (product: ProductSearchResult): Promise<void> => {
-    if (confirm(`¿Estás seguro de eliminar el producto "${product.name}" (${product.code})?\n\nSe realizará un soft delete (se mantendrá en el historial pero no estará disponible para nuevas ventas).`)) {
-      await deleteProduct(product.code)
+    const isVariable = product.product_type === 'variable'
+    const promptMsg = isVariable
+      ? `¿Estás seguro de eliminar el producto variable "${product.name}"?\n\nSe eliminarán lógicamente (soft delete) tanto el producto principal como todas sus variaciones asociadas.`
+      : `¿Estás seguro de eliminar el producto "${product.name}" (${product.code || 'sin código'})?\n\nSe realizará un soft delete (se mantendrá en el historial pero no estará disponible para nuevas ventas).`
+
+    if (confirm(promptMsg)) {
+      await deleteProduct(product.id || product.code!)
     }
   }
 
@@ -70,19 +72,11 @@ export const CatalogView: React.FC = () => {
             <span>Categorías</span>
           </button>
 
-          <button
-            onClick={() => setIsFamilyModalOpen(true)}
-            className="px-3 py-2 bg-slate-100 hover:bg-lilac-50 text-slate-700 hover:text-lilac-800 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-200/60"
-          >
-            <Tag className="w-3.5 h-3.5 text-lilac-600" />
-            <span>Familias &bull; Variantes</span>
-          </button>
-
           {products.length === 0 && (
             <button
               onClick={() => seedSampleData()}
               className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 animate-pulse"
-              title="Carga el catálogo de muestra con departamentos, subcategorías y variantes"
+              title="Carga el catálogo de muestra con departamentos, subcategorías, productos simples y variables con variaciones"
             >
               <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
               <span>Cargar datos de prueba</span>
@@ -109,20 +103,18 @@ export const CatalogView: React.FC = () => {
             </select>
           </div>
 
-          {/* Family Filter */}
+          {/* Product Type Filter */}
           <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 text-xs">
-            <Tag className="w-3 h-3 text-slate-400" />
+            <Box className="w-3 h-3 text-slate-400" />
             <select
-              value={selectedFamily || ''}
-              onChange={(e) => setSelectedFamily(e.target.value ? Number(e.target.value) : null)}
+              value={selectedProductType}
+              onChange={(e) => setSelectedProductType(e.target.value as ProductType | 'all')}
               className="bg-transparent text-slate-700 focus:outline-none cursor-pointer"
             >
-              <option value="">Todas las familias</option>
-              {families.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name}
-                </option>
-              ))}
+              <option value="all">Todos los tipos</option>
+              <option value="simple">Solo Simples</option>
+              <option value="variable">Solo Variables (Padres)</option>
+              <option value="variation">Solo Variaciones</option>
             </select>
           </div>
 
@@ -156,11 +148,6 @@ export const CatalogView: React.FC = () => {
       <CategoryModal
         isOpen={isCategoryModalOpen}
         onClose={() => setIsCategoryModalOpen(false)}
-      />
-
-      <FamilyModal
-        isOpen={isFamilyModalOpen}
-        onClose={() => setIsFamilyModalOpen(false)}
       />
     </div>
   )

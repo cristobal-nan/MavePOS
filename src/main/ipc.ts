@@ -4,7 +4,13 @@ import { ProductService } from './services/productService'
 import { CashService } from './services/cashService'
 import { SettingsService } from './services/settingsService'
 import { BackupService } from './services/backupService'
-import { ProductInput, ProductSearchOptions } from '../shared/types'
+import { SalesService } from './services/salesService'
+import {
+  ProductInput,
+  ProductSearchOptions,
+  CartItem,
+  CompleteSaleInput
+} from '../shared/types'
 
 let isQuittingFromRenderer = false
 
@@ -13,12 +19,14 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
   cashService: CashService
   settingsService: SettingsService
   backupService: BackupService
+  salesService: SalesService
 } {
   const db = getDatabase()
   const productService = new ProductService(db)
   const cashService = new CashService(db)
   const settingsService = new SettingsService(db)
   const backupService = new BackupService(db, settingsService)
+  const salesService = new SalesService(db)
 
   // ---------------- Ping & Health ----------------
   ipcMain.handle('db:ping', () => {
@@ -51,6 +59,18 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
     return true
   })
 
+  ipcMain.handle('products:getById', (_event, id: number, includeInactive = false) => {
+    return productService.getProductById(id, includeInactive)
+  })
+
+  ipcMain.handle('products:getVariations', (_event, parentId: number, includeInactive = false) => {
+    return productService.getVariations(parentId, includeInactive)
+  })
+
+  ipcMain.handle('products:saveVariable', (_event, parent: ProductInput, variations: ProductInput[]) => {
+    return productService.saveVariableProduct(parent, variations)
+  })
+
   ipcMain.handle('categories:getAll', () => {
     return productService.getAllCategories()
   })
@@ -61,18 +81,6 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
 
   ipcMain.handle('categories:delete', (_event, id: number) => {
     return productService.deleteCategory(id)
-  })
-
-  ipcMain.handle('families:getAll', () => {
-    return productService.getAllFamilies()
-  })
-
-  ipcMain.handle('families:save', (_event, name: string, categoryId: number | null = null, id?: number) => {
-    return productService.saveFamily(name, categoryId, id)
-  })
-
-  ipcMain.handle('families:delete', (_event, id: number) => {
-    return productService.deleteFamily(id)
   })
 
   // ---------------- Cash Sessions ----------------
@@ -144,5 +152,26 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
     }
   })
 
-  return { productService, cashService, settingsService, backupService }
+  // ---------------- Sales & Tickets ----------------
+  ipcMain.handle('sales:getNextFolio', () => {
+    return salesService.getNextFolio()
+  })
+
+  ipcMain.handle('sales:getPending', (_event, cashSessionId?: number) => {
+    return salesService.getPendingSales(cashSessionId)
+  })
+
+  ipcMain.handle('sales:savePending', (_event, data: { id?: number; cashSessionId: number | null; items: CartItem[] }) => {
+    return salesService.savePendingSale(data)
+  })
+
+  ipcMain.handle('sales:deletePending', (_event, saleId: number) => {
+    return salesService.deletePendingSale(saleId)
+  })
+
+  ipcMain.handle('sales:complete', (_event, input: CompleteSaleInput) => {
+    return salesService.completeSale(input)
+  })
+
+  return { productService, cashService, settingsService, backupService, salesService }
 }

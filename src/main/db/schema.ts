@@ -10,22 +10,18 @@ export const INITIAL_SCHEMA = `
     parent_id INTEGER NULL REFERENCES categories(id) ON DELETE SET NULL
   );
 
-  CREATE TABLE IF NOT EXISTS families (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    category_id INTEGER NULL REFERENCES categories(id) ON DELETE SET NULL,
-    created_at TEXT NOT NULL
-  );
-
   CREATE TABLE IF NOT EXISTS products (
-    code TEXT PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT NULL UNIQUE,
     name TEXT NOT NULL,
     search_name TEXT NOT NULL,
-    sale_price INTEGER NOT NULL,
+    product_type TEXT NOT NULL CHECK(product_type IN ('simple', 'variable', 'variation')),
+    parent_id INTEGER NULL REFERENCES products(id) ON DELETE CASCADE,
+    attribute_name TEXT NULL,
+    attribute_value TEXT NULL,
+    sale_price INTEGER NOT NULL DEFAULT 0,
     cost_price INTEGER NULL,
     category_id INTEGER NULL REFERENCES categories(id) ON DELETE SET NULL,
-    family_id INTEGER NULL REFERENCES families(id) ON DELETE SET NULL,
-    variant_label TEXT NULL,
     stock INTEGER NOT NULL DEFAULT 0,
     min_stock INTEGER NOT NULL DEFAULT 0,
     active INTEGER NOT NULL DEFAULT 1,
@@ -33,10 +29,12 @@ export const INITIAL_SCHEMA = `
     updated_at TEXT NOT NULL
   );
 
+  CREATE INDEX IF NOT EXISTS idx_products_code ON products(code);
   CREATE INDEX IF NOT EXISTS idx_products_search_name ON products(search_name);
   CREATE INDEX IF NOT EXISTS idx_products_active ON products(active);
   CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
-  CREATE INDEX IF NOT EXISTS idx_products_family ON products(family_id);
+  CREATE INDEX IF NOT EXISTS idx_products_parent ON products(parent_id);
+  CREATE INDEX IF NOT EXISTS idx_products_type ON products(product_type);
 
   CREATE TABLE IF NOT EXISTS cash_sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

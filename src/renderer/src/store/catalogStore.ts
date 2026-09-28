@@ -1,20 +1,19 @@
 import { create } from 'zustand'
-import { Category, Family, Product, ProductInput, ProductSearchResult } from '@shared/types'
+import { Category, Product, ProductInput, ProductSearchResult, ProductType } from '@shared/types'
 
 interface CatalogState {
   products: ProductSearchResult[]
   categories: Category[]
-  families: Family[]
   selectedCategory: number | null
-  selectedFamily: number | null
+  selectedProductType: ProductType | 'all'
   searchQuery: string
   orderBy: 'name' | 'stock' | 'sale_price'
   orderDir: 'ASC' | 'DESC'
   columnWidths: {
     code: number
     name: number
+    type: number
     category: number
-    variant: number
     price: number
     stock: number
     actions: number
@@ -27,34 +26,33 @@ interface CatalogState {
   fetchProducts: (customQuery?: string) => Promise<void>
   setSearchQuery: (query: string) => void
   setSelectedCategory: (catId: number | null) => void
-  setSelectedFamily: (famId: number | null) => void
+  setSelectedProductType: (type: ProductType | 'all') => void
   toggleSort: (column: 'name' | 'stock' | 'sale_price') => void
   setColumnWidth: (column: string, width: number) => void
   saveProduct: (input: ProductInput) => Promise<Product>
-  deleteProduct: (code: string) => Promise<boolean>
+  saveVariableProduct: (parent: ProductInput, variations: ProductInput[]) => Promise<{ parent: Product; variations: Product[] }>
+  getVariations: (parentId: number) => Promise<Product[]>
+  deleteProduct: (codeOrId: string | number) => Promise<boolean>
   saveCategory: (name: string, parentId?: number | null, id?: number) => Promise<Category>
   deleteCategory: (id: number) => Promise<void>
-  saveFamily: (name: string, categoryId?: number | null, id?: number) => Promise<Family>
-  deleteFamily: (id: number) => Promise<void>
   seedSampleData: () => Promise<void>
 }
 
 export const useCatalogStore = create<CatalogState>((set, get) => ({
   products: [],
   categories: [],
-  families: [],
   selectedCategory: null,
-  selectedFamily: null,
+  selectedProductType: 'all',
   searchQuery: '',
   orderBy: 'name',
   orderDir: 'ASC',
   columnWidths: {
-    code: 140,
-    name: 280,
+    code: 130,
+    name: 270,
+    type: 140,
     category: 160,
-    variant: 160,
-    price: 120,
-    stock: 100,
+    price: 110,
+    stock: 90,
     actions: 100
   },
   isLoading: false,
@@ -62,27 +60,24 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
 
   loadMetadata: async () => {
     try {
-      const [cats, fams] = await Promise.all([
-        window.api.getCategories(),
-        window.api.getFamilies()
-      ])
-      set({ categories: cats, families: fams })
+      const cats = await window.api.getCategories()
+      set({ categories: cats })
     } catch (err: any) {
-      console.error('Error cargando categorías y familias:', err)
+      console.error('Error cargando categorías:', err)
       set({ error: err.message })
     }
   },
 
   fetchProducts: async (customQuery?: string) => {
     set({ isLoading: true, error: null })
-    const { searchQuery, selectedCategory, selectedFamily, orderBy, orderDir } = get()
+    const { searchQuery, selectedCategory, selectedProductType, orderBy, orderDir } = get()
     const query = customQuery !== undefined ? customQuery : searchQuery
 
     try {
       const results = await window.api.searchProducts({
         query,
         categoryId: selectedCategory,
-        familyId: selectedFamily,
+        productType: selectedProductType === 'all' ? undefined : selectedProductType,
         orderBy,
         orderDir,
         limit: 300
@@ -104,8 +99,8 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     get().fetchProducts()
   },
 
-  setSelectedFamily: (famId: number | null) => {
-    set({ selectedFamily: famId })
+  setSelectedProductType: (type: ProductType | 'all') => {
+    set({ selectedProductType: type })
     get().fetchProducts()
   },
 
@@ -135,8 +130,18 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     return product
   },
 
-  deleteProduct: async (code: string) => {
-    const ok = await window.api.deleteProduct(code)
+  saveVariableProduct: async (parent: ProductInput, variations: ProductInput[]) => {
+    const result = await window.api.saveVariableProduct(parent, variations)
+    await get().fetchProducts()
+    return result
+  },
+
+  getVariations: async (parentId: number) => {
+    return await window.api.getVariations(parentId)
+  },
+
+  deleteProduct: async (codeOrId: string | number) => {
+    const ok = await window.api.deleteProduct(codeOrId)
     if (ok) {
       await get().fetchProducts()
     }
@@ -151,18 +156,6 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
 
   deleteCategory: async (id: number) => {
     await window.api.deleteCategory(id)
-    await get().loadMetadata()
-    await get().fetchProducts()
-  },
-
-  saveFamily: async (name: string, categoryId?: number | null, id?: number) => {
-    const fam = await window.api.saveFamily(name, categoryId, id)
-    await get().loadMetadata()
-    return fam
-  },
-
-  deleteFamily: async (id: number) => {
-    await window.api.deleteFamily(id)
     await get().loadMetadata()
     await get().fetchProducts()
   },

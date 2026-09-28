@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3'
-import { Category, Family, Product, ProductInput, ProductSearchResult, ProductSearchOptions } from '../../shared/types'
+import { Category, Product, ProductInput, ProductSearchResult, ProductSearchOptions } from '../../shared/types'
 import { normalizeSearchName } from '../db/utils'
 
 export class ProductService {
@@ -53,46 +53,11 @@ export class ProductService {
   }
 
   deleteCategory(id: number): void {
-    // If deleted, children will have parent_id set to null via foreign key ON DELETE SET NULL
     this.db.prepare('DELETE FROM categories WHERE id = ?').run(id)
   }
 
   // ----------------------------------------------------
-  // Families
-  // ----------------------------------------------------
-
-  getAllFamilies(): Family[] {
-    const stmt = this.db.prepare('SELECT * FROM families ORDER BY name ASC')
-    return stmt.all() as Family[]
-  }
-
-  saveFamily(name: string, categoryId: number | null = null, id?: number): Family {
-    const trimmedName = name.trim()
-    if (!trimmedName) {
-      throw new Error('El nombre de la familia no puede estar vacío')
-    }
-
-    const now = new Date().toISOString()
-    if (id) {
-      this.db
-        .prepare('UPDATE families SET name = ?, category_id = ? WHERE id = ?')
-        .run(trimmedName, categoryId, id)
-      const updated = this.db.prepare('SELECT * FROM families WHERE id = ?').get(id) as Family
-      return updated
-    } else {
-      const result = this.db
-        .prepare('INSERT INTO families (name, category_id, created_at) VALUES (?, ?, ?)')
-        .run(trimmedName, categoryId, now)
-      return { id: Number(result.lastInsertRowid), name: trimmedName, category_id: categoryId, created_at: now }
-    }
-  }
-
-  deleteFamily(id: number): void {
-    this.db.prepare('DELETE FROM families WHERE id = ?').run(id)
-  }
-
-  // ----------------------------------------------------
-  // Products (Upsert, Soft Delete, Retrieval)
+  // Products (Simple, Variable & Variations)
   // ----------------------------------------------------
 
   getProductByCode(code: string, includeInactive = false): Product | null {
@@ -103,91 +68,186 @@ export class ProductService {
     return row || null
   }
 
+  getProductById(id: number, includeInactive = false): Product | null {
+    const query = includeInactive
+      ? 'SELECT * FROM products WHERE id = ?'
+      : 'SELECT * FROM products WHERE id = ? AND active = 1'
+    const row = this.db.prepare(query).get(id) as Product | undefined
+    return row || null
+  }
+
+  getVariations(parentId: number, includeInactive = false): Product[] {
+    const query = includeInactive
+      ? 'SELECT * FROM products WHERE parent_id = ? ORDER BY id ASC'
+      : 'SELECT * FROM products WHERE parent_id = ? AND active = 1 ORDER BY id ASC'
+    return this.db.prepare(query).all(parentId) as Product[]
+  }
+
   upsertProduct(input: ProductInput): Product {
-    const trimmedCode = input.code.trim()
+    const productType = input.product_type || 'simple'
     const trimmedName = input.name.trim()
-
-    if (!trimmedCode) {
-      throw new Error('El código de producto no puede estar vacío')
-    }
-    if (!trimmedName) {
-      throw new Error('El nombre de producto no puede estar vacío')
-    }
-    if (input.sale_price < 0 || !Number.isInteger(input.sale_price)) {
-      throw new Error('El precio de venta debe ser un entero positivo en CLP')
-    }
-
-    const searchName = normalizeSearchName(trimmedName)
-    const now = new Date().toISOString()
+    const trimmedCode = input.code ? input.code.trim() : null
+    const parentId = input.parent_id !== undefined ? input.parent_id : null
+    const attributeName = input.attribute_name ? input.attribute_name.trim() : null
+    const attributeValue = input.attribute_value ? input.attribute_value.trim() : null
     const costPrice = input.cost_price !== undefined ? input.cost_price : null
     const stock = input.stock !== undefined ? input.stock : 0
     const minStock = input.min_stock !== undefined ? input.min_stock : 0
     const categoryId = input.category_id || null
-    const familyId = input.family_id || null
-    const variantLabel = input.variant_label ? input.variant_label.trim() : null
+    const salePrice = input.sale_price !== undefined ? input.sale_price : 0
 
-    const existing = this.db.prepare('SELECT * FROM products WHERE code = ?').get(trimmedCode) as Product | undefined
+    if (!trimmedName) {
+      throw new Error('El nombre de producto no puede estar vacío')
+    }
+
+    if (productType === 'simple' || productType === 'variation') {
+      if (!trimmedCode) {
+        throw new Error('El código de producto no puede estar vacío para productos simples o variaciones')
+      }
+      if (salePrice < 0 || !Number.isInteger(salePrice)) {
+        throw new Error('El precio de venta debe ser un entero positivo en CLP')
+      }
+    }
+
+    if (productType === 'variation' && !parentId) {
+      throw new Error('Una variación debe estar asociada a un producto padre')
+    }
+
+    const searchName = normalizeSearchName(trimmedName)
+    const now = new Date().toISOString()
+
+    let existing: Product | undefined
+    if (input.id) {
+      existing = this.db.prepare('SELECT * FROM products WHERE id = ?').get(input.id) as Product | undefined
+    } else if (trimmedCode) {
+      existing = this.db.prepare('SELECT * FROM products WHERE code = ?').get(trimmedCode) as Product | undefined
+    }
 
     if (existing) {
       this.db.prepare(`
         UPDATE products SET
+          code = ?,
           name = ?,
           search_name = ?,
+          product_type = ?,
+          parent_id = ?,
+          attribute_name = ?,
+          attribute_value = ?,
           sale_price = ?,
           cost_price = ?,
           category_id = ?,
-          family_id = ?,
-          variant_label = ?,
           stock = ?,
           min_stock = ?,
           active = 1,
           updated_at = ?
-        WHERE code = ?
-      `).run(
-        trimmedName,
-        searchName,
-        input.sale_price,
-        costPrice,
-        categoryId,
-        familyId,
-        variantLabel,
-        stock,
-        minStock,
-        now,
-        trimmedCode
-      )
-    } else {
-      this.db.prepare(`
-        INSERT INTO products (
-          code, name, search_name, sale_price, cost_price,
-          category_id, family_id, variant_label,
-          stock, min_stock, active, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+        WHERE id = ?
       `).run(
         trimmedCode,
         trimmedName,
         searchName,
-        input.sale_price,
+        productType,
+        parentId,
+        attributeName,
+        attributeValue,
+        salePrice,
         costPrice,
         categoryId,
-        familyId,
-        variantLabel,
+        stock,
+        minStock,
+        now,
+        existing.id
+      )
+      return this.getProductById(existing.id!, true)!
+    } else {
+      const result = this.db.prepare(`
+        INSERT INTO products (
+          code, name, search_name, product_type, parent_id,
+          attribute_name, attribute_value, sale_price, cost_price,
+          category_id, stock, min_stock, active, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+      `).run(
+        trimmedCode,
+        trimmedName,
+        searchName,
+        productType,
+        parentId,
+        attributeName,
+        attributeValue,
+        salePrice,
+        costPrice,
+        categoryId,
         stock,
         minStock,
         now,
         now
       )
+      return this.getProductById(Number(result.lastInsertRowid), true)!
     }
-
-    return this.getProductByCode(trimmedCode, true)!
   }
 
-  softDeleteProduct(code: string): boolean {
+  saveVariableProduct(
+    parentInput: ProductInput,
+    variationsInput: ProductInput[]
+  ): { parent: Product; variations: Product[] } {
+    const tx = this.db.transaction(() => {
+      const parent = this.upsertProduct({
+        ...parentInput,
+        product_type: 'variable',
+        parent_id: null,
+        sale_price: parentInput.sale_price || 0,
+        stock: parentInput.stock || 0
+      })
+
+      const savedVariations: Product[] = []
+      const savedVariationIds = new Set<number>()
+
+      for (const varInput of variationsInput) {
+        const saved = this.upsertProduct({
+          ...varInput,
+          product_type: 'variation',
+          parent_id: parent.id,
+          attribute_name: varInput.attribute_name || parentInput.attribute_name,
+          category_id: varInput.category_id || parentInput.category_id
+        })
+        savedVariations.push(saved)
+        if (saved.id) savedVariationIds.add(saved.id)
+      }
+
+      // Soft delete any removed variation
+      if (parent.id) {
+        const existingVariations = this.getVariations(parent.id)
+        for (const ev of existingVariations) {
+          if (ev.id && !savedVariationIds.has(ev.id)) {
+            this.softDeleteProduct(ev.id)
+          }
+        }
+      }
+
+      return { parent, variations: savedVariations }
+    })
+
+    return tx()
+  }
+
+  softDeleteProduct(codeOrId: string | number): boolean {
     const now = new Date().toISOString()
-    const result = this.db
-      .prepare('UPDATE products SET active = 0, updated_at = ? WHERE code = ?')
-      .run(now, code)
-    return result.changes > 0
+    const tx = this.db.transaction(() => {
+      let prod: Product | undefined
+      if (typeof codeOrId === 'number' || /^\d+$/.test(String(codeOrId))) {
+        prod = this.db.prepare('SELECT * FROM products WHERE id = ?').get(Number(codeOrId)) as Product | undefined
+      }
+      if (!prod) {
+        prod = this.db.prepare('SELECT * FROM products WHERE code = ?').get(String(codeOrId)) as Product | undefined
+      }
+      if (!prod) return false
+
+      this.db.prepare('UPDATE products SET active = 0, updated_at = ? WHERE id = ?').run(now, prod.id)
+      if (prod.product_type === 'variable') {
+        this.db.prepare('UPDATE products SET active = 0, updated_at = ? WHERE parent_id = ?').run(now, prod.id)
+      }
+      return true
+    })
+    return tx()
   }
 
   getActiveProducts(limit = 100, offset = 0): Product[] {
@@ -204,7 +264,9 @@ export class ProductService {
     const {
       query = '',
       categoryId = null,
-      familyId = null,
+      productType,
+      parentId = null,
+      onlySellable = false,
       limit = 200,
       offset = 0,
       orderBy = 'name',
@@ -220,16 +282,27 @@ export class ProductService {
       conditions.push('p.active = 1')
     }
 
-    // Category filter: match either direct category or subcategory of parent category
+    // Category filter: match either direct category, subcategory of parent, or parent's category
     if (categoryId !== null && categoryId !== undefined) {
-      conditions.push('(p.category_id = ? OR c.parent_id = ?)')
-      params.push(categoryId, categoryId)
+      conditions.push('(p.category_id = ? OR c.parent_id = ? OR parent.category_id = ?)')
+      params.push(categoryId, categoryId, categoryId)
     }
 
-    // Family filter
-    if (familyId !== null && familyId !== undefined) {
-      conditions.push('p.family_id = ?')
-      params.push(familyId)
+    // Product Type filter
+    if (productType) {
+      conditions.push('p.product_type = ?')
+      params.push(productType)
+    }
+
+    // Parent product filter (for getting variations of a specific product)
+    if (parentId !== null && parentId !== undefined) {
+      conditions.push('p.parent_id = ?')
+      params.push(parentId)
+    }
+
+    // Only sellable products filter (simple + variations, excluding variable parents)
+    if (onlySellable) {
+      conditions.push("p.product_type IN ('simple', 'variation')")
     }
 
     // Algorithm from Specification Section 5
@@ -280,11 +353,12 @@ export class ProductService {
         p.*,
         c.name AS category_name,
         pc.name AS parent_category_name,
-        f.name AS family_name
+        parent.name AS parent_name,
+        (SELECT COUNT(*) FROM products v WHERE v.parent_id = p.id AND v.active = 1) AS variations_count
       FROM products p
       LEFT JOIN categories c ON p.category_id = c.id
       LEFT JOIN categories pc ON c.parent_id = pc.id
-      LEFT JOIN families f ON p.family_id = f.id
+      LEFT JOIN products parent ON p.parent_id = parent.id
       ${whereClause}
       ORDER BY ${safeOrderBy} ${safeOrderDir}
       LIMIT ? OFFSET ?
@@ -310,59 +384,108 @@ export class ProductService {
     const subcatAgujas = this.saveCategory('Agujas y Crochet', deptoAccesorios.id)
     const subcatEstuches = this.saveCategory('Estuches', deptoAccesorios.id)
 
-    // Familias
-    const famAlgodon = this.saveFamily('Algodón Rústico', subcatHilos.id)
-    const famMerino = this.saveFamily('Lana Merino', subcatLanas.id)
+    // Producto Variable 1: Algodón Rústico con sus variaciones por Color
+    this.saveVariableProduct(
+      {
+        name: 'Algodón Rústico',
+        product_type: 'variable',
+        category_id: subcatHilos.id,
+        attribute_name: 'Color'
+      },
+      [
+        {
+          code: '7801001',
+          name: 'Algodón negro',
+          product_type: 'variation',
+          attribute_name: 'Color',
+          attribute_value: 'Negro',
+          sale_price: 3500,
+          cost_price: 2100,
+          category_id: subcatHilos.id,
+          stock: 45,
+          min_stock: 10
+        },
+        {
+          code: '7801002',
+          name: 'Algodón azul',
+          product_type: 'variation',
+          attribute_name: 'Color',
+          attribute_value: 'Azul',
+          sale_price: 3500,
+          cost_price: 2100,
+          category_id: subcatHilos.id,
+          stock: 30,
+          min_stock: 10
+        },
+        {
+          code: '7801003',
+          name: 'Algodón natural',
+          product_type: 'variation',
+          attribute_name: 'Color',
+          attribute_value: 'Natural',
+          sale_price: 3500,
+          cost_price: 2100,
+          category_id: subcatHilos.id,
+          stock: 55,
+          min_stock: 10
+        },
+        {
+          code: '7801004',
+          name: 'Algodón premium negro',
+          product_type: 'variation',
+          attribute_name: 'Color',
+          attribute_value: 'Premium Negro',
+          sale_price: 4990,
+          cost_price: 3000,
+          category_id: subcatHilos.id,
+          stock: 18,
+          min_stock: 5
+        }
+      ]
+    )
 
-    // Catálogo de muestra completo
-    const samples: ProductInput[] = [
+    // Producto Variable 2: Lana Merino con sus variaciones por Color
+    this.saveVariableProduct(
       {
-        code: '7801001',
-        name: 'Algodón negro',
-        sale_price: 3500,
-        cost_price: 2100,
-        category_id: subcatHilos.id,
-        family_id: famAlgodon.id,
-        variant_label: 'Negro',
-        stock: 45,
-        min_stock: 10
+        name: 'Lana Merino',
+        product_type: 'variable',
+        category_id: subcatLanas.id,
+        attribute_name: 'Color'
       },
-      {
-        code: '7801002',
-        name: 'Algodón azul',
-        sale_price: 3500,
-        cost_price: 2100,
-        category_id: subcatHilos.id,
-        family_id: famAlgodon.id,
-        variant_label: 'Azul',
-        stock: 30,
-        min_stock: 10
-      },
-      {
-        code: '7801003',
-        name: 'Algodón natural',
-        sale_price: 3500,
-        cost_price: 2100,
-        category_id: subcatHilos.id,
-        family_id: famAlgodon.id,
-        variant_label: 'Natural',
-        stock: 55,
-        min_stock: 10
-      },
-      {
-        code: '7801004',
-        name: 'Algodón premium negro',
-        sale_price: 4990,
-        cost_price: 3000,
-        category_id: subcatHilos.id,
-        family_id: famAlgodon.id,
-        variant_label: 'Premium Negro',
-        stock: 18,
-        min_stock: 5
-      },
+      [
+        {
+          code: '7801006',
+          name: 'Lana negro',
+          product_type: 'variation',
+          attribute_name: 'Color',
+          attribute_value: 'Negro',
+          sale_price: 5990,
+          cost_price: 3800,
+          category_id: subcatLanas.id,
+          stock: 25,
+          min_stock: 5
+        },
+        {
+          code: '7801010',
+          name: 'Lana Merino Blanco',
+          product_type: 'variation',
+          attribute_name: 'Color',
+          attribute_value: 'Blanco',
+          sale_price: 5990,
+          cost_price: 3800,
+          category_id: subcatLanas.id,
+          stock: 4,
+          min_stock: 10
+        }
+      ]
+    )
+
+    // Productos Simples
+    const simpleSamples: ProductInput[] = [
       {
         code: '7801005',
         name: 'Algodón económico negro barato',
+        product_type: 'simple',
         sale_price: 2500,
         cost_price: 1500,
         category_id: subcatHilos.id,
@@ -370,19 +493,9 @@ export class ProductService {
         min_stock: 15
       },
       {
-        code: '7801006',
-        name: 'Lana negro',
-        sale_price: 5990,
-        cost_price: 3800,
-        category_id: subcatLanas.id,
-        family_id: famMerino.id,
-        variant_label: 'Negro',
-        stock: 25,
-        min_stock: 5
-      },
-      {
         code: '7801007',
         name: 'Hilo negro',
+        product_type: 'simple',
         sale_price: 1990,
         cost_price: 1100,
         category_id: subcatHilos.id,
@@ -392,6 +505,7 @@ export class ProductService {
       {
         code: '7801008',
         name: 'Estuche de algodón',
+        product_type: 'simple',
         sale_price: 7990,
         cost_price: 4500,
         category_id: subcatEstuches.id,
@@ -401,6 +515,7 @@ export class ProductService {
       {
         code: '7801009',
         name: 'Crochet Aluminio 4.0mm',
+        product_type: 'simple',
         sale_price: 2200,
         cost_price: 1200,
         category_id: subcatAgujas.id,
@@ -408,19 +523,9 @@ export class ProductService {
         min_stock: 8
       },
       {
-        code: '7801010',
-        name: 'Lana Merino Blanco',
-        sale_price: 5990,
-        cost_price: 3800,
-        category_id: subcatLanas.id,
-        family_id: famMerino.id,
-        variant_label: 'Blanco',
-        stock: 4,
-        min_stock: 10
-      },
-      {
         code: '7801011',
         name: 'Aguja Circular 80cm 5.0mm',
+        product_type: 'simple',
         sale_price: 3490,
         cost_price: 1900,
         category_id: subcatAgujas.id,
@@ -429,7 +534,7 @@ export class ProductService {
       }
     ]
 
-    for (const s of samples) {
+    for (const s of simpleSamples) {
       this.upsertProduct(s)
     }
   }

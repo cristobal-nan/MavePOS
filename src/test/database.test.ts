@@ -39,7 +39,6 @@ describe('Fase 2: Datos, Esquema, Servicios y Backup', () => {
       const tableNames = tables.map((t) => t.name)
 
       expect(tableNames).toContain('categories')
-      expect(tableNames).toContain('families')
       expect(tableNames).toContain('products')
       expect(tableNames).toContain('sales')
       expect(tableNames).toContain('sale_items')
@@ -165,6 +164,53 @@ describe('Fase 2: Datos, Esquema, Servicios y Backup', () => {
       expect(reactivated).not.toBeNull()
       expect(reactivated?.active).toBe(1)
       expect(reactivated?.name).toBe('Producto Reactivado')
+    })
+
+    it('crea un Producto Variable con Variaciones y aplica soft delete en cascada a sus variaciones', () => {
+      const { parent, variations } = productService.saveVariableProduct(
+        {
+          name: 'Algodón Rústico',
+          attribute_name: 'Color'
+        },
+        [
+          {
+            code: 'VAR_ROJO',
+            name: 'Algodón Rústico Rojo',
+            attribute_value: 'Rojo',
+            sale_price: 3500,
+            stock: 20
+          },
+          {
+            code: 'VAR_AZUL',
+            name: 'Algodón Rústico Azul',
+            attribute_value: 'Azul',
+            sale_price: 3500,
+            stock: 15
+          }
+        ]
+      )
+
+      expect(parent.id).toBeDefined()
+      expect(parent.product_type).toBe('variable')
+      expect(variations).toHaveLength(2)
+      expect(variations[0].parent_id).toBe(parent.id)
+      expect(variations[0].product_type).toBe('variation')
+      expect(variations[0].attribute_name).toBe('Color')
+      expect(variations[0].attribute_value).toBe('Rojo')
+
+      // Soft delete del padre debe desactivar al padre y a sus variaciones
+      productService.softDeleteProduct(parent.id!)
+
+      const activeParent = productService.getProductById(parent.id!, false)
+      expect(activeParent).toBeNull()
+
+      const activeVariations = productService.getVariations(parent.id!, false)
+      expect(activeVariations).toHaveLength(0)
+
+      // Verificamos que las variaciones sigan existiendo en BD con active = 0
+      const storedVariations = productService.getVariations(parent.id!, true)
+      expect(storedVariations).toHaveLength(2)
+      expect(storedVariations.every((v) => v.active === 0)).toBe(true)
     })
   })
 
