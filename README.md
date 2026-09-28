@@ -9,14 +9,15 @@ Punto de venta de escritorio para Windows, 100% offline. Electron + React + Type
 
 ## Estado del Proyecto
 
-- **Fases 1 a 6 completadas y verificadas:**
+- **Fases 1 a 7 completadas y verificadas:**
   1. Base (scaffold electron-vite, ventana fullscreen sin bordes, titlebar propia lila/blanca).
   2. Datos (esquema SQLite en WAL, migraciones, IPC tipado, respaldos automáticos con retención de 7 archivos).
   3. Arranque de caja (pantalla única de apertura con fondo de caja, sesiones de caja).
   4. Catálogo y Productos (CRUD, productos simples y variables con variaciones, categorías de 2 niveles, ordenamiento alfabético por padre, buscador con `%`).
   5. Ventas (carrito, tickets en standby persistentes en BD, modal de cobro con efectivo, tarjeta, transferencia y pago mixto).
   6. Control de Inventario (ajustes relativos y por reemplazo con motivo obligatorio, alertas de stock bajo, movimientos del día y kardex cronológico).
-- **Próxima fase:** Fase 7 (Historial de ventas, cancelaciones completas, devoluciones parciales y salidas de dinero).
+  7. Historial y Dinero (historial de ventas con filtros de fecha y folio, anulación total de ventas con restitución de inventario, devoluciones parciales por producto y salidas de dinero de caja con motivos auditados).
+- **Próxima fase:** Fase 8 (Corte de caja / Arqueo y Cierre de Sesión).
 
 ## Comandos
 

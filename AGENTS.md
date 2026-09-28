@@ -13,7 +13,7 @@ Las decisiones de abajo fueron acordadas con el dueño del proyecto y son vincul
 - Ventana fullscreen sin bordes (`frame: false`) con titlebar propia (minimizar/cerrar).
 - Tema: blanco + lila (acentos `#8B5CF6`, superficies `#EDE9FE`).
 - Comandos: `npm run dev` (desarrollo), `npm run typecheck` (validación de tipos TS), `npm run build` (compilación producción), `npm run test` (pruebas unitarias con vitest).
-- **Progreso actual:** Fases 1 a 6 completadas y probadas (58 tests unitarios pasando). Fase 7 (Historial y Devoluciones) en curso.
+- **Progreso actual:** Fases 1 a 7 completadas y probadas (70 tests unitarios pasando). Fase 8 (Corte de Caja) siguiente.
 
 ## Reglas de dominio (no negociables)
 

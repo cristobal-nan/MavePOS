@@ -15,7 +15,11 @@ import {
   AdjustStockInput,
   InventoryMovement,
   InventoryMovementDetail,
-  MovementType
+  MovementType,
+  Sale,
+  SalePayment,
+  SaleDetail,
+  SalesHistoryFilter
 } from '../shared/types'
 
 export interface WindowAPI {
@@ -72,6 +76,10 @@ export interface WindowAPI {
   savePendingSale: (data: { id?: number; folio?: number; cashSessionId: number | null; items: CartItem[] }) => Promise<PendingTicket>
   deletePendingSale: (saleId: number) => Promise<boolean>
   completeSale: (input: CompleteSaleInput) => Promise<CompletedSaleResult>
+  getSalesHistory: (filter?: SalesHistoryFilter) => Promise<(Sale & { payments: SalePayment[]; total_items: number; returned_items_count: number })[]>
+  getSaleDetail: (saleId: number) => Promise<SaleDetail | null>
+  cancelSale: (saleId: number, reason?: string) => Promise<SaleDetail>
+  returnSaleItem: (saleId: number, productCode: string, quantity: number, reason?: string) => Promise<SaleDetail>
 
   // Inventory
   adjustStock: (input: AdjustStockInput) => Promise<{ product: Product; movement: InventoryMovement }>
@@ -137,6 +145,11 @@ const api: WindowAPI = {
   savePendingSale: (data) => ipcRenderer.invoke('sales:savePending', data),
   deletePendingSale: (saleId) => ipcRenderer.invoke('sales:deletePending', saleId),
   completeSale: (input) => ipcRenderer.invoke('sales:complete', input),
+  getSalesHistory: (filter) => ipcRenderer.invoke('sales:getHistory', filter),
+  getSaleDetail: (saleId) => ipcRenderer.invoke('sales:getDetail', saleId),
+  cancelSale: (saleId, reason) => ipcRenderer.invoke('sales:cancel', saleId, reason),
+  returnSaleItem: (saleId, productCode, quantity, reason) =>
+    ipcRenderer.invoke('sales:returnItem', saleId, productCode, quantity, reason),
 
   adjustStock: (input) => ipcRenderer.invoke('inventory:adjustStock', input),
   getLowStockProducts: (limit, offset) => ipcRenderer.invoke('inventory:getLowStock', limit, offset),

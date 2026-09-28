@@ -12,7 +12,8 @@ import {
   CartItem,
   CompleteSaleInput,
   AdjustStockInput,
-  MovementType
+  MovementType,
+  SalesHistoryFilter
 } from '../shared/types'
 
 let isQuittingFromRenderer = false
@@ -176,6 +177,22 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
 
   ipcMain.handle('sales:complete', (_event, input: CompleteSaleInput) => {
     return salesService.completeSale(input)
+  })
+
+  ipcMain.handle('sales:getHistory', (_event, filter?: SalesHistoryFilter) => {
+    return salesService.getSalesHistory(filter)
+  })
+
+  ipcMain.handle('sales:getDetail', (_event, saleId: number) => {
+    return salesService.getSaleDetail(saleId)
+  })
+
+  ipcMain.handle('sales:cancel', (_event, saleId: number, reason?: string) => {
+    return salesService.cancelSale(saleId, reason)
+  })
+
+  ipcMain.handle('sales:returnItem', (_event, saleId: number, productCode: string, quantity: number, reason?: string) => {
+    return salesService.returnSaleItem(saleId, productCode, quantity, reason)
   })
 
   // ---------------- Inventory ----------------

@@ -8,12 +8,16 @@ import {
   CheckCircle,
   AlertTriangle,
   ShoppingCart,
-  Minus
+  Minus,
+  History,
+  ArrowUpRight
 } from 'lucide-react'
 import { ProductSearchResult } from '@shared/types'
 import { formatCLP } from '../utils/formatters'
 import { useSalesStore } from '../store/salesStore'
 import { useCashStore } from '../store/cashStore'
+import { useUIStore } from '../store/uiStore'
+import { useHistoryStore } from '../store/historyStore'
 import { ProductSearchModal } from '../components/ProductSearchModal'
 import { CheckoutModal } from '../components/CheckoutModal'
 
@@ -30,6 +34,8 @@ export const SalesView: React.FC = () => {
     removeItem,
     deleteTicket
   } = useSalesStore()
+  const { setActiveTab } = useUIStore()
+  const { setActiveSubTab } = useHistoryStore()
 
   const [barcodeInput, setBarcodeInput] = useState('')
   const [barcodeError, setBarcodeError] = useState<string | null>(null)
@@ -372,9 +378,35 @@ export const SalesView: React.FC = () => {
 
       {/* Bottom Footer Bar: Totals & Action Buttons */}
       <div className="bg-white border-t border-lilac-200 px-6 py-3 flex items-center justify-between shadow-lg">
-        {/* Left Side Hint */}
-        <div className="flex items-center gap-2 text-xs text-slate-400 font-medium">
-          <span>Usa el botón <strong className="text-slate-600 font-bold">+</strong> superior para crear nuevos tickets</span>
+        {/* Left Side Buttons & Hint */}
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveSubTab('sales')
+              setActiveTab('historial')
+            }}
+            className="px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-lilac-50 hover:border-lilac-300 text-xs font-bold text-slate-700 hover:text-lilac-700 flex items-center gap-2 transition-all shadow-sm"
+          >
+            <History className="w-4 h-4 text-lilac-600" />
+            <span>Historial de Ventas (F4)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveSubTab('cash_movements')
+              setActiveTab('historial')
+            }}
+            className="px-3.5 py-2 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-xs font-bold text-amber-850 hover:text-amber-900 flex items-center gap-2 transition-all shadow-sm"
+          >
+            <ArrowUpRight className="w-4 h-4 text-amber-600" />
+            <span>Salida de Dinero</span>
+          </button>
+
+          <span className="hidden xl:inline text-xs text-slate-400 font-medium ml-2">
+            Ticket nuevo: <strong className="text-slate-600 font-bold">+</strong> superior
+          </span>
         </div>
 
         {/* Right Totals & Cobrar Button */}

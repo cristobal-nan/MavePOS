@@ -134,6 +134,34 @@ export interface CompletedSaleResult {
   change: number
 }
 
+export interface SaleDetail extends Sale {
+  items: (SaleItem & { current_stock?: number })[]
+  payments: SalePayment[]
+  total_items: number
+  returned_items_count: number
+}
+
+export interface SalesHistoryFilter {
+  date?: string
+  folio?: number
+  cashSessionId?: number
+  status?: SaleStatus | 'all'
+  limit?: number
+  offset?: number
+}
+
+export interface CancelSaleInput {
+  saleId: number
+  reason?: string
+}
+
+export interface ReturnSaleItemInput {
+  saleId: number
+  productCode: string
+  quantity: number
+  reason?: string
+}
+
 export interface InventoryMovement {
   id: number
   product_code: string
