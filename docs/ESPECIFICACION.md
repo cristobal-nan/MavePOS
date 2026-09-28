@@ -332,7 +332,7 @@ En **Catálogo**, con filtros y selección múltiple (incluye "seleccionar todo 
 
 - **Pausa en cada fase**: se implementa la fase, se compila, se hace typecheck, se corren los tests y se
   avisa; el dueño prueba la app y da el visto bueno para seguir.
-- **Tests automatizados** (vitest) de la lógica crítica (**70 pruebas automatizadas pasando al 100%**):
+- **Tests automatizados** (vitest) de la lógica crítica (**76 pruebas automatizadas pasando al 100%**):
 
   | Fase | Estado | Qué se testea |
   |---|---|---|
@@ -343,7 +343,7 @@ En **Catálogo**, con filtros y selección múltiple (incluye "seleccionar todo 
   | 5 | Completada | Carrito, tickets en standby en BD, suma de pagos mixtos, cálculo de vuelto |
   | 6 | Completada | Ajustes relativos y reemplazo, auditoría de movimientos, alertas stock bajo y kardex |
   | 7 | Completada | Cancelación total de ventas, devoluciones parciales y salidas de dinero |
-  | 8 | Pendiente | Cuadre exacto del corte de caja con ventas, devoluciones y salidas |
+  | 8 | Completada | Cuadre exacto del corte de caja con ventas, devoluciones y salidas |
   | 10 | Pendiente | Importador Excel, mapeo de columnas, reemplazo de stock, categorías |
 
 ## 13. Orden de implementación (12 fases)
@@ -355,7 +355,7 @@ En **Catálogo**, con filtros y selección múltiple (incluye "seleccionar todo 
 5. [x] **Ventas**: carrito reactivo, tickets simultáneos/pendientes en BD, modal de cobro (efectivo, tarjeta, transferencia, mixto).
 6. [x] **Inventario**: ajustes de existencia (relativo/reemplazo) con motivo obligatorio, alertas de stock bajo, movimientos por día y kardex de producto.
 7. [x] **Historial y dinero**: cancelaciones, devoluciones parciales con reposición de inventario, registro de salidas de dinero.
-8. [ ] **Corte**: resumen de caja por método de pago y cierre de sesión.
+8. [x] **Corte**: resumen de caja por método de pago y cierre de sesión.
 9. [ ] **Impresión**: ticket térmico ESC/POS, impresora normal, cajón, test de conexión.
 10. [ ] **Importación Excel** + herramientas de organización masiva en catálogo.
 11. [ ] **Reportes**: gráficos Recharts e intervalos temporales.

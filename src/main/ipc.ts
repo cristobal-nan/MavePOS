@@ -98,8 +98,16 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
     return cashService.openSession(openingFund)
   })
 
-  ipcMain.handle('cash:closeSession', (_event, sessionId: number) => {
-    return cashService.closeSession(sessionId)
+  ipcMain.handle('cash:closeSession', (_event, sessionId: number, closingData?: any) => {
+    return cashService.closeSession(sessionId, closingData)
+  })
+
+  ipcMain.handle('cash:getSessionSummary', (_event, sessionId: number) => {
+    return cashService.getSessionSummary(sessionId)
+  })
+
+  ipcMain.handle('cash:getPastSessions', (_event, limit?: number, offset?: number) => {
+    return cashService.getPastSessions(limit, offset)
   })
 
   ipcMain.handle('cash:addMovement', (_event, sessionId: number, amount: number, reason: string) => {

@@ -74,6 +74,21 @@ const MIGRATIONS: Migration[] = [
         db.exec('DROP TABLE IF EXISTS families;')
       }
     }
+  },
+  {
+    version: 3,
+    up: (db) => {
+      const cols = db.pragma('table_info(cash_sessions)') as { name: string }[]
+      const hasClosingCash = cols.some((c) => c.name === 'closing_cash')
+      if (!hasClosingCash) {
+        db.exec(`
+          ALTER TABLE cash_sessions ADD COLUMN closing_cash INTEGER NULL;
+          ALTER TABLE cash_sessions ADD COLUMN expected_cash INTEGER NULL;
+          ALTER TABLE cash_sessions ADD COLUMN difference INTEGER NULL;
+          ALTER TABLE cash_sessions ADD COLUMN notes TEXT NULL;
+        `)
+      }
+    }
   }
 ]
 

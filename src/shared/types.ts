@@ -191,6 +191,40 @@ export interface CashSession {
   opening_fund: number
   opened_at: string
   closed_at: string | null
+  closing_cash?: number | null
+  expected_cash?: number | null
+  difference?: number | null
+  notes?: string | null
+}
+
+export interface CashCutSummary {
+  sessionId: number
+  openedAt: string
+  closedAt: string | null
+  openingFund: number
+  salesCash: number
+  salesCard: number
+  salesTransfer: number
+  salesTotal: number
+  salesCount: number
+  returnsTotal: number
+  returnsCash: number
+  returnsCount: number
+  withdrawalsTotal: number
+  withdrawalsCount: number
+  netSales: number
+  expectedCash: number
+  closingCash: number | null
+  difference: number | null
+  notes: string | null
+}
+
+export interface CloseCashSessionInput {
+  sessionId: number
+  closingCash?: number
+  expectedCash?: number
+  difference?: number
+  notes?: string
 }
 
 export interface CashMovement {

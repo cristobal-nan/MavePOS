@@ -1,19 +1,32 @@
 import { create } from 'zustand'
-import { CashSession } from '@shared/types'
+import { CashSession, CashCutSummary, CloseCashSessionInput } from '@shared/types'
 
 interface CashState {
   currentSession: CashSession | null
+  currentSummary: CashCutSummary | null
+  pastSessions: CashSession[]
   isLoading: boolean
+  isSummaryLoading: boolean
   error: string | null
+
+  // Actions
   checkCurrentSession: () => Promise<void>
+  fetchSummary: (sessionId: number) => Promise<void>
+  fetchPastSessions: () => Promise<void>
   openSession: (openingFund: number) => Promise<boolean>
-  closeSession: (sessionId: number) => Promise<boolean>
+  closeSession: (
+    sessionId: number,
+    closingData?: Omit<CloseCashSessionInput, 'sessionId'>
+  ) => Promise<boolean>
   clearError: () => void
 }
 
-export const useCashStore = create<CashState>((set) => ({
+export const useCashStore = create<CashState>((set, get) => ({
   currentSession: null,
+  currentSummary: null,
+  pastSessions: [],
   isLoading: true,
+  isSummaryLoading: false,
   error: null,
 
   clearError: () => set({ error: null }),
@@ -24,12 +37,39 @@ export const useCashStore = create<CashState>((set) => ({
       if (window.api?.getCurrentCashSession) {
         const session = await window.api.getCurrentCashSession()
         set({ currentSession: session, isLoading: false })
+        if (session) {
+          await get().fetchSummary(session.id)
+        }
       } else {
         set({ currentSession: null, isLoading: false })
       }
     } catch (err: any) {
       console.error('Error verificando sesión de caja:', err)
       set({ error: err.message || 'Error al verificar sesión de caja', isLoading: false })
+    }
+  },
+
+  fetchSummary: async (sessionId: number) => {
+    set({ isSummaryLoading: true, error: null })
+    try {
+      if (!window.api?.getSessionSummary) {
+        throw new Error('API no disponible')
+      }
+      const summary = await window.api.getSessionSummary(sessionId)
+      set({ currentSummary: summary, isSummaryLoading: false })
+    } catch (err: any) {
+      console.error('Error al cargar resumen de corte de caja:', err)
+      set({ error: err.message || 'Error al obtener resumen de caja', isSummaryLoading: false })
+    }
+  },
+
+  fetchPastSessions: async () => {
+    try {
+      if (!window.api?.getPastSessions) return
+      const past = await window.api.getPastSessions(50, 0)
+      set({ pastSessions: past })
+    } catch (err: any) {
+      console.error('Error al cargar sesiones históricas:', err)
     }
   },
 
@@ -41,6 +81,7 @@ export const useCashStore = create<CashState>((set) => ({
       }
       const session = await window.api.openCashSession(openingFund)
       set({ currentSession: session })
+      await get().fetchSummary(session.id)
       return true
     } catch (err: any) {
       console.error('Error abriendo sesión de caja:', err)
@@ -49,14 +90,18 @@ export const useCashStore = create<CashState>((set) => ({
     }
   },
 
-  closeSession: async (sessionId: number) => {
+  closeSession: async (
+    sessionId: number,
+    closingData?: Omit<CloseCashSessionInput, 'sessionId'>
+  ) => {
     set({ error: null })
     try {
       if (!window.api?.closeCashSession) {
         throw new Error('API no disponible')
       }
-      await window.api.closeCashSession(sessionId)
-      set({ currentSession: null })
+      await window.api.closeCashSession(sessionId, closingData)
+      set({ currentSession: null, currentSummary: null })
+      await get().fetchPastSessions()
       return true
     } catch (err: any) {
       console.error('Error cerrando sesión de caja:', err)

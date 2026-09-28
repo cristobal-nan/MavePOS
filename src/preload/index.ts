@@ -7,6 +7,8 @@ import {
   ProductSearchOptions,
   CashSession,
   CashMovement,
+  CashCutSummary,
+  CloseCashSessionInput,
   BackupInfo,
   CartItem,
   PendingTicket,
@@ -56,7 +58,9 @@ export interface WindowAPI {
   // Cash Session
   getCurrentCashSession: () => Promise<CashSession | null>
   openCashSession: (openingFund: number) => Promise<CashSession>
-  closeCashSession: (sessionId: number) => Promise<CashSession>
+  closeCashSession: (sessionId: number, closingData?: Omit<CloseCashSessionInput, 'sessionId'>) => Promise<CashSession>
+  getSessionSummary: (sessionId: number) => Promise<CashCutSummary>
+  getPastSessions: (limit?: number, offset?: number) => Promise<CashSession[]>
   addCashMovement: (sessionId: number, amount: number, reason: string) => Promise<CashMovement>
   getSessionMovements: (sessionId: number) => Promise<CashMovement[]>
 
@@ -128,7 +132,9 @@ const api: WindowAPI = {
 
   getCurrentCashSession: () => ipcRenderer.invoke('cash:getCurrentSession'),
   openCashSession: (openingFund) => ipcRenderer.invoke('cash:openSession', openingFund),
-  closeCashSession: (sessionId) => ipcRenderer.invoke('cash:closeSession', sessionId),
+  closeCashSession: (sessionId, closingData) => ipcRenderer.invoke('cash:closeSession', sessionId, closingData),
+  getSessionSummary: (sessionId) => ipcRenderer.invoke('cash:getSessionSummary', sessionId),
+  getPastSessions: (limit, offset) => ipcRenderer.invoke('cash:getPastSessions', limit, offset),
   addCashMovement: (sessionId, amount, reason) => ipcRenderer.invoke('cash:addMovement', sessionId, amount, reason),
   getSessionMovements: (sessionId) => ipcRenderer.invoke('cash:getSessionMovements', sessionId),
 

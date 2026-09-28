@@ -40,7 +40,11 @@ export const INITIAL_SCHEMA = `
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     opening_fund INTEGER NOT NULL,
     opened_at TEXT NOT NULL,
-    closed_at TEXT NULL
+    closed_at TEXT NULL,
+    closing_cash INTEGER NULL,
+    expected_cash INTEGER NULL,
+    difference INTEGER NULL,
+    notes TEXT NULL
   );
 
   CREATE TABLE IF NOT EXISTS sales (
