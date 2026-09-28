@@ -211,5 +211,55 @@ describe('Fase 5: Módulo de Ventas (Importes, Totales, Pagos, Vuelto, Stock e I
       const remainingPending = salesService.getPendingSales(cashSessionId)
       expect(remainingPending).toHaveLength(0)
     })
+
+    it('asigna y respeta el folio indicado en la venta resolviendo conflictos si ya existiera', () => {
+      // Venta con folio explícito 3
+      const sale1 = salesService.completeSale({
+        folio: 3,
+        cashSessionId,
+        items: [{ product_code: '7801', name: 'Algodón Rústico Azul', unit_price: 3500, quantity: 1 }],
+        payments: [{ method: 'cash', amount: 3500 }]
+      })
+      expect(sale1.sale.folio).toBe(3)
+
+      // Venta posterior con intento de reusar folio 3: detecta conflicto y asigna el primer libre (folio 1)
+      const sale2 = salesService.completeSale({
+        folio: 3,
+        cashSessionId,
+        items: [{ product_code: '7801', name: 'Algodón Rústico Azul', unit_price: 3500, quantity: 1 }],
+        payments: [{ method: 'cash', amount: 3500 }]
+      })
+      expect(sale2.sale.folio).toBe(1)
+
+      // Venta pendiente con folio explícito 5
+      const pending = salesService.savePendingSale({
+        folio: 5,
+        cashSessionId,
+        items: [{ product_code: '7801', name: 'Algodón Rústico Azul', unit_price: 3500, quantity: 1 }]
+      })
+      expect(pending.folio).toBe(5)
+    })
+
+    it('calcula el primer folio disponible que no esté vendido ni abierto actualmente', () => {
+      // Caso del usuario:
+      // Se vende el ticket 1
+      salesService.completeSale({
+        folio: 1,
+        cashSessionId,
+        items: [{ product_code: '7801', name: 'Algodón Rústico Azul', unit_price: 3500, quantity: 1 }],
+        payments: [{ method: 'cash', amount: 3500 }]
+      })
+
+      // Quedan abiertos en pantalla el ticket 3 (el 2 fue cerrado)
+      const openFolios = [3]
+
+      // El siguiente folio debe ser el 2 (primer entero positivo no vendido ni abierto)
+      const nextAvailable = salesService.getNextFolio(openFolios)
+      expect(nextAvailable).toBe(2)
+
+      // Si además se abre el 2, ahora están abiertos [2, 3]
+      const nextAfter2 = salesService.getNextFolio([2, 3])
+      expect(nextAfter2).toBe(4)
+    })
   })
 })

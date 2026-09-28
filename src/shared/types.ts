@@ -112,6 +112,7 @@ export interface PendingTicket {
 
 export interface CompleteSaleInput {
   saleId?: number
+  folio?: number
   cashSessionId: number
   items: {
     product_code: string
@@ -141,6 +142,20 @@ export interface InventoryMovement {
   reason: string
   ref_sale_id: number | null
   created_at: string
+}
+
+export interface InventoryMovementDetail extends InventoryMovement {
+  product_name: string
+  sale_folio: number | null
+  parent_name?: string | null
+  attribute_value?: string | null
+}
+
+export interface AdjustStockInput {
+  product_code: string
+  new_stock?: number
+  delta?: number
+  reason: string
 }
 
 export interface CashSession {

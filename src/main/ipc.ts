@@ -5,11 +5,14 @@ import { CashService } from './services/cashService'
 import { SettingsService } from './services/settingsService'
 import { BackupService } from './services/backupService'
 import { SalesService } from './services/salesService'
+import { InventoryService } from './services/inventoryService'
 import {
   ProductInput,
   ProductSearchOptions,
   CartItem,
-  CompleteSaleInput
+  CompleteSaleInput,
+  AdjustStockInput,
+  MovementType
 } from '../shared/types'
 
 let isQuittingFromRenderer = false
@@ -20,6 +23,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
   settingsService: SettingsService
   backupService: BackupService
   salesService: SalesService
+  inventoryService: InventoryService
 } {
   const db = getDatabase()
   const productService = new ProductService(db)
@@ -27,6 +31,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
   const settingsService = new SettingsService(db)
   const backupService = new BackupService(db, settingsService)
   const salesService = new SalesService(db)
+  const inventoryService = new InventoryService(db)
 
   // ---------------- Ping & Health ----------------
   ipcMain.handle('db:ping', () => {
@@ -153,8 +158,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
   })
 
   // ---------------- Sales & Tickets ----------------
-  ipcMain.handle('sales:getNextFolio', () => {
-    return salesService.getNextFolio()
+  ipcMain.handle('sales:getNextFolio', (_event, openFolios?: number[]) => {
+    return salesService.getNextFolio(openFolios)
   })
 
   ipcMain.handle('sales:getPending', (_event, cashSessionId?: number) => {
@@ -173,5 +178,22 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
     return salesService.completeSale(input)
   })
 
-  return { productService, cashService, settingsService, backupService, salesService }
+  // ---------------- Inventory ----------------
+  ipcMain.handle('inventory:adjustStock', (_event, input: AdjustStockInput) => {
+    return inventoryService.adjustStock(input)
+  })
+
+  ipcMain.handle('inventory:getLowStock', (_event, limit = 100, offset = 0) => {
+    return inventoryService.getLowStockProducts(limit, offset)
+  })
+
+  ipcMain.handle('inventory:getMovements', (_event, dateStr?: string, type?: MovementType) => {
+    return inventoryService.getMovementsByDate(dateStr, type)
+  })
+
+  ipcMain.handle('inventory:getKardex', (_event, productCode: string, limit = 100) => {
+    return inventoryService.getProductKardex(productCode, limit)
+  })
+
+  return { productService, cashService, settingsService, backupService, salesService, inventoryService }
 }

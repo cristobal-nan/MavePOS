@@ -11,7 +11,11 @@ import {
   CartItem,
   PendingTicket,
   CompleteSaleInput,
-  CompletedSaleResult
+  CompletedSaleResult,
+  AdjustStockInput,
+  InventoryMovement,
+  InventoryMovementDetail,
+  MovementType
 } from '../shared/types'
 
 export interface WindowAPI {
@@ -63,11 +67,17 @@ export interface WindowAPI {
   getBackupDirectory: () => Promise<string>
 
   // Sales & Tickets
-  getNextFolio: () => Promise<number>
+  getNextFolio: (openFolios?: number[]) => Promise<number>
   getPendingSales: (cashSessionId?: number) => Promise<PendingTicket[]>
-  savePendingSale: (data: { id?: number; cashSessionId: number | null; items: CartItem[] }) => Promise<PendingTicket>
+  savePendingSale: (data: { id?: number; folio?: number; cashSessionId: number | null; items: CartItem[] }) => Promise<PendingTicket>
   deletePendingSale: (saleId: number) => Promise<boolean>
   completeSale: (input: CompleteSaleInput) => Promise<CompletedSaleResult>
+
+  // Inventory
+  adjustStock: (input: AdjustStockInput) => Promise<{ product: Product; movement: InventoryMovement }>
+  getLowStockProducts: (limit?: number, offset?: number) => Promise<(ProductSearchResult & { min_stock: number })[]>
+  getInventoryMovements: (dateStr?: string, type?: MovementType) => Promise<InventoryMovementDetail[]>
+  getProductKardex: (productCode: string, limit?: number) => Promise<InventoryMovementDetail[]>
 }
 
 const api: WindowAPI = {
@@ -122,11 +132,16 @@ const api: WindowAPI = {
   listBackups: () => ipcRenderer.invoke('backup:list'),
   getBackupDirectory: () => ipcRenderer.invoke('backup:getDirectory'),
 
-  getNextFolio: () => ipcRenderer.invoke('sales:getNextFolio'),
+  getNextFolio: (openFolios) => ipcRenderer.invoke('sales:getNextFolio', openFolios),
   getPendingSales: (cashSessionId) => ipcRenderer.invoke('sales:getPending', cashSessionId),
   savePendingSale: (data) => ipcRenderer.invoke('sales:savePending', data),
   deletePendingSale: (saleId) => ipcRenderer.invoke('sales:deletePending', saleId),
-  completeSale: (input) => ipcRenderer.invoke('sales:complete', input)
+  completeSale: (input) => ipcRenderer.invoke('sales:complete', input),
+
+  adjustStock: (input) => ipcRenderer.invoke('inventory:adjustStock', input),
+  getLowStockProducts: (limit, offset) => ipcRenderer.invoke('inventory:getLowStock', limit, offset),
+  getInventoryMovements: (dateStr, type) => ipcRenderer.invoke('inventory:getMovements', dateStr, type),
+  getProductKardex: (productCode, limit) => ipcRenderer.invoke('inventory:getKardex', productCode, limit)
 }
 
 if (process.contextIsolated) {

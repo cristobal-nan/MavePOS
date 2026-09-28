@@ -16,7 +16,7 @@ interface SalesState {
 
   // Actions
   loadPendingTickets: (cashSessionId?: number) => Promise<void>
-  createTicket: () => void
+  createTicket: () => Promise<void>
   selectTicket: (index: number) => void
   addItem: (product: { code: string; name: string; sale_price: number; stock: number; variant_label?: string | null }, qty?: number) => void
   updateQuantity: (productCode: string, qty: number) => void
@@ -29,7 +29,7 @@ interface SalesState {
 
 export const useSalesStore = create<SalesState>((set, get) => ({
   tickets: [
-    { ticketIndex: 1, label: 'Ticket 1', items: [] }
+    { ticketIndex: 1, label: 'Ticket #1', items: [] }
   ],
   activeTicketIndex: 0,
   isLoading: false,
@@ -41,17 +41,23 @@ export const useSalesStore = create<SalesState>((set, get) => ({
       const pending = await window.api.getPendingSales(cashSessionId)
 
       if (pending.length > 0) {
-        const loadedTickets: Ticket[] = pending.map((p, idx) => ({
+        const loadedTickets: Ticket[] = pending.map((p) => ({
           id: p.id,
-          ticketIndex: idx + 1,
+          ticketIndex: p.folio,
           label: `Ticket #${p.folio}`,
           items: p.items
         }))
-        set({ tickets: loadedTickets, activeTicketIndex: 0, isLoading: false })
-      } else {
-        // Start with one clean ticket if none pending
+        loadedTickets.sort((a, b) => a.ticketIndex - b.ticketIndex)
         set({
-          tickets: [{ ticketIndex: 1, label: 'Ticket 1', items: [] }],
+          tickets: loadedTickets,
+          activeTicketIndex: 0,
+          isLoading: false
+        })
+      } else {
+        // Start with a clean ticket matching the first available non-sold folio
+        const initialIndex = await window.api.getNextFolio([])
+        set({
+          tickets: [{ ticketIndex: initialIndex, label: `Ticket #${initialIndex}`, items: [] }],
           activeTicketIndex: 0,
           isLoading: false
         })
@@ -62,18 +68,26 @@ export const useSalesStore = create<SalesState>((set, get) => ({
     }
   },
 
-  createTicket: () => {
+  createTicket: async () => {
     const { tickets } = get()
-    const nextIdx = tickets.length + 1
-    const newTicket: Ticket = {
-      ticketIndex: nextIdx,
-      label: `Ticket ${nextIdx}`,
-      items: []
+    try {
+      // Find the first integer starting from 1 that is neither in sales (DB) nor open in memory
+      const openFolios = tickets.map((t) => t.ticketIndex)
+      const nextIdx = await window.api.getNextFolio(openFolios)
+      const newTicket: Ticket = {
+        ticketIndex: nextIdx,
+        label: `Ticket #${nextIdx}`,
+        items: []
+      }
+      const allTickets = [...tickets, newTicket].sort((a, b) => a.ticketIndex - b.ticketIndex)
+      const newActiveIdx = allTickets.findIndex((t) => t.ticketIndex === nextIdx)
+      set({
+        tickets: allTickets,
+        activeTicketIndex: newActiveIdx >= 0 ? newActiveIdx : allTickets.length - 1
+      })
+    } catch (err: any) {
+      console.error('Error creando nuevo ticket:', err)
     }
-    set({
-      tickets: [...tickets, newTicket],
-      activeTicketIndex: tickets.length
-    })
   },
 
   selectTicket: (index: number) => {
@@ -184,26 +198,19 @@ export const useSalesStore = create<SalesState>((set, get) => ({
 
     try {
       set({ isLoading: true })
-      // Persist in DB with status = pending
+      // Persist in DB with status = pending and requested folio
       const saved = await window.api.savePendingSale({
         id: currentTicket.id,
+        folio: currentTicket.ticketIndex,
         cashSessionId,
         items: currentTicket.items
       })
 
-      // Update current ticket with saved ID and folio label
       const updatedCurrentTicket: Ticket = {
         ...currentTicket,
         id: saved.id,
+        ticketIndex: saved.folio,
         label: `Ticket #${saved.folio}`
-      }
-
-      // Automatically create or switch to a new empty ticket
-      const newTicketNumber = tickets.length + 1
-      const newEmptyTicket: Ticket = {
-        ticketIndex: newTicketNumber,
-        label: `Ticket ${newTicketNumber}`,
-        items: []
       }
 
       const updatedTickets = tickets.map((t, idx) => {
@@ -211,9 +218,20 @@ export const useSalesStore = create<SalesState>((set, get) => ({
         return t
       })
 
+      const openFolios = updatedTickets.map((t) => t.ticketIndex)
+      const nextIdx = await window.api.getNextFolio(openFolios)
+      const newEmptyTicket: Ticket = {
+        ticketIndex: nextIdx,
+        label: `Ticket #${nextIdx}`,
+        items: []
+      }
+
+      const allTickets = [...updatedTickets, newEmptyTicket].sort((a, b) => a.ticketIndex - b.ticketIndex)
+      const newActiveIdx = allTickets.findIndex((t) => t.ticketIndex === nextIdx)
+
       set({
-        tickets: [...updatedTickets, newEmptyTicket],
-        activeTicketIndex: updatedTickets.length, // focus new ticket
+        tickets: allTickets,
+        activeTicketIndex: newActiveIdx >= 0 ? newActiveIdx : allTickets.length - 1,
         isLoading: false
       })
     } catch (err: any) {
@@ -237,9 +255,9 @@ export const useSalesStore = create<SalesState>((set, get) => ({
     }
 
     if (tickets.length <= 1) {
-      // Just clear items if it's the only ticket
+      // Just clear items if it's the only ticket, keep its assigned index
       set({
-        tickets: [{ ticketIndex: 1, label: 'Ticket 1', items: [] }],
+        tickets: [{ ticketIndex: ticketToDelete.ticketIndex, label: ticketToDelete.label, items: [] }],
         activeTicketIndex: 0
       })
       return
@@ -262,6 +280,7 @@ export const useSalesStore = create<SalesState>((set, get) => ({
       const result = await window.api.completeSale({
         ...input,
         saleId: currentTicket.id,
+        folio: currentTicket.ticketIndex,
         items: currentTicket.items.map((it) => ({
           product_code: it.product_code,
           name: it.name,
@@ -279,8 +298,10 @@ export const useSalesStore = create<SalesState>((set, get) => ({
           isLoading: false
         })
       } else {
+        // If it was the only ticket, generate the first available non-sold folio
+        const nextIdx = await window.api.getNextFolio([])
         set({
-          tickets: [{ ticketIndex: 1, label: 'Ticket 1', items: [] }],
+          tickets: [{ ticketIndex: nextIdx, label: `Ticket #${nextIdx}`, items: [] }],
           activeTicketIndex: 0,
           isLoading: false
         })

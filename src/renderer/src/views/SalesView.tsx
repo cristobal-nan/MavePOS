@@ -28,7 +28,6 @@ export const SalesView: React.FC = () => {
     addItem,
     updateQuantity,
     removeItem,
-    putTicketOnStandby,
     deleteTicket
   } = useSalesStore()
 
@@ -119,18 +118,17 @@ export const SalesView: React.FC = () => {
     barcodeInputRef.current?.focus()
   }
 
-  const handleStandby = async (): Promise<void> => {
-    if (!currentSession) return
-    if (activeTicket.items.length === 0) return
-    await putTicketOnStandby(currentSession.id)
-    barcodeInputRef.current?.focus()
-  }
-
-  const handleDeleteCurrentTicket = async (): Promise<void> => {
-    if (confirm('¿Deseas descartar los productos del ticket actual?')) {
-      await deleteTicket(activeTicketIndex)
-      barcodeInputRef.current?.focus()
+  const handleDeleteTicketByIndex = async (e: React.MouseEvent, index: number): Promise<void> => {
+    e.stopPropagation()
+    const ticket = tickets[index]
+    if (!ticket) return
+    if (ticket.items.length > 0) {
+      if (!confirm(`¿Deseas descartar el "${ticket.label}" y sus productos?`)) {
+        return
+      }
     }
+    await deleteTicket(index)
+    barcodeInputRef.current?.focus()
   }
 
   return (
@@ -146,10 +144,17 @@ export const SalesView: React.FC = () => {
               const isSavedPending = Boolean(t.id)
 
               return (
-                <button
+                <div
                   key={idx}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => selectTicket(idx)}
-                  className={`h-8 px-3 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      selectTicket(idx)
+                    }
+                  }}
+                  className={`h-8 pl-3 pr-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer select-none ${
                     isActive
                       ? 'bg-lilac-600 text-white shadow-xs'
                       : 'bg-slate-100 hover:bg-lilac-50 text-slate-600'
@@ -166,7 +171,19 @@ export const SalesView: React.FC = () => {
                       {t.items.reduce((s, it) => s + it.quantity, 0)}
                     </span>
                   )}
-                </button>
+                  <button
+                    type="button"
+                    onClick={(e) => handleDeleteTicketByIndex(e, idx)}
+                    className={`p-1 rounded-md transition-colors ml-0.5 cursor-pointer ${
+                      isActive
+                        ? 'text-lilac-200 hover:text-white hover:bg-lilac-700'
+                        : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
+                    }`}
+                    title={`Descartar / Cerrar ${t.label}`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               )
             })}
 
@@ -355,28 +372,9 @@ export const SalesView: React.FC = () => {
 
       {/* Bottom Footer Bar: Totals & Action Buttons */}
       <div className="bg-white border-t border-lilac-200 px-6 py-3 flex items-center justify-between shadow-lg">
-        {/* Left Actions */}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleStandby}
-            disabled={activeTicket.items.length === 0}
-            className="px-4 py-2.5 bg-slate-100 hover:bg-amber-50 text-slate-700 hover:text-amber-800 border border-slate-200 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 disabled:opacity-40"
-            title="Poner ticket en espera y continuar con otro cliente"
-          >
-            <Clock className="w-4 h-4 text-amber-600" />
-            <span>Venta Pendiente</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleDeleteCurrentTicket}
-            disabled={activeTicket.items.length === 0}
-            className="px-4 py-2.5 bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-700 border border-slate-200 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 disabled:opacity-40"
-          >
-            <Trash2 className="w-4 h-4 text-rose-500" />
-            <span>Descartar Ticket</span>
-          </button>
+        {/* Left Side Hint */}
+        <div className="flex items-center gap-2 text-xs text-slate-400 font-medium">
+          <span>Usa el botón <strong className="text-slate-600 font-bold">+</strong> superior para crear nuevos tickets</span>
         </div>
 
         {/* Right Totals & Cobrar Button */}
@@ -397,7 +395,7 @@ export const SalesView: React.FC = () => {
             type="button"
             onClick={() => setIsCheckoutModalOpen(true)}
             disabled={activeTicket.items.length === 0}
-            className="px-8 py-3.5 bg-lilac-600 hover:bg-lilac-700 text-white rounded-2xl font-black text-base transition-all shadow-lg shadow-lilac-500/30 flex items-center gap-2 active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none hover:shadow-lilac-500/40"
+            className="px-8 py-3.5 bg-lilac-600 hover:bg-lilac-700 text-white rounded-2xl font-black text-base transition-all shadow-lg shadow-lilac-500/30 flex items-center gap-2 active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none hover:shadow-lilac-500/40 cursor-pointer disabled:cursor-not-allowed"
           >
             <CheckCircle className="w-5 h-5" />
             <span>Cobrar (F12)</span>
