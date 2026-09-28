@@ -212,7 +212,7 @@ describe('Fase 5: Módulo de Ventas (Importes, Totales, Pagos, Vuelto, Stock e I
       expect(remainingPending).toHaveLength(0)
     })
 
-    it('asigna y respeta el folio indicado en la venta resolviendo conflictos si ya existiera', () => {
+    it('asigna un folio único global consecutivo a cada venta completada y maneja conflictos', () => {
       // Venta con folio explícito 3
       const sale1 = salesService.completeSale({
         folio: 3,
@@ -222,44 +222,85 @@ describe('Fase 5: Módulo de Ventas (Importes, Totales, Pagos, Vuelto, Stock e I
       })
       expect(sale1.sale.folio).toBe(3)
 
-      // Venta posterior con intento de reusar folio 3: detecta conflicto y asigna el primer libre (folio 1)
+      // Venta posterior con intento de reusar folio 3: detecta conflicto y asigna el siguiente folio único (folio 4)
       const sale2 = salesService.completeSale({
         folio: 3,
         cashSessionId,
         items: [{ product_code: '7801', name: 'Algodón Rústico Azul', unit_price: 3500, quantity: 1 }],
         payments: [{ method: 'cash', amount: 3500 }]
       })
-      expect(sale2.sale.folio).toBe(1)
+      expect(sale2.sale.folio).toBe(4)
 
-      // Venta pendiente con folio explícito 5
-      const pending = salesService.savePendingSale({
-        folio: 5,
-        cashSessionId,
-        items: [{ product_code: '7801', name: 'Algodón Rústico Azul', unit_price: 3500, quantity: 1 }]
-      })
-      expect(pending.folio).toBe(5)
-    })
-
-    it('calcula el primer folio disponible que no esté vendido ni abierto actualmente', () => {
-      // Caso del usuario:
-      // Se vende el ticket 1
-      salesService.completeSale({
-        folio: 1,
+      // Venta sin especificar folio: asigna el siguiente global (folio 5)
+      const sale3 = salesService.completeSale({
         cashSessionId,
         items: [{ product_code: '7801', name: 'Algodón Rústico Azul', unit_price: 3500, quantity: 1 }],
         payments: [{ method: 'cash', amount: 3500 }]
       })
+      expect(sale3.sale.folio).toBe(5)
+    })
 
-      // Quedan abiertos en pantalla el ticket 3 (el 2 fue cerrado)
-      const openFolios = [3]
+    it('calcula el número de ticket de turno iniciando en 1 sin huecos ni colisiones con tickets abiertos', () => {
+      // Al inicio de la sesión, sin ventas ni tickets abiertos, el primer ticket de turno es 1
+      expect(salesService.getNextTicketNumber([], cashSessionId)).toBe(1)
 
-      // El siguiente folio debe ser el 2 (primer entero positivo no vendido ni abierto)
-      const nextAvailable = salesService.getNextFolio(openFolios)
-      expect(nextAvailable).toBe(2)
+      // Se vende el ticket 1
+      const s1 = salesService.completeSale({
+        ticket_number: 1,
+        cashSessionId,
+        items: [{ product_code: '7801', name: 'Algodón Rústico Azul', unit_price: 3500, quantity: 1 }],
+        payments: [{ method: 'cash', amount: 3500 }]
+      })
+      expect(s1.sale.ticket_number).toBe(1)
+
+      // Queda abierto en pantalla el ticket 3 (el 2 fue cerrado)
+      const openTickets = [3]
+
+      // El siguiente ticket de turno debe ser el 2 (primer entero >= 1 no vendido ni abierto)
+      const nextTicket = salesService.getNextTicketNumber(openTickets, cashSessionId)
+      expect(nextTicket).toBe(2)
 
       // Si además se abre el 2, ahora están abiertos [2, 3]
-      const nextAfter2 = salesService.getNextFolio([2, 3])
+      const nextAfter2 = salesService.getNextTicketNumber([2, 3], cashSessionId)
       expect(nextAfter2).toBe(4)
+    })
+
+    it('el número de ticket se reinicia a 1 en un nuevo turno, pero el folio continúa siendo único global', () => {
+      // Venta en la primera sesión: Ticket #1, Folio #1
+      const s1 = salesService.completeSale({
+        ticket_number: 1,
+        cashSessionId,
+        items: [{ product_code: '7801', name: 'Algodón Rústico Azul', unit_price: 3500, quantity: 1 }],
+        payments: [{ method: 'cash', amount: 3500 }]
+      })
+      expect(s1.sale.ticket_number).toBe(1)
+      expect(s1.sale.folio).toBe(1)
+
+      // Cerramos la sesión 1
+      cashService.closeSession(cashSessionId, { closingCash: 53500 })
+
+      // Abrimos una segunda sesión de caja
+      const session2 = cashService.openSession(50000)
+      const cashSessionId2 = session2.id
+
+      // Para la nueva sesión, el número de ticket de turno vuelve a empezar en 1
+      const nextTicketSession2 = salesService.getNextTicketNumber([], cashSessionId2)
+      expect(nextTicketSession2).toBe(1)
+
+      // Pero el folio global debe ser 2 (único e incremental entre ventas)
+      const nextFolioSession2 = salesService.getNextFolio()
+      expect(nextFolioSession2).toBe(2)
+
+      // Realizamos venta en la segunda sesión: Ticket #1, Folio #2
+      const s2 = salesService.completeSale({
+        ticket_number: 1,
+        cashSessionId: cashSessionId2,
+        items: [{ product_code: '7801', name: 'Algodón Rústico Azul', unit_price: 3500, quantity: 1 }],
+        payments: [{ method: 'cash', amount: 3500 }]
+      })
+      expect(s2.sale.ticket_number).toBe(1) // Mismo ticket #1 que en turno anterior
+      expect(s2.sale.folio).toBe(2)          // Folio único global distinto
+      expect(s2.sale.cash_session_id).toBe(cashSessionId2)
     })
   })
 })

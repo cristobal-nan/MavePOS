@@ -167,8 +167,12 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
   })
 
   // ---------------- Sales & Tickets ----------------
-  ipcMain.handle('sales:getNextFolio', (_event, openFolios?: number[]) => {
-    return salesService.getNextFolio(openFolios)
+  ipcMain.handle('sales:getNextFolio', () => {
+    return salesService.getNextFolio()
+  })
+
+  ipcMain.handle('sales:getNextTicketNumber', (_event, openTickets?: number[], cashSessionId?: number) => {
+    return salesService.getNextTicketNumber(openTickets, cashSessionId)
   })
 
   ipcMain.handle('sales:getPending', (_event, cashSessionId?: number) => {

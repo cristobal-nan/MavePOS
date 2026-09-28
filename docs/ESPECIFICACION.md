@@ -197,12 +197,14 @@ search_name LIKE '%' || :frag || '%'
 - Arriba: **input de código** (autofocus permanente para escáner) + botones **Buscar**, **Agregar**,
   **Eliminar producto**.
 - Tickets simultáneos: mini-pestañas de ventas abiertas (activa + pendientes en standby).
+  - Cada pestaña incluye botón de cerrar/descartar con icono de basurero.
+  - **Diferenciación entre Ticket y Folio**:
+    - **Número de Ticket de Turno (`ticket_number`)**: Comienza en **Ticket #1** en cada nueva sesión de caja y se asigna sin huecos (menor número entero `>= 1` no vendido en el turno ni abierto en pestañas activas). Si se cierra o descarta un ticket, su número se reutiliza inmediatamente para el próximo ticket creado.
+    - **Folio Único Global (`folio`)**: Índice único, incremental e irrepetible entre todas las ventas de la historia del sistema (`UNIQUE`, Folio 1, Folio 2...). Se genera al completar la venta y garantiza la trazabilidad global.
 - Tabla de ítems: **precio, cantidad, importe (precio×cantidad), existencia (stock − cantidad en venta)**.
   Cantidad editable.
 - Pie: **cantidad total de productos** de la venta.
-- Botones: **Venta pendiente** (dejar en standby y seguir con otra) · **Eliminar ticket** (habilitado solo
-  si hay **más de dos ventas simultáneas**, según especificación original) · **Historial de ventas** ·
-  **Salida de dinero** · **Cobrar**.
+- Botones: **Historial de ventas** · **Salida de dinero** · **Cobrar (F12)**.
 - **Cobrar** → ventana **modal bloqueante** (no interactúa con lo de atrás):
   - Métodos: efectivo / tarjeta / transferencia / **mixto** (uno o varios con monto asignado cada uno;
     la suma debe cuadrar exactamente con el total).

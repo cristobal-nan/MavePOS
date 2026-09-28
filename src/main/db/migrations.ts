@@ -89,6 +89,58 @@ const MIGRATIONS: Migration[] = [
         `)
       }
     }
+  },
+  {
+    version: 4,
+    up: (db) => {
+      // Recreate sales table with ticket_number and unique folio
+      const cols = db.pragma('table_info(sales)') as { name: string }[]
+      const hasTicketNumber = cols.some((c) => c.name === 'ticket_number')
+      if (!hasTicketNumber) {
+        db.pragma('foreign_keys = OFF')
+
+        db.exec(`
+          CREATE TABLE sales_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            folio INTEGER NULL UNIQUE,
+            ticket_number INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL CHECK(status IN ('pending', 'completed', 'cancelled')),
+            total INTEGER NOT NULL DEFAULT 0,
+            cash_session_id INTEGER NULL REFERENCES cash_sessions(id) ON DELETE SET NULL,
+            created_at TEXT NOT NULL,
+            completed_at TEXT NULL
+          );
+
+          INSERT INTO sales_new (id, folio, ticket_number, status, total, cash_session_id, created_at, completed_at)
+          SELECT id, folio, COALESCE(folio, 0), status, total, cash_session_id, created_at, completed_at FROM sales;
+
+          DROP TABLE sales;
+          ALTER TABLE sales_new RENAME TO sales;
+
+          CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_folio ON sales(folio);
+          CREATE INDEX IF NOT EXISTS idx_sales_ticket_number ON sales(ticket_number);
+          CREATE INDEX IF NOT EXISTS idx_sales_session_ticket ON sales(cash_session_id, ticket_number);
+          CREATE INDEX IF NOT EXISTS idx_sales_status ON sales(status);
+          CREATE INDEX IF NOT EXISTS idx_sales_created ON sales(created_at);
+        `)
+
+        db.pragma('foreign_keys = ON')
+      }
+    }
+  },
+  {
+    version: 5,
+    up: (db) => {
+      // Ensure ticket_number column exists and folio is unique even if v4 already ran earlier
+      const cols = db.pragma('table_info(sales)') as { name: string }[]
+      const hasTicketNumber = cols.some((c) => c.name === 'ticket_number')
+      if (!hasTicketNumber) {
+        db.exec('ALTER TABLE sales ADD COLUMN ticket_number INTEGER NOT NULL DEFAULT 0;')
+        db.exec('CREATE INDEX IF NOT EXISTS idx_sales_ticket_number ON sales(ticket_number);')
+        db.exec('CREATE INDEX IF NOT EXISTS idx_sales_session_ticket ON sales(cash_session_id, ticket_number);')
+      }
+      db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_folio_unique ON sales(folio);')
+    }
   }
 ]
 

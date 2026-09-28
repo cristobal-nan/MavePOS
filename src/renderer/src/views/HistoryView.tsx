@@ -481,9 +481,14 @@ export const HistoryView: React.FC = () => {
                         >
                           {/* Folio */}
                           <td className="py-3 px-4">
-                            <span className="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                              #{s.folio}
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                                #{s.folio}
+                              </span>
+                              <span className="text-[11px] font-semibold text-lilac-700 bg-lilac-50 px-1.5 py-0.5 rounded">
+                                Ticket #{s.ticket_number ?? 0}
+                              </span>
+                            </div>
                           </td>
 
                           {/* Fecha / Hora */}
@@ -798,6 +803,9 @@ export const HistoryView: React.FC = () => {
                     <h3 className="text-base font-bold text-slate-900">
                       Venta Folio #{selectedSaleDetail.folio}
                     </h3>
+                    <span className="text-xs font-semibold text-lilac-700 bg-lilac-50 px-2.5 py-0.5 rounded-full border border-lilac-200">
+                      Ticket #{selectedSaleDetail.ticket_number ?? 0}
+                    </span>
                     {selectedSaleDetail.status === 'cancelled' ? (
                       <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-700 border border-rose-200">
                         Cancelada

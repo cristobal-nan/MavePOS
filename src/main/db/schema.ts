@@ -49,7 +49,8 @@ export const INITIAL_SCHEMA = `
 
   CREATE TABLE IF NOT EXISTS sales (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    folio INTEGER NOT NULL UNIQUE,
+    folio INTEGER NULL UNIQUE,
+    ticket_number INTEGER NOT NULL DEFAULT 0,
     status TEXT NOT NULL CHECK(status IN ('pending', 'completed', 'cancelled')),
     total INTEGER NOT NULL DEFAULT 0,
     cash_session_id INTEGER NULL REFERENCES cash_sessions(id) ON DELETE SET NULL,
@@ -57,7 +58,9 @@ export const INITIAL_SCHEMA = `
     completed_at TEXT NULL
   );
 
-  CREATE INDEX IF NOT EXISTS idx_sales_folio ON sales(folio);
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_folio ON sales(folio);
+  CREATE INDEX IF NOT EXISTS idx_sales_ticket_number ON sales(ticket_number);
+  CREATE INDEX IF NOT EXISTS idx_sales_session_ticket ON sales(cash_session_id, ticket_number);
   CREATE INDEX IF NOT EXISTS idx_sales_status ON sales(status);
   CREATE INDEX IF NOT EXISTS idx_sales_created ON sales(created_at);
 

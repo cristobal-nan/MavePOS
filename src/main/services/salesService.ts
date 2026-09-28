@@ -14,15 +14,36 @@ import {
 export class SalesService {
   constructor(private db: Database.Database) {}
 
-  getNextFolio(openFolios: number[] = []): number {
-    const rows = this.db.prepare('SELECT folio FROM sales').all() as { folio: number }[]
+  getNextFolio(): number {
+    const row = this.db
+      .prepare('SELECT MAX(folio) as maxFolio FROM sales WHERE folio IS NOT NULL')
+      .get() as { maxFolio: number | null } | undefined
+    return row && typeof row.maxFolio === 'number' ? row.maxFolio + 1 : 1
+  }
+
+  getNextTicketNumber(openTickets: number[] = [], cashSessionId?: number | null): number {
+    let sessionId = cashSessionId
+    if (sessionId === undefined || sessionId === null) {
+      const openSession = this.db
+        .prepare('SELECT id FROM cash_sessions WHERE closed_at IS NULL ORDER BY id DESC LIMIT 1')
+        .get() as { id: number } | undefined
+      sessionId = openSession ? openSession.id : null
+    }
+
+    const rows =
+      sessionId !== null
+        ? (this.db.prepare('SELECT ticket_number FROM sales WHERE cash_session_id = ?').all(sessionId) as { ticket_number: number }[])
+        : (this.db.prepare('SELECT ticket_number FROM sales WHERE cash_session_id IS NULL').all() as { ticket_number: number }[])
+
     const usedSet = new Set<number>()
     for (const r of rows) {
-      usedSet.add(r.folio)
+      if (typeof r.ticket_number === 'number') {
+        usedSet.add(r.ticket_number)
+      }
     }
-    for (const f of openFolios) {
-      if (typeof f === 'number') {
-        usedSet.add(f)
+    for (const t of openTickets) {
+      if (typeof t === 'number') {
+        usedSet.add(t)
       }
     }
 
@@ -39,7 +60,7 @@ export class SalesService {
 
     const sales = this.db
       .prepare(`SELECT * FROM sales ${where} ORDER BY id ASC`)
-      .all(...params) as Sale[]
+      .all(...params) as (Sale & { ticket_number: number })[]
 
     const getItems = this.db.prepare(`
       SELECT
@@ -60,6 +81,7 @@ export class SalesService {
       return {
         id: sale.id,
         folio: sale.folio,
+        ticket_number: typeof sale.ticket_number === 'number' ? sale.ticket_number : 0,
         total: sale.total,
         created_at: sale.created_at,
         items
@@ -67,35 +89,37 @@ export class SalesService {
     })
   }
 
-  savePendingSale(data: { id?: number; folio?: number; cashSessionId: number | null; items: CartItem[] }): PendingTicket {
+  savePendingSale(data: { id?: number; ticket_number?: number; cashSessionId: number | null; items: CartItem[] }): PendingTicket {
     const total = data.items.reduce((acc, it) => acc + it.unit_price * it.quantity, 0)
     const now = new Date().toISOString()
 
     const tx = this.db.transaction(() => {
       let saleId: number
-      let folio: number
+      let ticketNumber: number
 
       if (data.id) {
         saleId = data.id
-        const existing = this.db.prepare('SELECT folio FROM sales WHERE id = ?').get(saleId) as { folio: number } | undefined
-        folio = existing ? existing.folio : (data.folio || this.getNextFolio())
+        const existing = this.db.prepare('SELECT ticket_number FROM sales WHERE id = ?').get(saleId) as { ticket_number: number } | undefined
+        ticketNumber =
+          existing && typeof existing.ticket_number === 'number'
+            ? existing.ticket_number
+            : (typeof data.ticket_number === 'number' ? data.ticket_number : this.getNextTicketNumber([], data.cashSessionId))
 
         this.db
-          .prepare('UPDATE sales SET total = ?, cash_session_id = ? WHERE id = ?')
-          .run(total, data.cashSessionId, saleId)
+          .prepare('UPDATE sales SET total = ?, ticket_number = ?, cash_session_id = ? WHERE id = ?')
+          .run(total, ticketNumber, data.cashSessionId, saleId)
 
         // Delete old items
         this.db.prepare('DELETE FROM sale_items WHERE sale_id = ?').run(saleId)
       } else {
-        folio = data.folio || this.getNextFolio()
-        const conflict = this.db.prepare('SELECT 1 FROM sales WHERE folio = ?').get(folio)
-        if (conflict) {
-          folio = this.getNextFolio()
-        }
+        ticketNumber =
+          typeof data.ticket_number === 'number'
+            ? data.ticket_number
+            : this.getNextTicketNumber([], data.cashSessionId)
 
         const res = this.db
-          .prepare('INSERT INTO sales (folio, status, total, cash_session_id, created_at, completed_at) VALUES (?, ?, ?, ?, ?, NULL)')
-          .run(folio, 'pending', total, data.cashSessionId, now)
+          .prepare('INSERT INTO sales (folio, ticket_number, status, total, cash_session_id, created_at, completed_at) VALUES (NULL, ?, ?, ?, ?, ?, NULL)')
+          .run(ticketNumber, 'pending', total, data.cashSessionId, now)
         saleId = Number(res.lastInsertRowid)
       }
 
@@ -111,7 +135,7 @@ export class SalesService {
 
       return {
         id: saleId,
-        folio,
+        ticket_number: ticketNumber,
         total,
         created_at: now,
         items: data.items
@@ -154,34 +178,51 @@ export class SalesService {
     const tx = this.db.transaction(() => {
       let saleId: number
       let folio: number
+      let ticketNumber: number
+
+      // 1. Resolve Folio (Global, Unique)
+      if (typeof input.folio === 'number') {
+        const conflict = this.db
+          .prepare('SELECT 1 FROM sales WHERE folio = ? AND id != ?')
+          .get(input.folio, input.saleId || 0)
+        folio = conflict ? this.getNextFolio() : input.folio
+      } else {
+        folio = this.getNextFolio()
+      }
+
+      // 2. Resolve Ticket Number (Shift-based, 0-indexed)
+      if (typeof input.ticket_number === 'number') {
+        ticketNumber = input.ticket_number
+      } else if (input.saleId) {
+        const existing = this.db.prepare('SELECT ticket_number FROM sales WHERE id = ?').get(input.saleId) as { ticket_number: number } | undefined
+        ticketNumber =
+          existing && typeof existing.ticket_number === 'number'
+            ? existing.ticket_number
+            : this.getNextTicketNumber([], input.cashSessionId)
+      } else {
+        ticketNumber = this.getNextTicketNumber([], input.cashSessionId)
+      }
 
       if (input.saleId) {
         saleId = input.saleId
-        const existing = this.db.prepare('SELECT folio FROM sales WHERE id = ?').get(saleId) as { folio: number } | undefined
-        folio = existing ? existing.folio : (input.folio || this.getNextFolio())
-
         this.db.prepare(`
           UPDATE sales SET
+            folio = ?,
+            ticket_number = ?,
             status = 'completed',
             total = ?,
             cash_session_id = ?,
             completed_at = ?
           WHERE id = ?
-        `).run(total, input.cashSessionId, now, saleId)
+        `).run(folio, ticketNumber, total, input.cashSessionId, now, saleId)
 
         // Clear any temporary pending items
         this.db.prepare('DELETE FROM sale_items WHERE sale_id = ?').run(saleId)
       } else {
-        folio = input.folio || this.getNextFolio()
-        const conflict = this.db.prepare('SELECT 1 FROM sales WHERE folio = ?').get(folio)
-        if (conflict) {
-          folio = this.getNextFolio()
-        }
-
         const res = this.db.prepare(`
-          INSERT INTO sales (folio, status, total, cash_session_id, created_at, completed_at)
-          VALUES (?, 'completed', ?, ?, ?, ?)
-        `).run(folio, total, input.cashSessionId, now, now)
+          INSERT INTO sales (folio, ticket_number, status, total, cash_session_id, created_at, completed_at)
+          VALUES (?, ?, 'completed', ?, ?, ?, ?)
+        `).run(folio, ticketNumber, total, input.cashSessionId, now, now)
         saleId = Number(res.lastInsertRowid)
       }
 
@@ -252,6 +293,7 @@ export class SalesService {
       const completedSale: Sale = {
         id: saleId,
         folio,
+        ticket_number: ticketNumber,
         status: 'completed',
         total,
         cash_session_id: input.cashSessionId,

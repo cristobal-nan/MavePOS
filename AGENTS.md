@@ -31,6 +31,11 @@ Las decisiones de abajo fueron acordadas con el dueño del proyecto y son vincul
 - Unidad vendible: Cada fila vendible (`simple` o `variation`) es la unidad referenciada en ventas, inventario y kardex (`products.code`).
 - Eliminar producto = **soft delete** (`active=0`) para preservar historial/kardex. Si se elimina un padre variable, se desactivan en cascada sus variaciones.
 - Ventas pendientes (tickets en standby) se **persisten en BD** (status `pending`), sobreviven reinicios.
+- **Diferenciación entre Folio único y Número de Ticket de turno**:
+  - **Folio (`sales.folio`)**: Es el identificador **único, irrepetible y estrictamente global** entre todas las ventas de la historia del sistema (`UNIQUE`, incremental: 1, 2, 3...). Nunca se reinicia entre turnos ni se repite entre ventas. Identifica unívocamente la transacción en el historial, auditoría y recibos.
+  - **Número de Ticket (`sales.ticket_number` / pestañas de venta)**: Sirve exclusivamente para mostrar el orden visual de atención del turno/día y diferenciar pestañas simultáneas abiertas en la pantalla de ventas (Ticket #1, Ticket #2...).
+    - Se reinicia en **1** al abrir una nueva sesión de caja (`cash_session_id`).
+    - Algoritmo sin huecos: asigna el menor entero `>= 1` que no esté vendido en el turno actual ni abierto en pestañas activas. Si un ticket se descarta/cierra, su número se reutiliza de inmediato para el siguiente ticket que se abra.
 - Todo movimiento de inventario se registra en `inventory_movements` (delta±, tipo, motivo, ref venta).
 
 ## Búsqueda de productos (componente reutilizable `ProductSearch`)

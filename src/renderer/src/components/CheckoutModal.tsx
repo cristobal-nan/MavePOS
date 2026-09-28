@@ -147,9 +147,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               Venta Completada con Éxito
             </span>
 
-            <h3 className="text-2xl font-black text-slate-800 mb-1">
+            <h3 className="text-2xl font-black text-slate-800 mb-0.5">
               Folio #{completedResult.sale.folio}
             </h3>
+            <span className="text-xs font-semibold text-lilac-600 bg-lilac-50 px-2.5 py-0.5 rounded-full mb-2">
+              Ticket de Turno #{completedResult.sale.ticket_number ?? 0}
+            </span>
             <p className="text-sm text-slate-500 mb-6">
               Total pagado: <span className="font-bold text-slate-700">{formatCLP(completedResult.sale.total)}</span>
             </p>

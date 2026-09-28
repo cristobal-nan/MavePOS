@@ -108,7 +108,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
       }
 
       const folioNum = parseInt(filter.folioStr.trim(), 10)
-      if (!isNaN(folioNum) && folioNum > 0) {
+      if (!isNaN(folioNum) && folioNum >= 0) {
         apiFilter.folio = folioNum
       }
 

@@ -75,9 +75,10 @@ export interface WindowAPI {
   getBackupDirectory: () => Promise<string>
 
   // Sales & Tickets
-  getNextFolio: (openFolios?: number[]) => Promise<number>
+  getNextFolio: () => Promise<number>
+  getNextTicketNumber: (openTickets?: number[], cashSessionId?: number | null) => Promise<number>
   getPendingSales: (cashSessionId?: number) => Promise<PendingTicket[]>
-  savePendingSale: (data: { id?: number; folio?: number; cashSessionId: number | null; items: CartItem[] }) => Promise<PendingTicket>
+  savePendingSale: (data: { id?: number; ticket_number?: number; cashSessionId: number | null; items: CartItem[] }) => Promise<PendingTicket>
   deletePendingSale: (saleId: number) => Promise<boolean>
   completeSale: (input: CompleteSaleInput) => Promise<CompletedSaleResult>
   getSalesHistory: (filter?: SalesHistoryFilter) => Promise<(Sale & { payments: SalePayment[]; total_items: number; returned_items_count: number })[]>
@@ -146,7 +147,8 @@ const api: WindowAPI = {
   listBackups: () => ipcRenderer.invoke('backup:list'),
   getBackupDirectory: () => ipcRenderer.invoke('backup:getDirectory'),
 
-  getNextFolio: (openFolios) => ipcRenderer.invoke('sales:getNextFolio', openFolios),
+  getNextFolio: () => ipcRenderer.invoke('sales:getNextFolio'),
+  getNextTicketNumber: (openTickets, cashSessionId) => ipcRenderer.invoke('sales:getNextTicketNumber', openTickets, cashSessionId),
   getPendingSales: (cashSessionId) => ipcRenderer.invoke('sales:getPending', cashSessionId),
   savePendingSale: (data) => ipcRenderer.invoke('sales:savePending', data),
   deletePendingSale: (saleId) => ipcRenderer.invoke('sales:deletePending', saleId),

@@ -194,7 +194,7 @@ export const SalesView: React.FC = () => {
             })}
 
             <button
-              onClick={createTicket}
+              onClick={() => createTicket(currentSession?.id)}
               className="h-8 w-8 rounded-lg bg-slate-100 hover:bg-lilac-100 text-slate-600 hover:text-lilac-800 flex items-center justify-center transition-colors"
               title="Nuevo ticket en blanco"
             >

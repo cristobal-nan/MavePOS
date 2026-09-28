@@ -69,6 +69,7 @@ export interface ProductSearchOptions {
 export interface Sale {
   id: number
   folio: number
+  ticket_number?: number
   status: SaleStatus
   total: number
   cash_session_id: number | null
@@ -104,7 +105,8 @@ export interface CartItem {
 
 export interface PendingTicket {
   id: number // database sale ID
-  folio: number
+  folio?: number | null
+  ticket_number: number
   total: number
   created_at: string
   items: CartItem[]
@@ -113,6 +115,7 @@ export interface PendingTicket {
 export interface CompleteSaleInput {
   saleId?: number
   folio?: number
+  ticket_number?: number
   cashSessionId: number
   items: {
     product_code: string
