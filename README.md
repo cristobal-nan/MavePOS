@@ -1,14 +1,26 @@
 # POS Offline
 
-Punto de venta de escritorio para Windows, 100% offline. Electron + React + TypeScript + SQLite.
+Punto de venta de escritorio para Windows, 100% offline. Electron + React + TypeScript + SQLite (better-sqlite3 en modo WAL).
 
 ## Documentación
 
-- **[docs/ESPECIFICACION.md](docs/ESPECIFICACION.md)** — especificación completa: modelo de datos,
-  esquema de BD, pantallas, importación Excel, flujos de caja/cierde, peripherals y orden de
-  implementación. **Es la guía base para programar.**
-- **[AGENTS.md](AGENTS.md)** — resumen corto de reglas de dominio para agentes.
+- **[docs/ESPECIFICACION.md](docs/ESPECIFICACION.md)** — especificación completa: modelo de datos, esquema de BD, pantallas, importación Excel, flujos de caja/cierre, periféricos y orden de implementación. **Es la guía base del proyecto.**
+- **[AGENTS.md](AGENTS.md)** — resumen de reglas de dominio y lógica de negocio para agentes de desarrollo.
 
-## Estado
+## Estado del Proyecto
 
-Plan aprobado. La implementación (12 fases) está pendiente de comenzar; ver §13 de la especificación.
+- **Fases 1 a 6 completadas y verificadas:**
+  1. Base (scaffold electron-vite, ventana fullscreen sin bordes, titlebar propia lila/blanca).
+  2. Datos (esquema SQLite en WAL, migraciones, IPC tipado, respaldos automáticos con retención de 7 archivos).
+  3. Arranque de caja (pantalla única de apertura con fondo de caja, sesiones de caja).
+  4. Catálogo y Productos (CRUD, productos simples y variables con variaciones, categorías de 2 niveles, ordenamiento alfabético por padre, buscador con `%`).
+  5. Ventas (carrito, tickets en standby persistentes en BD, modal de cobro con efectivo, tarjeta, transferencia y pago mixto).
+  6. Control de Inventario (ajustes relativos y por reemplazo con motivo obligatorio, alertas de stock bajo, movimientos del día y kardex cronológico).
+- **Próxima fase:** Fase 7 (Historial de ventas, cancelaciones completas, devoluciones parciales y salidas de dinero).
+
+## Comandos
+
+- `npm run dev`: Inicia el entorno de desarrollo en caliente (Electron + Vite HMR).
+- `npm run typecheck`: Validación estricta de tipos de TypeScript (Node y Web).
+- `npm test`: Ejecución de pruebas unitarias automatizadas con Vitest.
+- `npm run build`: Compilación para producción.

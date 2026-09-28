@@ -57,30 +57,47 @@ Requisitos transversales:
 1. **Moneda CLP**: montos como **enteros**, sin decimales, separador de miles con punto. Ej: `19.990`.
 2. **Categorías: exactamente 2 niveles** — Departamento → Subcategoría. Ej: `Ukryl` → `Lanas`, `Hilos`.
    Sin árbol recursivo.
-3. **Cada fila de `products` es la unidad vendible**: código propio, stock propio, precio propio.
-   Ventas, inventario y kardex siempre referencian `products.code`.
-4. **Variantes** = productos agrupados opcionalmente vía `family_id` + `variant_label` ('Azul', 'Negro').
-   La familia solo agrupa y prellena valores al crear variantes; cada producto conserva sus atributos.
-   Ej: familia "Algodón" ← Algodón/Azul, Algodón/Negro, Algodón/Rojo con **códigos y stocks independientes**.
-5. **Eliminar producto = soft delete** (`active=0`) para preservar historial y kardex.
-6. **Ventas pendientes** (tickets en standby) se **persisten en BD** (`status='pending'`), sobreviven reinicios.
-7. **Todo movimiento de inventario** se registra en `inventory_movements` (delta ±, tipo, motivo, ref venta).
-8. **Precio de costo**: existe pero es **opcional**. **No existe** precio mayoreo ni inventario máximo.
+3. **Unidad vendible y referencias**: Toda venta, kardex y movimiento de inventario referencia la unidad
+   vendible (`products.code`), correspondiente a productos simples (`product_type = 'simple'`) o
+   variaciones individuales (`product_type = 'variation'`).
+4. **Productos Simples y Variables con Variaciones** (reemplaza el concepto previo de familias):
+   - **Producto Simple (`simple`)**: Unidad vendible individual con código propio, stock propio, costo y precio propio.
+   - **Producto Variable (`variable`)**: Producto padre contenedor (ej: "Algodón Rústico"). No se vende directamente en caja,
+     no tiene stock físico directo ni se escanea; agrupa variaciones y define atributos compartidos.
+   - **Variación (`variation`)**: Unidad vendible hija vinculada al producto padre mediante `parent_id`. Tiene código propio,
+     precio propio, costo propio, stock y stock mínimo propios, y un valor de atributo (`attribute_name` ej: 'Color',
+     `attribute_value` ej: 'Azul').
+   - **Sin guion de separación**: En el catálogo, ventas y búsquedas, el nombre de una variación se compone limpiamente
+     como `${parent.name} ${variation.name}` sin guiones `-` ni `—` artificiales.
+5. **Listado y orden en Catálogo**:
+   - En el Catálogo y vistas de venta se listan exclusivamente los productos **vendibles** (`simple` y `variation`),
+     **excluyendo el producto padre contenedor** (`variable`).
+   - El orden alfabético se agrupa por el nombre del **producto padre** (o simple si es simple):
+     `COALESCE(parent.search_name, p.search_name) ASC, p.search_name ASC`. De esta forma, las variaciones quedan
+     ordenadas naturalmente bajo la letra de su producto padre.
+6. **Eliminar producto = soft delete** (`active=0`) para preservar historial y kardex. Si se elimina un producto padre
+   variable, se desactivan automáticamente en cascada sus variaciones.
+7. **Ventas pendientes** (tickets en standby) se **persisten en BD** (`status='pending'`), sobreviven reinicios.
+8. **Todo movimiento de inventario** se registra en `inventory_movements` (delta ±, tipo, motivo, ref venta).
+9. **Precio de costo**: existe pero es **opcional**. **No existe** precio mayoreo ni inventario máximo.
 
 ## 4. Esquema de base de datos
 
 ```sql
-categories(id PK, name, parent_id NULL→categories.id)   -- parent_id NULL = nivel 1; máximo 2 niveles
-
-families(id PK, name, category_id→categories.id, created_at)
+categories(id PK, name, parent_id NULL→categories.id)   -- parent_id NULL = nivel 1 (depto); nivel 2 = subcat
 
 products(
-  code PK, name, search_name,          -- search_name = nombre normalizado (ver §5)
-  sale_price, cost_price?,              -- enteros CLP; cost_price opcional
-  category_id→categories.id,            -- subcategoría o departamento
-  family_id→families.id NULL,
-  variant_label? ('Azul'),
-  stock, min_stock, active, created_at, updated_at
+  id PK AUTOINCREMENT,
+  code UNIQUE NULL,                     -- código de barras o SKU (obligatorio para simples y variaciones)
+  name, search_name,                    -- search_name = nombre normalizado en mayúsculas sin tildes (ver §5)
+  product_type 'simple'|'variable'|'variation',
+  parent_id NULL→products.id,           -- sólo en variaciones (apunta al producto variable contenedor)
+  attribute_name NULL,                  -- ej: 'Color', 'Grosor', 'Talla'
+  attribute_value NULL,                 -- ej: 'Azul', 'Rojo'
+  sale_price, cost_price NULL,          -- enteros CLP; cost_price opcional
+  category_id NULL→categories.id,       -- subcategoría o departamento
+  stock, min_stock, active,             -- active=1 activo, 0 soft delete
+  created_at, updated_at
 )
 
 sales(id PK, folio, status 'pending'|'completed'|'cancelled',
@@ -99,7 +116,7 @@ cash_sessions(id PK, opening_fund, opened_at, closed_at)
 
 cash_movements(id PK, cash_session_id, type 'salida', amount, reason, created_at)
 
-settings(key PK, value)   -- carpeta respaldos, impresora elegida, ancho ticket, orden columnas, etc.
+settings(key PK, value)   -- carpeta respaldos, impresora elegida, ancho ticket, etc.
 ```
 
 ## 5. Componente reutilizable `ProductSearch`
@@ -153,8 +170,8 @@ search_name LIKE '%' || :frag || '%'
 
 ### 5.4 Otros detalles del componente
 
-- Lista: código + nombre + atributos **precio y existencia**. En productos con familia muestra también
-  el nombre de la familia y el `variant_label` ("Algodón / Negro").
+- Lista: código + nombre + atributos **precio y existencia**. En productos de tipo variación muestra el
+  nombre compuesto `${parent.name} ${variation.name}` sin guiones artificiales y la etiqueta de su atributo ("Color: Azul").
 - Orden persistente por **nombre / existencia / precio**.
 - **Ancho redimensionable** (drag).
 - Sin stemming ni manejo de género: un producto llamado `Lana negra` (con "a" final) **no** aparece
@@ -167,7 +184,7 @@ search_name LIKE '%' || :frag || '%'
 | `%` solo, `%%`, input vacío | lista todos los productos activos |
 | `_` en el input | literal, no comodín |
 | Espacios en el input | parte del mismo término, no separa palabras |
-| Producto de familia con mismo nombre base | se distinguen por `variant_label` y código |
+| Variaciones de un mismo producto padre | se distinguen por el valor del atributo y código único |
 
 ## 6. Pantallas
 
@@ -209,22 +226,29 @@ Monto + campo de texto de **motivo**. Queda registrado y aparece **separado** en
 
 | Subpestaña | Contenido |
 |---|---|
-| **Crear** | Código, nombre, precio venta, costo (opcional), categoría (depto→subcat), inventario actual, inventario mínimo. Flujo de **variantes**: crea familia y agrega N códigos con atributo (p. ej. Color: Azul/Negro/Rojo) prellenando valores. |
-| **Modificar** | Cualquier atributo **menos inventario** (el inventario solo cambia por Ajuste/Importación/Venta). |
-| **Eliminar** | Por código o búsqueda por nombre; soft delete. |
-| **Categorías** | Lista de departamentos con sus subcategorías; crear y renombrar ambos niveles; validación al eliminar con contenido. |
+| **Crear** | Selector entre **Producto Simple** o **Producto Variable**. Para Simple: código, nombre, precio venta, costo (opcional), categoría (depto→subcat), stock inicial, stock mínimo. Para Variable: define producto contenedor y genera N variaciones vendibles (cada una con su código, atributo ej: Color: Azul/Negro, precio, costo, stock y stock mínimo). |
+| **Modificar** | Cualquier atributo **menos inventario** (el inventario solo cambia por Ajuste/Importación/Venta). En variables permite agregar, editar o descontinuar variaciones. |
+| **Eliminar** | Por código o búsqueda por nombre; soft delete (`active=0`). Eliminar un padre desactiva en cascada sus variaciones. |
+| **Categorías** | Lista de departamentos con sus subcategorías (exactamente 2 niveles); crear y renombrar ambos niveles; validación de eliminación si contiene productos asociados. |
 | **Importar** | .xlsx (ver §7). |
-| **Catálogo** | Tabla completa con filtros (texto, depto→subcat, bajos) y orden persistente; **selección múltiple** → mover categoría / agrupar como familia (ver §8). Vista opcional agrupada por familia. |
+| **Catálogo** | Tabla completa con filtros (texto con `%`, depto→subcat, stock bajo) y orden persistente de columnas. **Muestra exclusivamente productos vendibles** (`simple` y `variation`, sin el padre contenedor). **Orden alfabético**: ordenado por el nombre del producto padre (o simple): `COALESCE(parent.search_name, p.search_name) ASC, p.search_name ASC`. Selección múltiple para mover categoría o agrupar bajo producto variable. |
 
 ### 6.6 Inventario (subpestañas)
 
-- **Ajustar existencia**: por código o búsqueda → lista nombre, cantidad actual, **+ / −** con input numérico,
-  **nueva cantidad** (reemplaza directo) y **motivo** (texto). Genera movimiento.
-- **Productos bajos en inventario**: lista los que están por debajo de su mínimo.
-- **Reporte de movimientos**:Increased o disminuyó el inventario, manual o por venta, en un **día
-  seleccionado** (por defecto hoy).
-- **Kardex de producto**: por código o búsqueda → todos sus movimientos con fecha, cantidad modificada
-  y motivo.
+- **Ajustar existencia**:
+  - Búsqueda por escáner HID, tipeo de código o modal `ProductSearchModal`.
+  - Dos modalidades: **Ajuste relativo (+ / −)** con botones rápidos (`-10, -5, -1, +1, +5, +10`) o **Reemplazar existencia** (conteo físico total).
+  - Previsualización en tiempo real (`Stock Actual` ➔ `Delta` ➔ `Nuevo Stock`). Validación estricta: stock resultante no puede ser negativo y delta ≠ 0.
+  - **Motivo obligatorio**: con chips rápidos (*"Conteo físico / Arqueo"*, *"Merma por daño o rotura"*, *"Devolución a proveedor"*, *"Ingreso de mercadería / Ajuste"*, etc.). Genera movimiento tipo `'ajuste'`.
+- **Productos bajos en inventario**:
+  - Lista interactiva donde `stock <= min_stock` sobre productos vendibles (`product_type IN ('simple', 'variation')`).
+  - Muestra unidades en falta para reposición y botón directo **"Ajustar"** que precarga el producto en la subpestaña de ajuste.
+- **Reporte de movimientos**:
+  - Auditoría diaria por fecha seleccionada (por defecto hoy local). Filtro por tipo (`venta`, `devolucion`, `ajuste`, `importacion`, `inicial`).
+  - Tarjetas de resumen: total de movimientos, unidades ingresadas (+) y unidades salidas (-).
+  - Tabla detallada con hora, badge de color, delta y referencia/motivo (ej: `Venta #F-00104`).
+- **Kardex de producto**:
+  - Auditoría cronológica completa para un producto seleccionado por escáner o catálogo. Muestra fecha, hora, tipo de movimiento, cantidad modificada (delta±) y referencia/motivo.
 
 ### 6.7 Corte
 
@@ -270,10 +294,10 @@ reorganizar después**.
 En **Catálogo**, con filtros y selección múltiple (incluye "seleccionar todo el resultado"):
 
 - **Mover a categoría/subcategoría** (selección cascada Depto→Subcat).
-- **Agrupar como familia** (nombre nuevo o existente) → asigna `family_id` al lote.
-- Quitar de familia.
-- Flujo típico: filtrar `%ALGODON%` → seleccionar todo → agrupar como familia "Algodón" → asignar
-  `variant_label` a cada uno.
+- **Agrupar bajo producto variable** (nombre nuevo o existente) → crea el padre contenedor y asigna `parent_id` al lote.
+- **Desagrupar de producto variable** → convierte las variaciones en productos simples autónomos.
+- Flujo típico: filtrar `%ALGODON%` → seleccionar todo → agrupar bajo producto variable "Algodón" → asignar
+  valores de atributo a cada variación.
 
 ## 9. Flujo de inicio
 
@@ -304,34 +328,35 @@ En **Catálogo**, con filtros y selección múltiple (incluye "seleccionar todo 
 | Cajón monetario | Pulso ESC/POS a través de la impresora térmica |
 | Impresora normal | Spooler de Windows |
 
-## 12. Metodología de trabajo acordada
+## 12. Metodología de trabajo y tests
 
 - **Pausa en cada fase**: se implementa la fase, se compila, se hace typecheck, se corren los tests y se
   avisa; el dueño prueba la app y da el visto bueno para seguir.
-- **Tests automatizados** (vitest) de la lógica crítica:
+- **Tests automatizados** (vitest) de la lógica crítica (**58 pruebas automatizadas pasando al 100%**):
 
-  | Fase | Qué se testea |
-  |---|---|
-  | 2 | Esquema, upserts, soft delete |
-  | 4 | Búsqueda: `algod`, `%algod`, `negro`, `%negro`, `%%negro`, `algod%`, `algod%negro`, `algod%natural`, tildes, mayúsculas, `_` literal, y que "Estuche de algodón" no salga con `algod` pero sí con `%algod`. CRUD productos/familias |
-  | 5 | Importes, total, suma de pago mixto, vuelto, existencia = stock − carrito |
-  | 6 | Ajustes generan movimientos correctos |
-  | 7 | Devoluciones repone stock exacto y montos de corte |
-  | 8 | Totales del corte cuadran con ventas/pagos/devoluciones/salidas |
-  | 10 | Importador (mapeo, reemplazo de stock, categorías), retención de 7 respaldos |
+  | Fase | Estado | Qué se testea |
+  |---|---|---|
+  | 1 | Completada | Scaffold electron-vite, configuración de build y testing |
+  | 2 | Completada | Esquema SQLite, WAL, migraciones, soft delete, persistencia y backups |
+  | 3 | Completada | Apertura de caja con fondo inicial, cálculo de sesiones y bloqueo/desbloqueo |
+  | 4 | Completada | Búsqueda por `%`, productos simples y variables/variaciones, orden por padre |
+  | 5 | Completada | Carrito, tickets en standby en BD, suma de pagos mixtos, cálculo de vuelto |
+  | 6 | Completada | Ajustes relativos y reemplazo, auditoría de movimientos, alertas stock bajo y kardex |
+  | 7 | En curso | Cancelación total de ventas, devoluciones parciales y salidas de dinero |
+  | 8 | Pendiente | Cuadre exacto del corte de caja con ventas, devoluciones y salidas |
+  | 10 | Pendiente | Importador Excel, mapeo de columnas, reemplazo de stock, categorías |
 
 ## 13. Orden de implementación (12 fases)
 
-1. **Base**: scaffold electron-vite, ventana fullscreen sin bordes + titlebar propia, tema blanco/lila,
-   layout de pestañas
-2. **Datos**: esquema SQLite completo + migraciones, IPC tipado, hook de cierre y `backupService`
-3. **Arranque de caja**: pantalla de fondo de caja / entrada directa
-4. **Productos**: CRUD, familias y variantes, categorías 2 niveles, `ProductSearch`, catálogo
-5. **Ventas**: carrito, tickets simultáneos/pendientes, modal de cobro
-6. **Inventario**: ajustes, bajos, movimientos por día, kardex
-7. **Historial y dinero**: cancelaciones, devoluciones parciales, salidas de dinero
-8. **Corte**: resumen y cierre de sesión
-9. **Impresión**: ticket térmico, impresora normal, cajón, tests de conexión
-10. **Importación Excel** + herramientas de organización masiva
-11. **Reportes**: gráficos e intervalos
-12. **Configuración y pulido**: datos negocio, impresoras, respaldos, atajos, focos de escáner
+1. [x] **Base**: scaffold electron-vite, ventana fullscreen sin bordes + titlebar propia, tema blanco/lila, layout de pestañas.
+2. [x] **Datos**: esquema SQLite completo + migraciones, IPC tipado, hook de cierre y `backupService`.
+3. [x] **Arranque de caja**: pantalla de fondo de caja / entrada directa con sesión activa.
+4. [x] **Productos**: CRUD simples y variables con variaciones, categorías 2 niveles, `ProductSearch` con `%`, catálogo ordenado por padre.
+5. [x] **Ventas**: carrito reactivo, tickets simultáneos/pendientes en BD, modal de cobro (efectivo, tarjeta, transferencia, mixto).
+6. [x] **Inventario**: ajustes de existencia (relativo/reemplazo) con motivo obligatorio, alertas de stock bajo, movimientos por día y kardex de producto.
+7. [ ] **Historial y dinero**: cancelaciones, devoluciones parciales con reposición de inventario, registro de salidas de dinero.
+8. [ ] **Corte**: resumen de caja por método de pago y cierre de sesión.
+9. [ ] **Impresión**: ticket térmico ESC/POS, impresora normal, cajón, test de conexión.
+10. [ ] **Importación Excel** + herramientas de organización masiva en catálogo.
+11. [ ] **Reportes**: gráficos Recharts e intervalos temporales.
+12. [ ] **Configuración y pulido**: datos negocio, impresoras, respaldos, atajos de teclado y focos de escáner.
