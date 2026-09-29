@@ -1,5 +1,12 @@
 import Database from 'better-sqlite3'
-import { Category, Product, ProductInput, ProductSearchResult, ProductSearchOptions } from '../../shared/types'
+import {
+  Category,
+  Product,
+  ProductInput,
+  ProductSearchResult,
+  ProductSearchOptions,
+  GroupAsVariableInput
+} from '../../shared/types'
 import { normalizeSearchName } from '../db/utils'
 
 export class ProductService {
@@ -247,6 +254,149 @@ export class ProductService {
       }
       return true
     })
+    return tx()
+  }
+
+  bulkUpdateCategory(productIds: number[], categoryId: number | null): { updatedCount: number } {
+    if (!productIds || productIds.length === 0) return { updatedCount: 0 }
+
+    const now = new Date().toISOString()
+    const tx = this.db.transaction(() => {
+      const placeholders = productIds.map(() => '?').join(',')
+      // Update directly selected products
+      const updateDirect = this.db.prepare(`
+        UPDATE products
+        SET category_id = ?, updated_at = ?
+        WHERE id IN (${placeholders})
+      `)
+      const res = updateDirect.run(categoryId, now, ...productIds)
+
+      // Also cascade to variations if any selected product was a variable parent
+      const updateChildren = this.db.prepare(`
+        UPDATE products
+        SET category_id = ?, updated_at = ?
+        WHERE parent_id IN (${placeholders})
+      `)
+      updateChildren.run(categoryId, now, ...productIds)
+
+      return { updatedCount: res.changes }
+    })
+
+    return tx()
+  }
+
+  groupProductsAsVariable(input: GroupAsVariableInput): { parentId: number; count: number } {
+    const { parentName, categoryId, attributeName, items } = input
+    const trimmedParentName = parentName.trim()
+    const trimmedAttr = attributeName.trim()
+
+    if (!trimmedParentName) {
+      throw new Error('El nombre del producto variable no puede estar vacío.')
+    }
+    if (!trimmedAttr) {
+      throw new Error('El nombre del atributo no puede estar vacío (ej: Color, Talla).')
+    }
+    if (!items || items.length === 0) {
+      throw new Error('Debes seleccionar al menos un producto para agrupar como variación.')
+    }
+
+    const now = new Date().toISOString()
+    const tx = this.db.transaction(() => {
+      // 1. Create the parent variable product
+      const parentSearchName = normalizeSearchName(trimmedParentName)
+      const insertParentStmt = this.db.prepare(`
+        INSERT INTO products (
+          code, name, search_name, product_type, parent_id, attribute_name, attribute_value,
+          sale_price, cost_price, category_id, stock, min_stock, active, created_at, updated_at
+        ) VALUES (
+          NULL, ?, ?, 'variable', NULL, ?, NULL,
+          0, NULL, ?, 0, 0, 1, ?, ?
+        )
+      `)
+
+      const parentRes = insertParentStmt.run(
+        trimmedParentName,
+        parentSearchName,
+        trimmedAttr,
+        categoryId,
+        now,
+        now
+      )
+      const parentId = Number(parentRes.lastInsertRowid)
+
+      // 2. Prepared statements for updating child items into variations
+      const getProductStmt = this.db.prepare('SELECT * FROM products WHERE id = ?')
+      const updateToVariationStmt = this.db.prepare(`
+        UPDATE products SET
+          product_type = 'variation',
+          parent_id = ?,
+          attribute_name = ?,
+          attribute_value = ?,
+          name = ?,
+          search_name = ?,
+          category_id = COALESCE(?, category_id),
+          updated_at = ?
+        WHERE id = ?
+      `)
+
+      let count = 0
+      for (const item of items) {
+        const prod = getProductStmt.get(item.productId) as Product | undefined
+        if (!prod) continue
+
+        const attrVal = (item.attributeValue || '').trim()
+        // If a custom variation name is provided, use it; otherwise `${trimmedParentName} ${attrVal}`
+        const variationName = item.name && item.name.trim() !== ''
+          ? item.name.trim()
+          : attrVal
+            ? `${trimmedParentName} ${attrVal}`
+            : prod.name
+        const variationSearchName = normalizeSearchName(variationName)
+
+        updateToVariationStmt.run(
+          parentId,
+          trimmedAttr,
+          attrVal || null,
+          variationName,
+          variationSearchName,
+          categoryId,
+          now,
+          item.productId
+        )
+        count++
+      }
+
+      return { parentId, count }
+    })
+
+    return tx()
+  }
+
+  bulkSoftDelete(productIds: number[]): { deletedCount: number } {
+    if (!productIds || productIds.length === 0) return { deletedCount: 0 }
+
+    const now = new Date().toISOString()
+    const tx = this.db.transaction(() => {
+      const placeholders = productIds.map(() => '?').join(',')
+      // Soft-delete direct products
+      const deleteDirect = this.db.prepare(`
+        UPDATE products
+        SET active = 0, updated_at = ?
+        WHERE id IN (${placeholders})
+      `)
+      const res = deleteDirect.run(now, ...productIds)
+
+      // Also cascade to variations if any deleted product was a variable parent
+      const deleteChildren = this.db.prepare(`
+        UPDATE products
+        SET active = 0, updated_at = ?
+        WHERE parent_id IN (${placeholders})
+      `)
+      deleteChildren.run(now, ...productIds)
+
+      return { deletedCount: res.changes }
+    })
+
     return tx()
   }
 

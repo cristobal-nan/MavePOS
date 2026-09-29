@@ -21,7 +21,11 @@ import {
   Sale,
   SalePayment,
   SaleDetail,
-  SalesHistoryFilter
+  SalesHistoryFilter,
+  ExcelColumnMapping,
+  ExcelParsePreview,
+  ImportReportResult,
+  GroupAsVariableInput
 } from '../shared/types'
 
 export interface WindowAPI {
@@ -46,6 +50,9 @@ export interface WindowAPI {
   getProductById: (id: number, includeInactive?: boolean) => Promise<Product | null>
   getVariations: (parentId: number, includeInactive?: boolean) => Promise<Product[]>
   deleteProduct: (codeOrId: string | number) => Promise<boolean>
+  bulkDeleteProducts: (productIds: number[]) => Promise<{ deletedCount: number }>
+  bulkUpdateCategory: (productIds: number[], categoryId: number | null) => Promise<{ updatedCount: number }>
+  groupProductsAsVariable: (input: GroupAsVariableInput) => Promise<{ parentId: number; count: number }>
   getActiveProducts: (limit?: number, offset?: number) => Promise<Product[]>
   searchProducts: (options?: ProductSearchOptions) => Promise<ProductSearchResult[]>
   seedSampleData: () => Promise<boolean>
@@ -91,6 +98,11 @@ export interface WindowAPI {
   getLowStockProducts: (limit?: number, offset?: number) => Promise<(ProductSearchResult & { min_stock: number })[]>
   getInventoryMovements: (dateStr?: string, type?: MovementType) => Promise<InventoryMovementDetail[]>
   getProductKardex: (productCode: string, limit?: number) => Promise<InventoryMovementDetail[]>
+
+  // Excel Import (Fase 10)
+  selectExcelFile: () => Promise<string | null>
+  parseExcelFile: (filePath: string) => Promise<ExcelParsePreview>
+  importExcelFile: (filePath: string, customMapping?: Partial<ExcelColumnMapping>) => Promise<ImportReportResult>
 }
 
 const api: WindowAPI = {
@@ -123,6 +135,9 @@ const api: WindowAPI = {
   getProductById: (id, includeInactive) => ipcRenderer.invoke('products:getById', id, includeInactive),
   getVariations: (parentId, includeInactive) => ipcRenderer.invoke('products:getVariations', parentId, includeInactive),
   deleteProduct: (codeOrId) => ipcRenderer.invoke('products:delete', codeOrId),
+  bulkDeleteProducts: (productIds) => ipcRenderer.invoke('products:bulkDelete', productIds),
+  bulkUpdateCategory: (productIds, categoryId) => ipcRenderer.invoke('products:bulkUpdateCategory', productIds, categoryId),
+  groupProductsAsVariable: (input) => ipcRenderer.invoke('products:groupAsVariable', input),
   getActiveProducts: (limit, offset) => ipcRenderer.invoke('products:getActive', limit, offset),
   searchProducts: (options) => ipcRenderer.invoke('products:search', options),
   seedSampleData: () => ipcRenderer.invoke('products:seed'),
@@ -162,7 +177,11 @@ const api: WindowAPI = {
   adjustStock: (input) => ipcRenderer.invoke('inventory:adjustStock', input),
   getLowStockProducts: (limit, offset) => ipcRenderer.invoke('inventory:getLowStock', limit, offset),
   getInventoryMovements: (dateStr, type) => ipcRenderer.invoke('inventory:getMovements', dateStr, type),
-  getProductKardex: (productCode, limit) => ipcRenderer.invoke('inventory:getKardex', productCode, limit)
+  getProductKardex: (productCode, limit) => ipcRenderer.invoke('inventory:getKardex', productCode, limit),
+
+  selectExcelFile: () => ipcRenderer.invoke('excel:selectFile'),
+  parseExcelFile: (filePath) => ipcRenderer.invoke('excel:parseFile', filePath),
+  importExcelFile: (filePath, customMapping) => ipcRenderer.invoke('excel:importFile', filePath, customMapping)
 }
 
 if (process.contextIsolated) {

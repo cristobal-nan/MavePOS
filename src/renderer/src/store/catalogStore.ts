@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { Category, Product, ProductInput, ProductSearchResult, ProductType } from '@shared/types'
+import { Category, Product, ProductInput, ProductSearchResult, ProductType, GroupAsVariableInput } from '@shared/types'
 
 interface CatalogState {
   products: ProductSearchResult[]
@@ -33,6 +33,9 @@ interface CatalogState {
   saveVariableProduct: (parent: ProductInput, variations: ProductInput[]) => Promise<{ parent: Product; variations: Product[] }>
   getVariations: (parentId: number) => Promise<Product[]>
   deleteProduct: (codeOrId: string | number) => Promise<boolean>
+  bulkDeleteProducts: (productIds: number[]) => Promise<{ deletedCount: number }>
+  bulkUpdateCategory: (productIds: number[], categoryId: number | null) => Promise<{ updatedCount: number }>
+  groupProductsAsVariable: (input: GroupAsVariableInput) => Promise<{ parentId: number; count: number }>
   saveCategory: (name: string, parentId?: number | null, id?: number) => Promise<Category>
   deleteCategory: (id: number) => Promise<void>
   seedSampleData: () => Promise<void>
@@ -158,6 +161,24 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
       await get().fetchProducts()
     }
     return ok
+  },
+
+  bulkDeleteProducts: async (productIds: number[]) => {
+    const res = await window.api.bulkDeleteProducts(productIds)
+    await get().fetchProducts()
+    return res
+  },
+
+  bulkUpdateCategory: async (productIds: number[], categoryId: number | null) => {
+    const res = await window.api.bulkUpdateCategory(productIds, categoryId)
+    await get().fetchProducts()
+    return res
+  },
+
+  groupProductsAsVariable: async (input: GroupAsVariableInput) => {
+    const res = await window.api.groupProductsAsVariable(input)
+    await get().fetchProducts()
+    return res
   },
 
   saveCategory: async (name: string, parentId?: number | null, id?: number) => {

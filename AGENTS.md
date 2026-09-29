@@ -13,7 +13,7 @@ Las decisiones de abajo fueron acordadas con el dueño del proyecto y son vincul
 - Ventana fullscreen sin bordes (`frame: false`) con titlebar propia (minimizar/cerrar).
 - Tema: blanco + lila (acentos `#8B5CF6`, superficies `#EDE9FE`).
 - Comandos: `npm run dev` (desarrollo), `npm run typecheck` (validación de tipos TS), `npm run build` (compilación producción), `npm run test` (pruebas unitarias con vitest).
-- **Progreso actual:** Fases 1 a 8 completadas y probadas (76 tests unitarios pasando). Fase 9 (Impresión y Tickets Térmicos) siguiente.
+- **Progreso actual:** Fases 1 a 8, Fase 10 (Importación de Catálogo desde Excel) y Herramientas de Reorganización en Lote completadas y probadas (90 tests unitarios pasando). Fase 9 (Impresión y Tickets Térmicos) siguiente.
 
 ## Reglas de dominio (no negociables)
 

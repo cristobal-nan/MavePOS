@@ -21,6 +21,11 @@ interface ProductSearchProps {
   selectedProductCode?: string | null
   placeholder?: string
   autoFocus?: boolean
+  enableMultiSelect?: boolean
+  selectedIds?: Set<number>
+  onToggleSelect?: (product: ProductSearchResult) => void
+  onSelectAllVisible?: () => void
+  isAllVisibleSelected?: boolean
 }
 
 export const ProductSearch: React.FC<ProductSearchProps> = ({
@@ -30,7 +35,12 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
   showActions = true,
   selectedProductCode = null,
   placeholder = 'Buscar por nombre (ej: algod, %algod, algod%negro) o código exacto...',
-  autoFocus = true
+  autoFocus = true,
+  enableMultiSelect = false,
+  selectedIds,
+  onToggleSelect,
+  onSelectAllVisible,
+  isAllVisibleSelected = false
 }) => {
   const {
     products,
@@ -120,6 +130,18 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
         <table className="w-full text-left border-collapse table-fixed">
           <thead className="bg-slate-100/80 sticky top-0 z-10 border-b border-slate-200 text-xs font-semibold text-slate-600 shadow-sm backdrop-blur-sm">
             <tr>
+              {enableMultiSelect && (
+                <th style={{ width: '40px' }} className="py-2.5 px-3 text-center border-r border-slate-200/60">
+                  <input
+                    type="checkbox"
+                    checked={isAllVisibleSelected && products.length > 0}
+                    onChange={onSelectAllVisible}
+                    className="w-3.5 h-3.5 rounded text-lilac-600 focus:ring-lilac-500 cursor-pointer accent-lilac-600"
+                    title="Seleccionar / deseleccionar todos los visibles"
+                  />
+                </th>
+              )}
+
               {/* Código */}
               <th
                 style={{ width: `${columnWidths.code}px` }}
@@ -231,19 +253,20 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
           <tbody className="divide-y divide-slate-100 text-xs">
             {isLoading ? (
               <tr>
-                <td colSpan={showActions ? 7 : 6} className="py-12 text-center text-slate-400">
+                <td colSpan={(showActions ? 7 : 6) + (enableMultiSelect ? 1 : 0)} className="py-12 text-center text-slate-400">
                   Buscando en catálogo...
                 </td>
               </tr>
             ) : products.length === 0 ? (
               <tr>
-                <td colSpan={showActions ? 7 : 6} className="py-12 text-center text-slate-400">
+                <td colSpan={(showActions ? 7 : 6) + (enableMultiSelect ? 1 : 0)} className="py-12 text-center text-slate-400">
                   No se encontraron productos coincidentes.
                 </td>
               </tr>
             ) : (
               products.map((p) => {
                 const isSelected = selectedProductCode === p.code
+                const isChecked = p.id ? selectedIds?.has(p.id) : false
                 const isLowStock = p.stock <= p.min_stock
                 const isVariable = p.product_type === 'variable'
                 const isVariation = p.product_type === 'variation'
@@ -251,11 +274,33 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                 return (
                   <tr
                     key={p.id || p.code || Math.random()}
-                    onClick={() => onSelectProduct?.(p)}
+                    onClick={() => {
+                      if (enableMultiSelect && onToggleSelect) {
+                        onToggleSelect(p)
+                      } else {
+                        onSelectProduct?.(p)
+                      }
+                    }}
                     className={`hover:bg-lilac-50/70 transition-colors cursor-pointer ${
-                      isSelected ? 'bg-lilac-100 font-semibold' : ''
+                      isChecked ? 'bg-lilac-100/60 font-semibold' : isSelected ? 'bg-lilac-100 font-semibold' : ''
                     } ${isVariable ? 'bg-slate-50/70' : ''}`}
                   >
+                    {enableMultiSelect && (
+                      <td
+                        className="py-2.5 px-3 text-center border-r border-slate-200/40"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onToggleSelect?.(p)
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked || false}
+                          onChange={() => onToggleSelect?.(p)}
+                          className="w-3.5 h-3.5 rounded text-lilac-600 focus:ring-lilac-500 cursor-pointer accent-lilac-600"
+                        />
+                      </td>
+                    )}
                     {/* Código */}
                     <td className="py-2.5 px-3 font-mono text-slate-700 truncate">
                       {p.code ? (

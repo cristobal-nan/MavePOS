@@ -1,10 +1,25 @@
 import React, { useState, useEffect } from 'react'
-import { Plus, Layers, Filter, RefreshCw, Sparkles, Box } from 'lucide-react'
+import {
+  Plus,
+  Layers,
+  Filter,
+  RefreshCw,
+  Sparkles,
+  Box,
+  FileSpreadsheet,
+  FolderInput,
+  GitBranch,
+  Trash2,
+  X
+} from 'lucide-react'
 import { ProductSearchResult } from '@shared/types'
 import { useCatalogStore } from '../store/catalogStore'
 import { ProductSearch } from '../components/ProductSearch'
 import { ProductFormModal } from '../components/ProductFormModal'
 import { CategoryModal } from '../components/CategoryModal'
+import { ExcelImportModal } from '../components/ExcelImportModal'
+import { BulkCategoryModal } from '../components/BulkCategoryModal'
+import { BulkGroupVariableModal } from '../components/BulkGroupVariableModal'
 
 export const CatalogView: React.FC = () => {
   const {
@@ -17,12 +32,17 @@ export const CatalogView: React.FC = () => {
     loadMetadata,
     fetchProducts,
     deleteProduct,
+    bulkDeleteProducts,
     seedSampleData
   } = useCatalogStore()
 
   const [selectedProductForEdit, setSelectedProductForEdit] = useState<ProductSearchResult | null>(null)
   const [isProductModalOpen, setIsProductModalOpen] = useState(false)
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false)
+  const [isBulkCategoryModalOpen, setIsBulkCategoryModalOpen] = useState(false)
+  const [isBulkGroupModalOpen, setIsBulkGroupModalOpen] = useState(false)
+  const [selectedProductIds, setSelectedProductIds] = useState<Set<number>>(new Set())
 
   useEffect(() => {
     loadMetadata()
@@ -50,6 +70,48 @@ export const CatalogView: React.FC = () => {
     }
   }
 
+  const handleToggleSelect = (product: ProductSearchResult): void => {
+    if (!product.id) return
+    setSelectedProductIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(product.id!)) {
+        next.delete(product.id!)
+      } else {
+        next.add(product.id!)
+      }
+      return next
+    })
+  }
+
+  const handleSelectAllVisible = (): void => {
+    const visibleIds = products.map((p) => p.id).filter((id): id is number => typeof id === 'number')
+    const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedProductIds.has(id))
+
+    if (allSelected) {
+      setSelectedProductIds(new Set())
+    } else {
+      setSelectedProductIds(new Set(visibleIds))
+    }
+  }
+
+  const handleDeselectAll = (): void => {
+    setSelectedProductIds(new Set())
+  }
+
+  const handleBulkDelete = async (): Promise<void> => {
+    if (selectedProductIds.size === 0) return
+    const count = selectedProductIds.size
+    const promptMsg = `¿Estás seguro de eliminar los ${count} productos seleccionados?\n\nSe realizará un soft delete (se mantendrán en el historial y kardex, pero no estarán disponibles para ventas). Si seleccionaste productos variables padre, también se desactivarán sus variaciones.`
+
+    if (confirm(promptMsg)) {
+      await bulkDeleteProducts(Array.from(selectedProductIds))
+      setSelectedProductIds(new Set())
+    }
+  }
+
+  const selectedProductsList = products.filter((p) => p.id && selectedProductIds.has(p.id))
+  const isAllVisibleSelected = products.length > 0 && products.every((p) => p.id && selectedProductIds.has(p.id))
+
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-50 p-4 gap-3 select-none overflow-hidden">
       {/* Top Action Toolbar */}
@@ -70,6 +132,15 @@ export const CatalogView: React.FC = () => {
           >
             <Layers className="w-3.5 h-3.5 text-lilac-600" />
             <span>Categorías</span>
+          </button>
+
+          <button
+            onClick={() => setIsExcelModalOpen(true)}
+            className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 border border-emerald-200/60"
+            title="Importar catálogo masivo desde archivo Excel (.xlsx)"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Importar Excel</span>
           </button>
 
           {products.length === 0 && (
@@ -130,12 +201,68 @@ export const CatalogView: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Content: Reusable ProductSearch Table */}
+      {/* Bulk Selection Floating Action Bar */}
+      {selectedProductIds.size > 0 && (
+        <div className="bg-lilac-600 text-white px-4 py-2.5 rounded-2xl shadow-md flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-150">
+          <div className="flex items-center gap-2 text-xs font-bold">
+            <span className="bg-white/20 px-2.5 py-1 rounded-full text-white font-extrabold">
+              {selectedProductIds.size}
+            </span>
+            <span>producto(s) seleccionado(s)</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsBulkCategoryModalOpen(true)}
+              className="px-3 py-1.5 bg-white text-lilac-800 hover:bg-lilac-50 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
+              title="Asignar Departamento / Subcategoría a los productos seleccionados"
+            >
+              <FolderInput className="w-3.5 h-3.5 text-lilac-600" />
+              <span>Mover a Categoría...</span>
+            </button>
+
+            <button
+              onClick={() => setIsBulkGroupModalOpen(true)}
+              className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-white/20"
+              title="Agrupar productos seleccionados bajo un producto variable con variaciones"
+            >
+              <GitBranch className="w-3.5 h-3.5 text-lilac-200" />
+              <span>Agrupar como Variable...</span>
+            </button>
+
+            <button
+              onClick={handleBulkDelete}
+              className="px-3 py-1.5 bg-red-500/80 hover:bg-red-600 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
+              title="Eliminar (soft delete) los productos seleccionados"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Eliminar</span>
+            </button>
+
+            <div className="h-4 w-px bg-white/20 mx-1" />
+
+            <button
+              onClick={handleDeselectAll}
+              className="p-1.5 hover:bg-white/20 rounded-lg text-white/80 hover:text-white transition-colors"
+              title="Deseleccionar todos"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content: Reusable ProductSearch Table with multi-select */}
       <div className="flex-1 overflow-hidden">
         <ProductSearch
           onEditProduct={handleEditProduct}
           onDeleteProduct={handleDeleteProduct}
           showActions={true}
+          enableMultiSelect={true}
+          selectedIds={selectedProductIds}
+          onToggleSelect={handleToggleSelect}
+          onSelectAllVisible={handleSelectAllVisible}
+          isAllVisibleSelected={isAllVisibleSelected}
         />
       </div>
 
@@ -149,6 +276,37 @@ export const CatalogView: React.FC = () => {
       <CategoryModal
         isOpen={isCategoryModalOpen}
         onClose={() => setIsCategoryModalOpen(false)}
+      />
+
+      <ExcelImportModal
+        isOpen={isExcelModalOpen}
+        onClose={() => setIsExcelModalOpen(false)}
+        onSuccess={() => {
+          loadMetadata()
+          fetchProducts()
+        }}
+      />
+
+      <BulkCategoryModal
+        isOpen={isBulkCategoryModalOpen}
+        selectedProducts={selectedProductsList}
+        onClose={() => setIsBulkCategoryModalOpen(false)}
+        onSuccess={() => {
+          setSelectedProductIds(new Set())
+          fetchProducts()
+          loadMetadata()
+        }}
+      />
+
+      <BulkGroupVariableModal
+        isOpen={isBulkGroupModalOpen}
+        selectedProducts={selectedProductsList}
+        onClose={() => setIsBulkGroupModalOpen(false)}
+        onSuccess={() => {
+          setSelectedProductIds(new Set())
+          fetchProducts()
+          loadMetadata()
+        }}
       />
     </div>
   )

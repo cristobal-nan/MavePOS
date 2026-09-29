@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow } from 'electron'
+import { ipcMain, BrowserWindow, dialog } from 'electron'
 import { getDatabase } from './db/db'
 import { ProductService } from './services/productService'
 import { CashService } from './services/cashService'
@@ -6,6 +6,7 @@ import { SettingsService } from './services/settingsService'
 import { BackupService } from './services/backupService'
 import { SalesService } from './services/salesService'
 import { InventoryService } from './services/inventoryService'
+import { ExcelService } from './services/excelService'
 import {
   ProductInput,
   ProductSearchOptions,
@@ -13,7 +14,9 @@ import {
   CompleteSaleInput,
   AdjustStockInput,
   MovementType,
-  SalesHistoryFilter
+  SalesHistoryFilter,
+  ExcelColumnMapping,
+  GroupAsVariableInput
 } from '../shared/types'
 
 let isQuittingFromRenderer = false
@@ -25,6 +28,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
   backupService: BackupService
   salesService: SalesService
   inventoryService: InventoryService
+  excelService: ExcelService
 } {
   const db = getDatabase()
   const productService = new ProductService(db)
@@ -33,6 +37,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
   const backupService = new BackupService(db, settingsService)
   const salesService = new SalesService(db)
   const inventoryService = new InventoryService(db)
+  const excelService = new ExcelService(db)
 
   // ---------------- Ping & Health ----------------
   ipcMain.handle('db:ping', () => {
@@ -75,6 +80,18 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
 
   ipcMain.handle('products:saveVariable', (_event, parent: ProductInput, variations: ProductInput[]) => {
     return productService.saveVariableProduct(parent, variations)
+  })
+
+  ipcMain.handle('products:bulkUpdateCategory', (_event, productIds: number[], categoryId: number | null) => {
+    return productService.bulkUpdateCategory(productIds, categoryId)
+  })
+
+  ipcMain.handle('products:groupAsVariable', (_event, input: GroupAsVariableInput) => {
+    return productService.groupProductsAsVariable(input)
+  })
+
+  ipcMain.handle('products:bulkDelete', (_event, productIds: number[]) => {
+    return productService.bulkSoftDelete(productIds)
   })
 
   ipcMain.handle('categories:getAll', () => {
@@ -224,5 +241,24 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
     return inventoryService.getProductKardex(productCode, limit)
   })
 
-  return { productService, cashService, settingsService, backupService, salesService, inventoryService }
+  // ---------------- Excel Import (Fase 10) ----------------
+  ipcMain.handle('excel:selectFile', async () => {
+    const res = await dialog.showOpenDialog(mainWindow, {
+      title: 'Seleccionar archivo Excel de Catálogo',
+      filters: [{ name: 'Hojas de Cálculo Excel (*.xlsx, *.xls)', extensions: ['xlsx', 'xls'] }],
+      properties: ['openFile']
+    })
+    if (res.canceled || res.filePaths.length === 0) return null
+    return res.filePaths[0]
+  })
+
+  ipcMain.handle('excel:parseFile', (_event, filePath: string) => {
+    return excelService.parseExcelFile(filePath)
+  })
+
+  ipcMain.handle('excel:importFile', (_event, filePath: string, customMapping?: Partial<ExcelColumnMapping>) => {
+    return excelService.importExcel(filePath, customMapping)
+  })
+
+  return { productService, cashService, settingsService, backupService, salesService, inventoryService, excelService }
 }

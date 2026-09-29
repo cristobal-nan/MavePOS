@@ -66,6 +66,19 @@ export interface ProductSearchOptions {
   includeInactive?: boolean
 }
 
+export interface GroupAsVariableItemInput {
+  productId: number
+  attributeValue: string
+  name?: string
+}
+
+export interface GroupAsVariableInput {
+  parentName: string
+  categoryId: number | null
+  attributeName: string
+  items: GroupAsVariableItemInput[]
+}
+
 export interface Sale {
   id: number
   folio: number
@@ -249,4 +262,53 @@ export interface BackupInfo {
   filepath: string
   sizeBytes: number
   createdAt: string
+}
+
+// ----------------------------------------------------
+// Fase 10: Importación de Catálogo desde Excel (.xlsx)
+// ----------------------------------------------------
+
+export interface ExcelColumnMapping {
+  code: string
+  name: string
+  cost_price?: string
+  sale_price: string
+  stock: string
+  min_stock?: string
+  department?: string
+}
+
+export interface ExcelParsePreview {
+  fileName: string
+  sheetName: string
+  totalRows: number
+  headers: string[]
+  detectedMapping: Partial<ExcelColumnMapping>
+  previewRows: Record<string, any>[]
+}
+
+export interface ExcelImportRow {
+  code: string
+  name: string
+  cost_price?: number | null
+  sale_price: number
+  stock: number
+  min_stock?: number
+  department?: string | null
+}
+
+export interface ImportErrorDetail {
+  row: number
+  code?: string
+  name?: string
+  reason: string
+}
+
+export interface ImportReportResult {
+  totalRows: number
+  createdCount: number
+  updatedCount: number
+  skippedCount: number
+  departmentsCreated: number
+  errors: ImportErrorDetail[]
 }
