@@ -1,0 +1,113 @@
+import React from 'react'
+import { CheckCircle2, Printer } from 'lucide-react'
+import { formatCLP, formatDateTime } from '../../utils/formatters'
+
+interface ReceiptCashCutModalProps {
+  isOpen: boolean
+  data: any | null
+  onClose: () => void
+}
+
+export const ReceiptCashCutModal: React.FC<ReceiptCashCutModalProps> = ({
+  isOpen,
+  data,
+  onClose
+}) => {
+  if (!isOpen || !data) return null
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl shadow-2xl border border-lilac-200 w-full max-w-lg p-6 flex flex-col gap-4 animate-in fade-in zoom-in-95">
+        <div className="text-center pb-2 border-b border-slate-100">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-2">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <h3 className="text-lg font-black text-slate-900">
+            ¡Corte de Caja Realizado con Éxito!
+          </h3>
+          <p className="text-xs text-slate-500">
+            Sesión #{data.sessionId} cerrada el {formatDateTime(data.closedAt)}
+          </p>
+        </div>
+
+        {/* Recibo Formateado */}
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 font-mono text-xs flex flex-col gap-2 text-slate-800">
+          <div className="flex justify-between">
+            <span>Fondo Inicial:</span>
+            <span className="font-bold">{formatCLP(data.openingFund)}</span>
+          </div>
+          <div className="flex justify-between text-emerald-700">
+            <span>Ventas Efectivo:</span>
+            <span className="font-bold">+{formatCLP(data.salesCash)}</span>
+          </div>
+          <div className="flex justify-between text-blue-700">
+            <span>Ventas Tarjeta:</span>
+            <span className="font-bold">+{formatCLP(data.salesCard)}</span>
+          </div>
+          <div className="flex justify-between text-purple-700">
+            <span>Ventas Transferencia:</span>
+            <span className="font-bold">+{formatCLP(data.salesTransfer)}</span>
+          </div>
+          <div className="flex justify-between font-bold border-t border-slate-200 pt-1">
+            <span>Total Ventas:</span>
+            <span>{formatCLP(data.salesTotal)}</span>
+          </div>
+          <div className="flex justify-between text-rose-600">
+            <span>Devoluciones:</span>
+            <span>−{formatCLP(data.returnsTotal)}</span>
+          </div>
+          <div className="flex justify-between text-amber-700">
+            <span>Salidas de Dinero:</span>
+            <span>−{formatCLP(data.withdrawalsTotal)}</span>
+          </div>
+          <div className="flex justify-between font-black border-t-2 border-dashed border-slate-300 pt-2 text-sm">
+            <span>Efectivo Contado:</span>
+            <span>{formatCLP(data.closingCash)}</span>
+          </div>
+          <div className="flex justify-between font-bold">
+            <span>Efectivo Esperado:</span>
+            <span>{formatCLP(data.expectedCash)}</span>
+          </div>
+          <div className="flex justify-between font-bold text-sm pt-1 border-t border-slate-200">
+            <span>Diferencia:</span>
+            <span
+              className={
+                data.difference === 0
+                  ? 'text-emerald-700'
+                  : data.difference > 0
+                  ? 'text-blue-700'
+                  : 'text-rose-700'
+              }
+            >
+              {data.difference > 0 ? `+${formatCLP(data.difference)}` : formatCLP(data.difference)}
+            </span>
+          </div>
+          {data.notes && (
+            <div className="mt-2 text-[11px] font-sans text-slate-500 bg-white p-2 rounded-lg border border-slate-200">
+              <strong>Notas:</strong> {data.notes}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between pt-2">
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="px-4 py-2 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors"
+          >
+            <Printer className="w-4 h-4" />
+            <span>Imprimir Comprobante</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-6 py-2 rounded-xl bg-lilac-600 hover:bg-lilac-700 text-white font-bold text-xs shadow-md transition-colors"
+          >
+            Finalizar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

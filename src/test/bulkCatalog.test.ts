@@ -205,4 +205,47 @@ describe('Reorganización Post-Importación de Catálogo (Operaciones en Lote)',
       expect(productService.getProductByCode('DEL-2', true)?.active).toBe(0)
     })
   })
+
+  describe('Edición de Código de Producto y Preservación de Kardex', () => {
+    it('al modificar el código de un producto migra los movimientos de kardex y preserva integridad referencial', () => {
+      const prod = productService.upsertProduct({
+        code: 'ORIGINAL-CODE-01',
+        name: 'Madeja Lana Celeste',
+        sale_price: 4500,
+        stock: 30
+      })
+
+      // Insertar movimiento de kardex previo
+      db.prepare(`
+        INSERT INTO inventory_movements (product_code, delta, type, reason, created_at)
+        VALUES (?, ?, 'ajuste', 'Ajuste inicial de inventario', datetime('now'))
+      `).run('ORIGINAL-CODE-01', 30)
+
+      // Actualizar el código del producto
+      const updated = productService.upsertProduct({
+        id: prod.id,
+        code: 'UPDATED-CODE-02',
+        name: 'Madeja Lana Celeste Modificada',
+        sale_price: 4800,
+        stock: 30
+      })
+
+      expect(updated.code).toBe('UPDATED-CODE-02')
+
+      // Verificar que el kardex migró al nuevo código
+      const movements = db
+        .prepare('SELECT * FROM inventory_movements WHERE product_code = ?')
+        .all('UPDATED-CODE-02') as any[]
+
+      expect(movements).toHaveLength(1)
+      expect(movements[0].delta).toBe(30)
+
+      // Verificar que el código antiguo ya no tiene movimientos
+      const oldMovements = db
+        .prepare('SELECT * FROM inventory_movements WHERE product_code = ?')
+        .all('ORIGINAL-CODE-01')
+
+      expect(oldMovements).toHaveLength(0)
+    })
+  })
 })

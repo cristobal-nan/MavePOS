@@ -266,6 +266,10 @@ Lista todas las ventas con montos, cantidades y formas de pago. Filtro por **id/
 - **Cancelar la venta completa** → repone todo el inventario, suma al monto "devoluciones" del corte.
 - **Devolver un producto y cantidad específica** → repone solo esas unidades, suma el monto de la
   devolución al corte.
+- **Iniciar Cambio de Producto** → abre modal de selección de ítems y cantidades a devolver, transfiriendo el crédito a un ticket reservado en Ventas marcado con color distintivo (`CAMBIO (Venta #FOLIO)`):
+  - El cliente debe seleccionar nuevos productos por un monto **igual o superior** al crédito devuelto (sin entrega de dinero en efectivo por saldo a favor restante).
+  - Si la venta original supera los **30 días** (1 mes), se muestra una advertencia visual informativa permitiendo proceder bajo criterio comercial.
+  - Genera una nueva venta con Folio propio, reponiendo el stock de los productos devueltos y descontando el de los nuevos artículos entregados.
 
 ### 6.4 Salidas de dinero (modal desde Ventas)
 

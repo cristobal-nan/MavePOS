@@ -228,4 +228,30 @@ describe('Fase 4: Motor de Búsqueda de Productos (% wildcard, normalización y 
     // Ningún padre variable debe aparecer en la lista de vendibles
     expect(results.some((r) => r.product_type === 'variable')).toBe(false)
   })
+
+  it('paginación progresiva: soporta limit y offset para navegar por todo el catálogo por lotes sin solapamientos', () => {
+    // Obtenemos los productos en lotes de 3
+    const batch1 = productService.searchProducts({ limit: 3, offset: 0 })
+    const batch2 = productService.searchProducts({ limit: 3, offset: 3 })
+    const batch3 = productService.searchProducts({ limit: 3, offset: 6 })
+    const batch4 = productService.searchProducts({ limit: 3, offset: 9 })
+
+    expect(batch1.length).toBe(3)
+    expect(batch2.length).toBe(3)
+    expect(batch3.length).toBe(3)
+    expect(batch4.length).toBeGreaterThan(0)
+
+    // Los códigos entre lotes no deben repetirse
+    const codes1 = new Set(batch1.map((p) => p.code))
+    const codes2 = new Set(batch2.map((p) => p.code))
+    const codes3 = new Set(batch3.map((p) => p.code))
+
+    for (const code of codes2) {
+      expect(codes1.has(code)).toBe(false)
+    }
+    for (const code of codes3) {
+      expect(codes1.has(code)).toBe(false)
+      expect(codes2.has(code)).toBe(false)
+    }
+  })
 })

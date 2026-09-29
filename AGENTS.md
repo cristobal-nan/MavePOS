@@ -85,6 +85,13 @@ con selección múltiple en Catálogo → mover categoría y proveedores / agrup
 - Devoluciones: desde Historial de ventas (cancelar venta completa o devolver producto+cantidad);
   reponen inventario y suman al monto "devoluciones" del corte. Salidas de dinero: botón propio
   (monto + motivo), aparecen separadas en el corte.
+- **Navegación y Pestañas Principales (F1 a F6)**:
+  - F1: Ventas, F2: Catálogo, F3: Inventario, F4: Corte, F5: Reportes, F6: Configuración.
+  - **Historial de Ventas y Salidas de Dinero como Modales**: No ocupan pestañas en la barra superior. Se abren como ventanas modales superpuestas directamente desde los botones de la barra inferior de Ventas, permitiendo consultar ventas, devoluciones, cambios y salidas sin abandonar el contexto de la caja.
+- **Cambios de Producto**: Desde el modal de Historial de Ventas se seleccionan los ítems a cambiar. Al confirmar, se cierra el modal y se genera una pestaña reservada de cambio en Ventas con color distintivo (`CAMBIO (Venta #X)`).
+  - El cliente debe llevar nuevos productos por un valor igual o superior al crédito generado (sin entrega de dinero en efectivo por saldo sobrante).
+  - Si la venta supera los 30 días, se emite una advertencia informativa visual, permitiendo continuar según criterio del vendedor.
+  - Al completar el cambio, se crea una nueva transacción con Folio propio y trazabilidad a su venta padre (`exchange_parent_id`), reponiendo el stock devuelto y rebajando los nuevos productos.
 
 ## Flujo de cierre y respaldos
 
@@ -101,3 +108,17 @@ Al cerrar (X / Alt+F4):
 - Impresora térmica: ESC/POS vía node-thermal-printer (tcp/USB compartida/serie, 58/80mm).
 - Cajón monetario: pulso ESC/POS a través de la impresora térmica.
 - Impresora normal: spooler de Windows.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues using the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical roles: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context (`GLOSSARY.md` + `docs/adr/` at the repo root). See `docs/agents/domain.md`.

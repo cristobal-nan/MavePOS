@@ -154,39 +154,77 @@ export class ProductService {
     let targetId: number
     if (existing) {
       targetId = existing.id!
-      this.db.prepare(`
-        UPDATE products SET
-          code = ?,
-          name = ?,
-          search_name = ?,
-          product_type = ?,
-          parent_id = ?,
-          attribute_name = ?,
-          attribute_value = ?,
-          sale_price = ?,
-          cost_price = ?,
-          category_id = ?,
-          stock = ?,
-          min_stock = ?,
-          active = 1,
-          updated_at = ?
-        WHERE id = ?
-      `).run(
-        trimmedCode,
-        trimmedName,
-        searchName,
-        productType,
-        parentId,
-        attributeName,
-        attributeValue,
-        salePrice,
-        costPrice,
-        categoryId,
-        stock,
-        minStock,
-        now,
-        targetId
-      )
+      const oldCode = existing.code
+      const isCodeChanged = Boolean(trimmedCode && oldCode && trimmedCode !== oldCode)
+
+      const updateTx = this.db.transaction(() => {
+        if (isCodeChanged) {
+          this.db.exec('PRAGMA defer_foreign_keys = ON;')
+        }
+
+        this.db.prepare(`
+          UPDATE products SET
+            code = ?,
+            name = ?,
+            search_name = ?,
+            product_type = ?,
+            parent_id = ?,
+            attribute_name = ?,
+            attribute_value = ?,
+            sale_price = ?,
+            cost_price = ?,
+            category_id = ?,
+            stock = ?,
+            min_stock = ?,
+            active = 1,
+            updated_at = ?
+          WHERE id = ?
+        `).run(
+          trimmedCode,
+          trimmedName,
+          searchName,
+          productType,
+          parentId,
+          attributeName,
+          attributeValue,
+          salePrice,
+          costPrice,
+          categoryId,
+          stock,
+          minStock,
+          now,
+          targetId
+        )
+
+        if (isCodeChanged && oldCode) {
+          // Migrar historial de kardex e items de venta al nuevo código sin perder referencias
+          this.db.prepare('UPDATE inventory_movements SET product_code = ? WHERE product_code = ?').run(trimmedCode, oldCode)
+          this.db.prepare('UPDATE sale_items SET product_code = ? WHERE product_code = ?').run(trimmedCode, oldCode)
+        }
+
+        // Si es un producto variable padre y cambió su nombre o categoría, sincronizar sus variaciones activas
+        if (productType === 'variable') {
+          const children = this.db
+            .prepare('SELECT id, attribute_value FROM products WHERE parent_id = ? AND active = 1')
+            .all(targetId) as { id: number; attribute_value: string | null }[]
+
+          for (const child of children) {
+            const childName = `${trimmedName} ${child.attribute_value || ''}`.trim()
+            const childSearchName = normalizeSearchName(childName)
+            this.db.prepare(`
+              UPDATE products SET
+                name = ?,
+                search_name = ?,
+                category_id = ?,
+                attribute_name = ?,
+                updated_at = ?
+              WHERE id = ?
+            `).run(childName, childSearchName, categoryId, attributeName, now, child.id)
+          }
+        }
+      })
+
+      updateTx()
     } else {
       const result = this.db.prepare(`
         INSERT INTO products (
@@ -219,6 +257,17 @@ export class ProductService {
       const insertSupplierStmt = this.db.prepare('INSERT OR IGNORE INTO product_suppliers (product_id, supplier_id) VALUES (?, ?)')
       for (const sId of input.supplier_ids) {
         insertSupplierStmt.run(targetId, sId)
+      }
+
+      // Si es producto variable, sincronizar proveedores en sus variaciones
+      if (productType === 'variable') {
+        const children = this.db.prepare('SELECT id FROM products WHERE parent_id = ? AND active = 1').all(targetId) as { id: number }[]
+        for (const child of children) {
+          this.db.prepare('DELETE FROM product_suppliers WHERE product_id = ?').run(child.id)
+          for (const sId of input.supplier_ids) {
+            insertSupplierStmt.run(child.id, sId)
+          }
+        }
       }
     }
 
@@ -577,12 +626,12 @@ export class ProductService {
     const safeOrderDir = orderDir.toUpperCase() === 'DESC' ? 'DESC' : 'ASC'
     let orderClause: string
     if (orderBy === 'stock') {
-      orderClause = `ORDER BY p.stock ${safeOrderDir}, COALESCE(parent.search_name, p.search_name) ASC, p.search_name ASC`
+      orderClause = `ORDER BY p.stock ${safeOrderDir}, COALESCE(parent.search_name, p.search_name) ASC, p.search_name ASC, p.id ASC`
     } else if (orderBy === 'sale_price') {
-      orderClause = `ORDER BY p.sale_price ${safeOrderDir}, COALESCE(parent.search_name, p.search_name) ASC, p.search_name ASC`
+      orderClause = `ORDER BY p.sale_price ${safeOrderDir}, COALESCE(parent.search_name, p.search_name) ASC, p.search_name ASC, p.id ASC`
     } else {
       // Orden alfabético según el producto padre (o simple), y luego por la variación
-      orderClause = `ORDER BY COALESCE(parent.search_name, p.search_name) ${safeOrderDir}, p.search_name ${safeOrderDir}`
+      orderClause = `ORDER BY COALESCE(parent.search_name, p.search_name) ${safeOrderDir}, p.search_name ${safeOrderDir}, p.id ASC`
     }
 
     const sql = `

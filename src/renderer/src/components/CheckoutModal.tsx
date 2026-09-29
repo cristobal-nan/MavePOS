@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { PaymentMethod, CompletedSaleResult } from '@shared/types'
 import { formatCLP, parseCLP } from '../utils/formatters'
+import { calculatePaymentChange } from '@shared/finance'
 import { useSalesStore } from '../store/salesStore'
 import { useCashStore } from '../store/cashStore'
 
@@ -70,7 +71,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   if (!isOpen) return null
 
   const parsedCashGiven = parseCLP(cashGiven)
-  const cashChange = Math.max(0, parsedCashGiven - totalAmount)
+  const { change: cashChange } = calculatePaymentChange(totalAmount, parsedCashGiven)
 
   // Quick cash bill shortcuts
   const commonBills = [

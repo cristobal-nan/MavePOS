@@ -9,12 +9,35 @@ import {
   ThermalPaperWidth
 } from '../../shared/types'
 import { SettingsService } from './settingsService'
+import {
+  BusinessInfo,
+  buildThermalReceipt,
+  buildThermalTestTicket,
+  generateNormalReceiptHtml
+} from './printing/ticketTemplates'
 
 export class PrinterService {
   constructor(
     private db: Database.Database,
     private settingsService: SettingsService
   ) {}
+
+  /**
+   * Retrieves business fiscal and header data from the settings table.
+   */
+  getBusinessInfo(): BusinessInfo {
+    return {
+      name: this.settingsService.get('business_name', 'PUNTO DE VENTA') || 'PUNTO DE VENTA',
+      rut: this.settingsService.get('business_rut', '') || '',
+      activity: this.settingsService.get('business_activity', '') || '',
+      address: this.settingsService.get('business_address', '') || '',
+      phone: this.settingsService.get('business_phone', '') || '',
+      email: this.settingsService.get('business_email', '') || '',
+      footerMessage:
+        this.settingsService.get('ticket_footer_message', '¡Gracias por su preferencia!') ||
+        '¡Gracias por su preferencia!'
+    }
+  }
 
   /**
    * Retrieves user printer configuration from settings table with sensible defaults.
@@ -94,7 +117,6 @@ export class PrinterService {
   createPrinterInstance(customConfig?: Partial<PrinterConfig>): any {
     const config = { ...this.getPrinterConfig(), ...customConfig }
     const printerType = config.thermalType === 'star' ? PrinterTypes.STAR : PrinterTypes.EPSON
-
     const widthChars = config.paperWidth === '58mm' ? 32 : 48
 
     // Resolve interface target
@@ -115,110 +137,17 @@ export class PrinterService {
   }
 
   /**
-   * Builds the formatted ESC/POS receipt for a sale.
+   * Builds the formatted ESC/POS receipt for a sale, delegating layout to ticketTemplates.
    */
   buildReceiptCommands(printerObj: any, saleDetail: SaleDetail, change = 0): void {
-    const { printer, widthChars, config } = printerObj
-
-    // Business Data from settings
-    const businessName = this.settingsService.get('business_name', 'PUNTO DE VENTA') || 'PUNTO DE VENTA'
-    const businessRut = this.settingsService.get('business_rut', '') || ''
-    const businessActivity = this.settingsService.get('business_activity', '') || ''
-    const businessAddress = this.settingsService.get('business_address', '') || ''
-    const businessPhone = this.settingsService.get('business_phone', '') || ''
-    const businessEmail = this.settingsService.get('business_email', '') || ''
-    const footerMsg =
-      this.settingsService.get('ticket_footer_message', '¡Gracias por su preferencia!') || '¡Gracias por su preferencia!'
-
-    // 1. Header
-    printer.alignCenter()
-    printer.bold(true)
-    printer.setTextDoubleHeight()
-    printer.println(businessName)
-    printer.setTextNormal()
-    printer.bold(false)
-
-    if (businessRut) printer.println(`RUT: ${businessRut}`)
-    if (businessActivity) printer.println(businessActivity)
-    if (businessAddress) printer.println(businessAddress)
-    if (businessPhone) printer.println(`Tel: ${businessPhone}`)
-    if (businessEmail) printer.println(businessEmail)
-
-    printer.println('-'.repeat(widthChars))
-
-    // 2. Transaction details
-    printer.alignLeft()
-    printer.bold(true)
-    printer.println(`FOLIO DE VENTA: #${saleDetail.folio ?? saleDetail.id}`)
-    printer.bold(false)
-    printer.println(`Ticket de Turno: #${saleDetail.ticket_number ?? 0}`)
-
-    const saleDate = saleDetail.completed_at || saleDetail.created_at || new Date().toISOString()
-    const formattedDate = new Date(saleDate).toLocaleString('es-CL')
-    printer.println(`Fecha: ${formattedDate}`)
-    printer.println('-'.repeat(widthChars))
-
-    // 3. Items list
-    printer.bold(true)
-    printer.leftRight('CANT / DESCRIPCION', 'TOTAL')
-    printer.bold(false)
-    printer.println('-'.repeat(widthChars))
-
-    for (const item of saleDetail.items) {
-      const itemQty = item.quantity - (item.returned_qty || 0)
-      if (itemQty <= 0) continue
-
-      const itemTotal = itemQty * item.unit_price
-      const totalStr = `$ ${itemTotal.toLocaleString('es-CL')}`
-      const nameStr = `${itemQty}x ${item.name}`
-
-      printer.leftRight(nameStr, totalStr)
-      if (item.unit_price) {
-        printer.println(`  ($ ${item.unit_price.toLocaleString('es-CL')} c/u)`)
-      }
-    }
-
-    printer.println('-'.repeat(widthChars))
-
-    // 4. Totals and Payments
-    printer.alignRight()
-    printer.bold(true)
-    printer.setTextDoubleHeight()
-    printer.println(`TOTAL: $ ${saleDetail.total.toLocaleString('es-CL')}`)
-    printer.setTextNormal()
-    printer.bold(false)
-
-    printer.alignLeft()
-    if (saleDetail.payments && saleDetail.payments.length > 0) {
-      printer.println('FORMAS DE PAGO:')
-      const methodLabels: Record<string, string> = {
-        cash: 'Efectivo',
-        card: 'Tarjeta',
-        transfer: 'Transferencia'
-      }
-      for (const p of saleDetail.payments) {
-        const mLabel = methodLabels[p.method] || p.method
-        printer.leftRight(`  ${mLabel}:`, `$ ${p.amount.toLocaleString('es-CL')}`)
-      }
-    }
-
-    if (change > 0) {
-      printer.leftRight('  Vuelto:', `$ ${change.toLocaleString('es-CL')}`)
-    }
-
-    // 5. Footer & Courtesy Message
-    printer.println('-'.repeat(widthChars))
-    printer.alignCenter()
-    printer.println(footerMsg)
-    printer.newLine()
-
-    // 6. Cash drawer pulse (if enabled)
-    if (config.openDrawerOnPrint) {
-      printer.openCashDrawer()
-    }
-
-    // 7. Paper cut
-    printer.cut()
+    buildThermalReceipt({
+      printer: printerObj.printer,
+      widthChars: printerObj.widthChars,
+      saleDetail,
+      change,
+      openDrawerOnPrint: printerObj.config.openDrawerOnPrint,
+      business: this.getBusinessInfo()
+    })
   }
 
   /**
@@ -286,27 +215,12 @@ export class PrinterService {
 
     const businessName = this.settingsService.get('business_name', 'MAVE POS') || 'MAVE POS'
 
-    printer.alignCenter()
-    printer.bold(true)
-    printer.setTextDoubleHeight()
-    printer.println('*** TICKET DE PRUEBA ***')
-    printer.setTextNormal()
-    printer.println(businessName)
-    printer.bold(false)
-    printer.println('-'.repeat(widthChars))
-
-    printer.alignLeft()
-    printer.println('Impresora térmica: CONECTADA')
-    printer.println(`Ancho configurado: ${printerObj.config.paperWidth} (${widthChars} columnas)`)
-    printer.println(`Fecha y Hora: ${new Date().toLocaleString('es-CL')}`)
-    printer.println('-'.repeat(widthChars))
-
-    printer.leftRight('Prueba de alineación:', 'OK $ 10.000')
-    printer.alignCenter()
-    printer.println('¡Test de impresión completado exitosamente!')
-    printer.newLine()
-
-    printer.cut()
+    buildThermalTestTicket({
+      printer,
+      widthChars,
+      paperWidth: printerObj.config.paperWidth,
+      businessName
+    })
 
     try {
       if (!printerObj.config.thermalInterface) {
@@ -330,92 +244,7 @@ export class PrinterService {
    * Generates a printable HTML string for regular document printers (A4/Carta).
    */
   generateNormalReceiptHtml(saleDetail: SaleDetail): string {
-    const businessName = this.settingsService.get('business_name', 'Lanas & Tejidos Mave') || 'Lanas & Tejidos Mave'
-    const businessRut = this.settingsService.get('business_rut', '') || ''
-    const businessActivity = this.settingsService.get('business_activity', '') || ''
-    const businessAddress = this.settingsService.get('business_address', '') || ''
-    const businessPhone = this.settingsService.get('business_phone', '') || ''
-    const footerMsg =
-      this.settingsService.get('ticket_footer_message', '¡Gracias por su compra!') || '¡Gracias por su compra!'
-
-    const dateStr = new Date(saleDetail.completed_at || saleDetail.created_at || Date.now()).toLocaleString('es-CL')
-
-    const itemRows = saleDetail.items
-      .map((item) => {
-        const qty = item.quantity - (item.returned_qty || 0)
-        if (qty <= 0) return ''
-        const total = qty * item.unit_price
-        return `
-          <tr style="border-bottom: 1px solid #e2e8f0;">
-            <td style="padding: 8px; font-family: monospace;">${item.product_code}</td>
-            <td style="padding: 8px; font-weight: bold;">${item.name}</td>
-            <td style="padding: 8px; text-align: center;">${qty}</td>
-            <td style="padding: 8px; text-align: right;">$ ${item.unit_price.toLocaleString('es-CL')}</td>
-            <td style="padding: 8px; text-align: right; font-weight: bold;">$ ${total.toLocaleString('es-CL')}</td>
-          </tr>
-        `
-      })
-      .join('')
-
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8" />
-        <title>Comprobante de Venta #${saleDetail.folio}</title>
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #1e293b; padding: 24px; max-width: 650px; margin: auto; }
-          .header { text-align: center; margin-bottom: 24px; border-bottom: 2px solid #8b5cf6; padding-bottom: 12px; }
-          .header h1 { margin: 0 0 6px 0; color: #6d28d9; font-size: 20px; }
-          .header p { margin: 2px 0; font-size: 12px; color: #64748b; }
-          .details { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 16px; background: #f8fafc; padding: 12px; border-radius: 8px; }
-          table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px; }
-          th { background: #f1f5f9; padding: 8px; text-align: left; font-size: 11px; text-transform: uppercase; color: #475569; }
-          .totals { text-align: right; font-size: 14px; margin-top: 12px; }
-          .total-amount { font-size: 18px; font-weight: 900; color: #6d28d9; }
-          .footer { text-align: center; margin-top: 32px; font-size: 11px; color: #94a3b8; border-top: 1px dashed #cbd5e1; padding-top: 12px; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>${businessName}</h1>
-          ${businessRut ? `<p>RUT: ${businessRut}</p>` : ''}
-          ${businessActivity ? `<p>${businessActivity}</p>` : ''}
-          ${businessAddress ? `<p>${businessAddress}</p>` : ''}
-          ${businessPhone ? `<p>Tel: ${businessPhone}</p>` : ''}
-        </div>
-        <div class="details">
-          <div>
-            <strong>FOLIO: #${saleDetail.folio ?? saleDetail.id}</strong><br />
-            <span>Ticket: #${saleDetail.ticket_number ?? 0}</span>
-          </div>
-          <div style="text-align: right;">
-            <span>Fecha: ${dateStr}</span>
-          </div>
-        </div>
-        <table>
-          <thead>
-            <tr>
-              <th>Código</th>
-              <th>Producto</th>
-              <th style="text-align: center;">Cant.</th>
-              <th style="text-align: right;">Unitario</th>
-              <th style="text-align: right;">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemRows}
-          </tbody>
-        </table>
-        <div class="totals">
-          <p>Total a Pagar: <span class="total-amount">$ ${saleDetail.total.toLocaleString('es-CL')}</span></p>
-        </div>
-        <div class="footer">
-          <p>${footerMsg}</p>
-        </div>
-      </body>
-      </html>
-    `
+    return generateNormalReceiptHtml(saleDetail, this.getBusinessInfo())
   }
 
   /**

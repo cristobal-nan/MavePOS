@@ -21,11 +21,14 @@ interface CatalogState {
     actions: number
   }
   isLoading: boolean
+  isLoadingMore: boolean
+  hasMore: boolean
   error: string | null
 
   // Actions
   loadMetadata: () => Promise<void>
   fetchProducts: (customQuery?: string) => Promise<void>
+  loadMoreProducts: () => Promise<void>
   setSearchQuery: (query: string) => void
   setSelectedCategory: (catId: number | null) => void
   setSelectedSupplier: (supId: number | null) => void
@@ -66,13 +69,15 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     actions: 100
   },
   isLoading: false,
+  isLoadingMore: false,
+  hasMore: false,
   error: null,
 
   loadMetadata: async () => {
     try {
       const [cats, sups] = await Promise.all([
-        window.api.getCategories(),
-        window.api.getSuppliers()
+        window.api.catalog.getCategories(),
+        window.api.catalog.getSuppliers()
       ])
       set({ categories: cats, suppliers: sups })
     } catch (err: any) {
@@ -98,7 +103,8 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
         pType = selectedProductType as ProductType
       }
 
-      const results = await window.api.searchProducts({
+      const PAGE_SIZE = 150
+      const results = await window.api.catalog.search({
         query,
         categoryId: selectedCategory,
         supplierId: selectedSupplier,
@@ -106,12 +112,80 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
         onlySellable,
         orderBy,
         orderDir,
-        limit: 300
+        limit: PAGE_SIZE,
+        offset: 0
       })
-      set({ products: results, isLoading: false })
+
+      set({
+        products: results,
+        hasMore: results.length === PAGE_SIZE,
+        isLoading: false
+      })
     } catch (err: any) {
       console.error('Error buscando productos:', err)
       set({ error: err.message, isLoading: false })
+    }
+  },
+
+  loadMoreProducts: async () => {
+    const {
+      isLoading,
+      isLoadingMore,
+      hasMore,
+      products,
+      searchQuery,
+      selectedCategory,
+      selectedSupplier,
+      selectedProductType,
+      orderBy,
+      orderDir
+    } = get()
+
+    if (isLoading || isLoadingMore || !hasMore) return
+
+    set({ isLoadingMore: true })
+    try {
+      let onlySellable: boolean | undefined = undefined
+      let pType: ProductType | undefined = undefined
+
+      if (selectedProductType === 'sellable') {
+        onlySellable = true
+      } else if (selectedProductType === 'all') {
+        onlySellable = false
+      } else {
+        pType = selectedProductType as ProductType
+      }
+
+      const PAGE_SIZE = 150
+      const results = await window.api.catalog.search({
+        query: searchQuery,
+        categoryId: selectedCategory,
+        supplierId: selectedSupplier,
+        productType: pType,
+        onlySellable,
+        orderBy,
+        orderDir,
+        limit: PAGE_SIZE,
+        offset: products.length
+      })
+
+      if (results.length === 0) {
+        set({ hasMore: false, isLoadingMore: false })
+        return
+      }
+
+      // Evitar duplicados por seguridad
+      const existingIds = new Set(products.map((p) => p.id))
+      const newItems = results.filter((p) => !existingIds.has(p.id))
+
+      set({
+        products: [...products, ...newItems],
+        hasMore: results.length === PAGE_SIZE,
+        isLoadingMore: false
+      })
+    } catch (err: any) {
+      console.error('Error cargando más productos:', err)
+      set({ error: err.message, isLoadingMore: false })
     }
   },
 
@@ -156,23 +230,23 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
   },
 
   saveProduct: async (input: ProductInput) => {
-    const product = await window.api.saveProduct(input)
+    const product = await window.api.catalog.saveProduct(input)
     await get().fetchProducts()
     return product
   },
 
   saveVariableProduct: async (parent: ProductInput, variations: ProductInput[]) => {
-    const result = await window.api.saveVariableProduct(parent, variations)
+    const result = await window.api.catalog.saveVariableProduct(parent, variations)
     await get().fetchProducts()
     return result
   },
 
   getVariations: async (parentId: number) => {
-    return await window.api.getVariations(parentId)
+    return await window.api.catalog.getVariations(parentId)
   },
 
   deleteProduct: async (codeOrId: string | number) => {
-    const ok = await window.api.deleteProduct(codeOrId)
+    const ok = await window.api.catalog.deleteProduct(codeOrId)
     if (ok) {
       await get().fetchProducts()
     }
@@ -180,43 +254,43 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
   },
 
   bulkDeleteProducts: async (productIds: number[]) => {
-    const res = await window.api.bulkDeleteProducts(productIds)
+    const res = await window.api.catalog.bulkDelete(productIds)
     await get().fetchProducts()
     return res
   },
 
   bulkUpdateCategory: async (productIds: number[], categoryId?: number | null, supplierIds?: number[]) => {
-    const res = await window.api.bulkUpdateCategory(productIds, categoryId, supplierIds)
+    const res = await window.api.catalog.bulkUpdateCategory(productIds, categoryId, supplierIds)
     await get().fetchProducts()
     return res
   },
 
   groupProductsAsVariable: async (input: GroupAsVariableInput) => {
-    const res = await window.api.groupProductsAsVariable(input)
+    const res = await window.api.catalog.groupAsVariable(input)
     await get().fetchProducts()
     return res
   },
 
   saveCategory: async (name: string, parentId?: number | null, id?: number) => {
-    const cat = await window.api.saveCategory(name, parentId, id)
+    const cat = await window.api.catalog.saveCategory(name, parentId, id)
     await get().loadMetadata()
     return cat
   },
 
   deleteCategory: async (id: number) => {
-    await window.api.deleteCategory(id)
+    await window.api.catalog.deleteCategory(id)
     await get().loadMetadata()
     await get().fetchProducts()
   },
 
   saveSupplier: async (name: string, id?: number) => {
-    const sup = await window.api.saveSupplier(name, id)
+    const sup = await window.api.catalog.saveSupplier(name, id)
     await get().loadMetadata()
     return sup
   },
 
   deleteSupplier: async (id: number) => {
-    const ok = await window.api.deleteSupplier(id)
+    const ok = await window.api.catalog.deleteSupplier(id)
     await get().loadMetadata()
     await get().fetchProducts()
     return ok
@@ -224,7 +298,7 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
 
   seedSampleData: async () => {
     set({ isLoading: true })
-    await window.api.seedSampleData()
+    await window.api.catalog.seedSampleData()
     await get().loadMetadata()
     await get().fetchProducts()
     set({ isLoading: false })

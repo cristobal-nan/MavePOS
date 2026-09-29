@@ -3,6 +3,7 @@ import Database from 'better-sqlite3'
 import { runMigrations } from '../main/db/migrations'
 import { SettingsService } from '../main/services/settingsService'
 import { PrinterService } from '../main/services/printerService'
+import { generateNormalReceiptHtml as generateHtmlPure } from '../main/services/printing/ticketTemplates'
 import { SaleDetail } from '../shared/types'
 
 describe('Fase 9: Impresión y Tickets Térmicos (ESC/POS y Periféricos)', () => {
@@ -202,6 +203,51 @@ describe('Fase 9: Impresión y Tickets Térmicos (ESC/POS y Periféricos)', () =
       const res = await printerService.printTestTicket({ thermalInterface: '' })
       expect(res.success).toBe(false)
       expect(res.error).toMatch(/Por favor selecciona una impresora térmica/)
+    })
+  })
+
+  describe('Módulo Puro de Plantillas de Comprobantes (ticketTemplates.ts)', () => {
+    it('genera HTML con los datos de negocio proporcionados independientemente del hardware', () => {
+      const mockSaleDetail: SaleDetail = {
+        id: 99,
+        folio: 501,
+        ticket_number: 12,
+        status: 'completed',
+        total: 15990,
+        cash_session_id: 2,
+        created_at: '2026-09-29T10:00:00.000Z',
+        completed_at: '2026-09-29T10:00:00.000Z',
+        items: [
+          {
+            id: 10,
+            sale_id: 99,
+            product_code: 'LANA-ROJA',
+            name: 'Lana Merino Roja',
+            unit_price: 7995,
+            quantity: 2,
+            returned_qty: 0
+          }
+        ],
+        payments: [{ id: 5, sale_id: 99, method: 'cash', amount: 15990 }],
+        total_items: 2,
+        returned_items_count: 0
+      }
+
+      const businessInfo = {
+        name: 'Tienda Creativa Mave',
+        rut: '77.111.222-3',
+        address: 'Av. Providencia 1234',
+        phone: '+56 9 8765 4321',
+        footerMessage: 'Gracias por preferir nuestro trabajo hecho a mano'
+      }
+
+      const html = generateHtmlPure(mockSaleDetail, businessInfo)
+      expect(html).toContain('Tienda Creativa Mave')
+      expect(html).toContain('77.111.222-3')
+      expect(html).toContain('Av. Providencia 1234')
+      expect(html).toContain('Gracias por preferir nuestro trabajo hecho a mano')
+      expect(html).toContain('$ 15.990')
+      expect(html).toContain('Lana Merino Roja')
     })
   })
 })

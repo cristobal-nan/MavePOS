@@ -89,7 +89,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
   fetchLowStock: async () => {
     set({ isLoading: true, error: null })
     try {
-      const items = await window.api.getLowStockProducts()
+      const items = await window.api.inventory.getLowStock()
       set({ lowStockProducts: items, isLoading: false })
     } catch (err: any) {
       console.error('Error cargando productos con stock bajo:', err)
@@ -105,7 +105,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
 
     try {
       const typeParam = type === 'all' ? undefined : (type as MovementType)
-      const list = await window.api.getInventoryMovements(date, typeParam)
+      const list = await window.api.inventory.getMovements(date, typeParam)
       set({ movements: list, isLoading: false })
     } catch (err: any) {
       console.error('Error cargando movimientos de inventario:', err)
@@ -116,7 +116,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
   fetchKardex: async (productCode: string) => {
     set({ isLoading: true, error: null })
     try {
-      const list = await window.api.getProductKardex(productCode)
+      const list = await window.api.inventory.getKardex(productCode)
       set({ kardexMovements: list, isLoading: false })
     } catch (err: any) {
       console.error('Error cargando kardex del producto:', err)
@@ -127,7 +127,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
   adjustStock: async (input: AdjustStockInput) => {
     set({ isLoading: true, error: null })
     try {
-      const res = await window.api.adjustStock(input)
+      const res = await window.api.inventory.adjustStock(input)
       // Actualizar producto seleccionado si es el mismo
       const currentSelected = get().selectedProduct
       if (currentSelected && currentSelected.code === input.product_code) {

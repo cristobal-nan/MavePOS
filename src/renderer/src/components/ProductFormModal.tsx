@@ -9,7 +9,8 @@ import {
   GitBranch,
   Plus,
   Trash2,
-  Truck
+  Truck,
+  AlertTriangle
 } from 'lucide-react'
 import { ProductInput, ProductSearchResult, ProductType } from '@shared/types'
 import { useCatalogStore } from '../store/catalogStore'
@@ -41,6 +42,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [productType, setProductType] = useState<ProductType>('simple')
   const [code, setCode] = useState('')
   const [name, setName] = useState('')
+  const [parentName, setParentName] = useState('')
+  const [attributeValue, setAttributeValue] = useState('')
   const [salePrice, setSalePrice] = useState('')
   const [costPrice, setCostPrice] = useState('')
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null)
@@ -57,14 +60,19 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const isEditingVariation = Boolean(product && (product.product_type === 'variation' || product.parent_id))
+  const isEditingSimple = Boolean(product && product.product_type === 'simple')
+
   useEffect(() => {
     if (product) {
-      setProductType(product.product_type || 'simple')
+      const pType = product.product_type || (product.parent_id ? 'variation' : 'simple')
+      setProductType(pType)
       setCode(product.code || '')
-      setName(product.name)
+      setName(product.name || '')
       setSalePrice(product.sale_price ? product.sale_price.toLocaleString('es-CL') : '')
       setCostPrice(product.cost_price ? product.cost_price.toLocaleString('es-CL') : '')
       setAttributeName(product.attribute_name || 'Color')
+      setAttributeValue(product.attribute_value || '')
       setStock(product.stock !== undefined ? product.stock.toString() : '0')
       setMinStock(product.min_stock !== undefined ? product.min_stock.toString() : '5')
       setSelectedCategoryId(product.category_id || null)
@@ -72,7 +80,24 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       // Resolve suppliers
       const supIds = product.supplier_ids || product.suppliers?.map((s) => s.id) || []
       setSelectedSupplierIds(new Set(supIds))
-      if (product.id && supIds.length === 0) {
+
+      if (product.parent_id) {
+        setParentName(product.parent_name || '')
+        window.api.getProductById(product.parent_id).then((parentProd) => {
+          if (parentProd) {
+            setParentName(parentProd.name)
+            if (parentProd.category_id && !product.category_id) {
+              setSelectedCategoryId(parentProd.category_id)
+            }
+            if (parentProd.attribute_name) {
+              setAttributeName(parentProd.attribute_name)
+            }
+            if (parentProd.supplier_ids && parentProd.supplier_ids.length > 0 && supIds.length === 0) {
+              setSelectedSupplierIds(new Set(parentProd.supplier_ids))
+            }
+          }
+        })
+      } else if (product.id && supIds.length === 0) {
         window.api.getProductById(product.id).then((fullProd) => {
           if (fullProd?.supplier_ids && fullProd.supplier_ids.length > 0) {
             setSelectedSupplierIds(new Set(fullProd.supplier_ids))
@@ -80,7 +105,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         })
       }
 
-      // If variable product, fetch its variations
+      // If variable product container
       if (product.product_type === 'variable' && product.id) {
         getVariations(product.id).then((vars) => {
           setVariations(
@@ -103,6 +128,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setProductType('simple')
       setCode('')
       setName('')
+      setParentName('')
+      setAttributeValue('')
       setSalePrice('')
       setCostPrice('')
       setSelectedCategoryId(null)
@@ -150,7 +177,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         salePrice: salePrice || '',
         costPrice: costPrice || '',
         stock: '0',
-        minStock: '5'
+        minStock: minStock || '5'
       }
     ])
   }
@@ -169,15 +196,80 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     e.preventDefault()
     setError(null)
 
-    if (!name.trim()) {
-      setError('El nombre del producto es obligatorio.')
-      return
-    }
-
     const finalCategoryId = selectedCategoryId
     const supplierIdsArray = Array.from(selectedSupplierIds)
 
-    if (productType === 'simple' || productType === 'variation') {
+    // CASO 1: Edición de una Variación de un Producto Variable
+    if (isEditingVariation && product?.parent_id) {
+      if (!parentName.trim()) {
+        setError('El nombre del producto padre es obligatorio.')
+        return
+      }
+      if (!attributeValue.trim()) {
+        setError(`El valor del atributo (${attributeName}) es obligatorio.`)
+        return
+      }
+      if (!code.trim()) {
+        setError('El código de barras / SKU de la variación es obligatorio.')
+        return
+      }
+
+      const parsedSalePrice = parseCLP(salePrice)
+      if (parsedSalePrice <= 0) {
+        setError('El precio de venta debe ser un número entero mayor a 0.')
+        return
+      }
+
+      const parsedCostPrice = costPrice.trim() ? parseCLP(costPrice) : null
+      const parsedStock = parseInt(stock, 10) || 0
+      const parsedMinStock = parseInt(minStock, 10) || 0
+
+      setIsSubmitting(true)
+      try {
+        // 1. Guardar y actualizar producto padre (sincronizará nombre y relaciones)
+        await saveProduct({
+          id: product.parent_id,
+          name: parentName.trim(),
+          product_type: 'variable',
+          category_id: finalCategoryId,
+          supplier_ids: supplierIdsArray,
+          attribute_name: attributeName.trim()
+        })
+
+        // 2. Guardar variación específica
+        const variationInput: ProductInput = {
+          id: product.id,
+          code: code.trim(),
+          name: `${parentName.trim()} ${attributeValue.trim()}`,
+          product_type: 'variation',
+          parent_id: product.parent_id,
+          attribute_name: attributeName.trim(),
+          attribute_value: attributeValue.trim(),
+          sale_price: parsedSalePrice,
+          cost_price: parsedCostPrice,
+          category_id: finalCategoryId,
+          supplier_ids: supplierIdsArray,
+          stock: parsedStock,
+          min_stock: parsedMinStock
+        }
+
+        await saveProduct(variationInput)
+        onClose()
+      } catch (err: any) {
+        console.error('Error guardando variación:', err)
+        setError(err.message || 'Error al guardar variación.')
+      } finally {
+        setIsSubmitting(false)
+      }
+      return
+    }
+
+    // CASO 2: Producto Simple
+    if (productType === 'simple') {
+      if (!name.trim()) {
+        setError('El nombre del producto es obligatorio.')
+        return
+      }
       if (!code.trim()) {
         setError('El código de barras / SKU es obligatorio.')
         return
@@ -197,10 +289,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         id: product?.id,
         code: code.trim(),
         name: name.trim(),
-        product_type: productType,
-        parent_id: product?.parent_id || null,
-        attribute_name: product?.attribute_name || attributeName.trim(),
-        attribute_value: product?.attribute_value || null,
+        product_type: 'simple',
         sale_price: parsedSalePrice,
         cost_price: parsedCostPrice,
         category_id: finalCategoryId,
@@ -219,14 +308,20 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       } finally {
         setIsSubmitting(false)
       }
-    } else {
-      // Variable Product with variations
+      return
+    }
+
+    // CASO 3: Nuevo Producto Variable (con tabla de variaciones)
+    if (productType === 'variable') {
+      if (!name.trim()) {
+        setError('El nombre general del producto variable es obligatorio.')
+        return
+      }
       if (variations.length === 0) {
         setError('Un producto variable debe tener al menos una variación.')
         return
       }
 
-      // Validate each variation row
       for (let i = 0; i < variations.length; i++) {
         const v = variations[i]
         if (!v.attributeValue.trim()) {
@@ -285,14 +380,20 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl border border-lilac-100 max-w-3xl w-full overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white rounded-2xl shadow-2xl border border-lilac-100 max-w-3xl w-full overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150 select-text">
         {/* Modal Header */}
-        <div className="px-6 py-4 bg-slate-50 border-b border-lilac-100 flex items-center justify-between">
+        <div className="px-6 py-4 bg-slate-50 border-b border-lilac-100 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2 text-slate-800 font-bold text-base">
             <div className="w-8 h-8 rounded-lg bg-lilac-100 text-lilac-600 flex items-center justify-center">
               <Package className="w-4 h-4" />
             </div>
-            <span>{product ? 'Editar Producto' : 'Nuevo Producto'}</span>
+            <span>
+              {isEditingVariation
+                ? 'Editar Producto Variable (Padre y Variación)'
+                : isEditingSimple
+                ? 'Editar Producto Simple'
+                : 'Nuevo Producto'}
+            </span>
           </div>
           <button
             onClick={onClose}
@@ -303,14 +404,14 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5">
           {error && (
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium">
               {error}
             </div>
           )}
 
-          {/* Selector de Tipo (Simple vs Variable) - Solo editable al crear nuevo */}
+          {/* Selector de Tipo (Simple vs Variable) - Solo al crear nuevo producto */}
           {!product && (
             <div className="flex items-center gap-3 bg-slate-100/80 p-1.5 rounded-xl border border-slate-200/60">
               <button
@@ -340,101 +441,349 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             </div>
           )}
 
-          {/* Nombre General y Categorías */}
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                {productType === 'variable' ? 'Nombre General del Producto *' : 'Nombre del Producto *'}
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={productType === 'variable' ? 'Ej: Algodón Rústico' : 'Ej: Crochet Aluminio 4.0mm'}
-                className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500"
-              />
-            </div>
+          {/* CASO A: EDICIÓN DE UN PRODUCTO VARIABLE (PADRE + VARIACIÓN ESPECÍFICA) */}
+          {isEditingVariation ? (
+            <div className="space-y-5">
+              {/* Parte 1: Producto Padre */}
+              <div className="bg-slate-50/70 border border-slate-200 rounded-2xl p-4 space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
+                  <span className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <Package className="w-3.5 h-3.5 text-lilac-600" />
+                    <span>1. Datos del Producto Padre</span>
+                  </span>
+                  <span className="text-[11px] text-slate-400 font-medium">Contenedor General</span>
+                </div>
 
-            {/* Categoría */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
-                <Layers className="w-3.5 h-3.5 text-lilac-600" />
-                <span>Categoría</span>
-              </label>
-              <select
-                value={selectedCategoryId || ''}
-                onChange={(e) => setSelectedCategoryId(e.target.value ? Number(e.target.value) : null)}
-                className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500"
-              >
-                <option value="">-- Sin categoría --</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+                {/* Banner de Aviso */}
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 flex items-start gap-2.5">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold">Aviso importante:</p>
+                    <p className="text-[11px] text-amber-800 mt-0.5">
+                      Al modificar el nombre, la categoría o los proveedores del producto padre, los cambios se aplicarán y sincronizarán para todas las variaciones de este producto.
+                    </p>
+                  </div>
+                </div>
 
-            {/* Proveedores (Múltiples con Checkboxes) */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-                  <Truck className="w-3.5 h-3.5 text-lilac-600" />
-                  <span>Proveedores Asociados</span>
-                </label>
-                {!isAddingSupplierInline ? (
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingSupplierInline(true)}
-                    className="text-xs text-lilac-600 hover:text-lilac-700 font-bold flex items-center gap-1 hover:underline"
+                {/* Nombre Padre y Atributo */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Nombre del Producto Padre *
+                    </label>
+                    <input
+                      type="text"
+                      value={parentName}
+                      onChange={(e) => setParentName(e.target.value)}
+                      placeholder="Ej: Algodón Rústico"
+                      className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500 font-semibold text-slate-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Atributo General
+                    </label>
+                    <input
+                      type="text"
+                      value={attributeName}
+                      onChange={(e) => setAttributeName(e.target.value)}
+                      placeholder="Ej: Color, Talla"
+                      className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500 text-slate-700"
+                    />
+                  </div>
+                </div>
+
+                {/* Categoría Compartida */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                    <Layers className="w-3.5 h-3.5 text-lilac-600" />
+                    <span>Categoría</span>
+                  </label>
+                  <select
+                    value={selectedCategoryId || ''}
+                    onChange={(e) => setSelectedCategoryId(e.target.value ? Number(e.target.value) : null)}
+                    className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500"
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>+ Nuevo Proveedor</span>
-                  </button>
-                ) : null}
+                    <option value="">-- Sin categoría --</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Proveedores Compartidos */}
+                <div className="bg-white border border-slate-200 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                      <Truck className="w-3.5 h-3.5 text-lilac-600" />
+                      <span>Proveedores del Padre (compartidos por todas las variaciones)</span>
+                    </label>
+                    {!isAddingSupplierInline ? (
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingSupplierInline(true)}
+                        className="text-xs text-lilac-600 hover:text-lilac-700 font-bold flex items-center gap-1 hover:underline"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>+ Nuevo Proveedor</span>
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {isAddingSupplierInline && (
+                    <div className="flex items-center gap-2 p-2 bg-lilac-50 border border-lilac-200 rounded-lg">
+                      <input
+                        type="text"
+                        value={newInlineSupplierName}
+                        onChange={(e) => setNewInlineSupplierName(e.target.value)}
+                        placeholder="Nombre del nuevo proveedor..."
+                        className="flex-1 px-2.5 py-1 text-xs bg-white border border-slate-200 rounded focus:outline-none focus:border-lilac-500"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddInlineSupplier}
+                        className="px-2.5 py-1 bg-lilac-600 hover:bg-lilac-700 text-white rounded text-xs font-bold transition-colors"
+                      >
+                        Guardar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingSupplierInline(false)}
+                        className="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-2 max-h-28 overflow-y-auto p-0.5">
+                    {suppliers.map((sup) => {
+                      const isChecked = selectedSupplierIds.has(sup.id)
+                      return (
+                        <label
+                          key={sup.id}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium cursor-pointer transition-all ${
+                            isChecked
+                              ? 'bg-lilac-500 border-lilac-600 text-white shadow-sm'
+                              : 'bg-slate-50 border-slate-200 text-slate-700 hover:border-lilac-300'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              const next = new Set(selectedSupplierIds)
+                              if (e.target.checked) next.add(sup.id)
+                              else next.delete(sup.id)
+                              setSelectedSupplierIds(next)
+                            }}
+                            className="rounded text-lilac-600 focus:ring-lilac-500 w-3.5 h-3.5 accent-lilac-600 cursor-pointer"
+                          />
+                          <span>{sup.name}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
               </div>
 
-              {isAddingSupplierInline && (
-                <div className="flex items-center gap-2 p-2 bg-lilac-50 border border-lilac-200 rounded-lg">
-                  <input
-                    type="text"
-                    value={newInlineSupplierName}
-                    onChange={(e) => setNewInlineSupplierName(e.target.value)}
-                    placeholder="Nombre del nuevo proveedor..."
-                    className="flex-1 px-2.5 py-1 text-xs bg-white border border-slate-200 rounded focus:outline-none focus:border-lilac-500"
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        handleAddInlineSupplier()
-                      }
-                      if (e.key === 'Escape') {
-                        setIsAddingSupplierInline(false)
-                      }
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddInlineSupplier}
-                    className="px-2.5 py-1 bg-lilac-600 hover:bg-lilac-700 text-white rounded text-xs font-bold transition-colors"
-                  >
-                    Guardar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingSupplierInline(false)}
-                    className="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
+              {/* Parte 2: Variación Específica Seleccionada */}
+              <div className="bg-lilac-50/40 border border-lilac-200 rounded-2xl p-4 space-y-4">
+                <div className="flex items-center justify-between border-b border-lilac-200/80 pb-2">
+                  <span className="text-xs font-bold text-lilac-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <GitBranch className="w-3.5 h-3.5 text-lilac-600" />
+                    <span>2. Valores Específicos de la Variación</span>
+                  </span>
+                  <span className="text-xs font-bold text-lilac-700 bg-lilac-100 px-2.5 py-0.5 rounded-full">
+                    {attributeValue || 'Sin valor'}
+                  </span>
                 </div>
-              )}
 
-              {suppliers.length === 0 ? (
-                <p className="text-xs text-slate-400 italic py-1">
-                  No hay proveedores registrados aún. Haz clic en "+ Nuevo Proveedor" para crear uno.
-                </p>
-              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Código de barras / SKU (Editable) */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Código de Barras / SKU * (Editable)
+                    </label>
+                    <input
+                      type="text"
+                      value={code}
+                      onChange={(e) => setCode(e.target.value)}
+                      placeholder="Ej: 780123456"
+                      className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-xl font-mono text-slate-900 font-bold focus:outline-none focus:border-lilac-500"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-1 block">
+                      Se actualizará conservando todo el historial en el kardex.
+                    </span>
+                  </div>
+
+                  {/* Valor del Atributo */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Valor de la Variación ({attributeName || 'Atributo'}) *
+                    </label>
+                    <input
+                      type="text"
+                      value={attributeValue}
+                      onChange={(e) => setAttributeValue(e.target.value)}
+                      placeholder="Ej: Azul Marino, Rojo, XL..."
+                      className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-lilac-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Precios */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-3.5 rounded-xl border border-lilac-200">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                      <DollarSign className="w-3.5 h-3.5 text-lilac-600" />
+                      <span>Precio de Venta (CLP) *</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={salePrice}
+                      onChange={(e) => {
+                        const val = parseCLP(e.target.value)
+                        setSalePrice(val === 0 && !e.target.value.trim() ? '' : val.toLocaleString('es-CL'))
+                      }}
+                      placeholder="0"
+                      className="w-full px-3 py-2 text-sm font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                      <DollarSign className="w-3.5 h-3.5 text-slate-400" />
+                      <span>Precio de Costo (CLP opcional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={costPrice}
+                      onChange={(e) => {
+                        const val = parseCLP(e.target.value)
+                        setCostPrice(val === 0 && !e.target.value.trim() ? '' : val.toLocaleString('es-CL'))
+                      }}
+                      placeholder="Opcional"
+                      className="w-full px-3 py-2 text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Stock y Stock Mínimo */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                      <Boxes className="w-3.5 h-3.5 text-lilac-600" />
+                      <span>Existencia Actual (Stock)</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={stock}
+                      onChange={(e) => setStock(e.target.value)}
+                      min="0"
+                      className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500 font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Inventario Mínimo (Alerta)
+                    </label>
+                    <input
+                      type="number"
+                      value={minStock}
+                      onChange={(e) => setMinStock(e.target.value)}
+                      min="0"
+                      className="w-full px-3 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* CASO B: PRODUCTO SIMPLE O CREACIÓN NUEVA */
+            <div className="space-y-4">
+              {/* Nombre General */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  {productType === 'variable' ? 'Nombre General del Producto Variable *' : 'Nombre del Producto *'}
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder={productType === 'variable' ? 'Ej: Algodón Rústico' : 'Ej: Crochet Aluminio 4.0mm'}
+                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500 font-medium"
+                />
+              </div>
+
+              {/* Categoría */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                  <Layers className="w-3.5 h-3.5 text-lilac-600" />
+                  <span>Categoría</span>
+                </label>
+                <select
+                  value={selectedCategoryId || ''}
+                  onChange={(e) => setSelectedCategoryId(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500"
+                >
+                  <option value="">-- Sin categoría --</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Proveedores (Múltiples con Checkboxes) */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                    <Truck className="w-3.5 h-3.5 text-lilac-600" />
+                    <span>Proveedores Asociados</span>
+                  </label>
+                  {!isAddingSupplierInline ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingSupplierInline(true)}
+                      className="text-xs text-lilac-600 hover:text-lilac-700 font-bold flex items-center gap-1 hover:underline"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ Nuevo Proveedor</span>
+                    </button>
+                  ) : null}
+                </div>
+
+                {isAddingSupplierInline && (
+                  <div className="flex items-center gap-2 p-2 bg-lilac-50 border border-lilac-200 rounded-lg">
+                    <input
+                      type="text"
+                      value={newInlineSupplierName}
+                      onChange={(e) => setNewInlineSupplierName(e.target.value)}
+                      placeholder="Nombre del nuevo proveedor..."
+                      className="flex-1 px-2.5 py-1 text-xs bg-white border border-slate-200 rounded focus:outline-none focus:border-lilac-500"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddInlineSupplier}
+                      className="px-2.5 py-1 bg-lilac-600 hover:bg-lilac-700 text-white rounded text-xs font-bold transition-colors"
+                    >
+                      Guardar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingSupplierInline(false)}
+                      className="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
                 <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-1">
                   {suppliers.map((sup) => {
                     const isChecked = selectedSupplierIds.has(sup.id)
@@ -452,11 +801,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                           checked={isChecked}
                           onChange={(e) => {
                             const next = new Set(selectedSupplierIds)
-                            if (e.target.checked) {
-                              next.add(sup.id)
-                            } else {
-                              next.delete(sup.id)
-                            }
+                            if (e.target.checked) next.add(sup.id)
+                            else next.delete(sup.id)
                             setSelectedSupplierIds(next)
                           }}
                           className="rounded text-lilac-600 focus:ring-lilac-500 w-3.5 h-3.5 accent-lilac-600 cursor-pointer"
@@ -466,221 +812,294 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     )
                   })}
                 </div>
-              )}
-            </div>
-          </div>
+              </div>
 
-          {/* VISTA ESPECÍFICA: PRODUCTO SIMPLE O VARIACIÓN INDIVIDUAL */}
-          {(productType === 'simple' || productType === 'variation') && (
-            <div className="space-y-4 pt-2 border-t border-slate-100">
-              {productType === 'variation' && product?.parent_name && (
-                <div className="p-3 bg-lilac-50 border border-lilac-200 rounded-xl text-xs text-lilac-800 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold">Producto Padre:</span>
-                    <span>{product.parent_name}</span>
-                    {product.attribute_name && (
-                      <span className="text-slate-600 font-medium">({product.attribute_name}: {product.attribute_value})</span>
+              {/* CAMPOS DE PRODUCTO SIMPLE */}
+              {productType === 'simple' && (
+                <div className="space-y-4 pt-2 border-t border-slate-100">
+                  {/* Código (Ahora editable para simple y variable) */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Código de Barras / SKU * (Editable)
+                    </label>
+                    <input
+                      type="text"
+                      value={code}
+                      onChange={(e) => setCode(e.target.value)}
+                      placeholder="Ej: 780123456"
+                      className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl font-mono focus:outline-none focus:border-lilac-500"
+                    />
+                    {product && (
+                      <span className="text-[10px] text-slate-400 mt-1 block">
+                        Si modificas el código, se mantendrán intactos los movimientos en el kardex y ventas pasadas.
+                      </span>
                     )}
+                  </div>
+
+                  {/* Precios */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-lilac-50/50 p-4 rounded-xl border border-lilac-100">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                        <DollarSign className="w-3.5 h-3.5 text-lilac-600" />
+                        <span>Precio de Venta (CLP) *</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={salePrice}
+                        onChange={(e) => {
+                          const val = parseCLP(e.target.value)
+                          setSalePrice(val === 0 && !e.target.value.trim() ? '' : val.toLocaleString('es-CL'))
+                        }}
+                        placeholder="0"
+                        className="w-full px-3 py-2 text-sm font-bold text-slate-800 bg-white border border-lilac-200 rounded-xl focus:outline-none focus:border-lilac-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                        <DollarSign className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Precio de Costo (CLP opcional)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={costPrice}
+                        onChange={(e) => {
+                          const val = parseCLP(e.target.value)
+                          setCostPrice(val === 0 && !e.target.value.trim() ? '' : val.toLocaleString('es-CL'))
+                        }}
+                        placeholder="Opcional"
+                        className="w-full px-3 py-2 text-sm text-slate-700 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Stock y Stock Mínimo */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                        <Boxes className="w-3.5 h-3.5 text-lilac-600" />
+                        <span>Existencia Actual (Stock)</span>
+                      </label>
+                      <input
+                        type="number"
+                        value={stock}
+                        onChange={(e) => setStock(e.target.value)}
+                        min="0"
+                        className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Inventario Mínimo (Alerta)
+                      </label>
+                      <input
+                        type="number"
+                        value={minStock}
+                        onChange={(e) => setMinStock(e.target.value)}
+                        min="0"
+                        className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500"
+                      />
+                    </div>
                   </div>
                 </div>
               )}
-              {/* Código */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Código de Barras / SKU *
-                </label>
-                <input
-                  type="text"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  disabled={Boolean(product)}
-                  placeholder="Ej: 780123456"
-                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl font-mono focus:outline-none focus:border-lilac-500 disabled:opacity-60"
-                />
-              </div>
 
-              {/* Precios (Venta y Costo en CLP) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-lilac-50/50 p-4 rounded-xl border border-lilac-100">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
-                    <DollarSign className="w-3.5 h-3.5 text-lilac-600" />
-                    <span>Precio de Venta (CLP) *</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={salePrice}
-                    onChange={(e) => {
-                      const val = parseCLP(e.target.value)
-                      setSalePrice(val === 0 && !e.target.value.trim() ? '' : val.toLocaleString('es-CL'))
-                    }}
-                    placeholder="0"
-                    className="w-full px-3 py-2 text-sm font-bold text-slate-800 bg-white border border-lilac-200 rounded-xl focus:outline-none focus:border-lilac-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
-                    <DollarSign className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Precio de Costo (CLP opcional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={costPrice}
-                    onChange={(e) => {
-                      const val = parseCLP(e.target.value)
-                      setCostPrice(val === 0 && !e.target.value.trim() ? '' : val.toLocaleString('es-CL'))
-                    }}
-                    placeholder="Opcional"
-                    className="w-full px-3 py-2 text-sm text-slate-700 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500"
-                  />
-                </div>
-              </div>
+              {/* CAMPOS DE NUEVO PRODUCTO VARIABLE: CONFIGURAR PADRE + VALORES POR DEFECTO + TABLA VARIACIONES */}
+              {productType === 'variable' && (
+                <div className="space-y-4 pt-2 border-t border-slate-100">
+                  {/* Nombre de Atributo */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Nombre del Atributo Diferenciador *
+                    </label>
+                    <input
+                      type="text"
+                      value={attributeName}
+                      onChange={(e) => setAttributeName(e.target.value)}
+                      placeholder="Ej: Color, Talla, Grosor"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500"
+                    />
+                  </div>
 
-              {/* Stock y Stock Mínimo */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
-                    <Boxes className="w-3.5 h-3.5 text-lilac-600" />
-                    <span>Existencia Actual (Stock)</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={stock}
-                    onChange={(e) => setStock(e.target.value)}
-                    min="0"
-                    className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Inventario Mínimo (Alerta)
-                  </label>
-                  <input
-                    type="number"
-                    value={minStock}
-                    onChange={(e) => setMinStock(e.target.value)}
-                    min="0"
-                    className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
+                  {/* Valores por defecto en el producto padre para prellenar variaciones */}
+                  <div className="bg-lilac-50/60 border border-lilac-200 rounded-2xl p-4 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-lilac-900 flex items-center gap-1.5">
+                        <DollarSign className="w-3.5 h-3.5 text-lilac-600" />
+                        <span>Valores por defecto para las Variaciones</span>
+                      </span>
+                      <span className="text-[11px] text-slate-500">
+                        Se asignarán por defecto al agregar nuevas variaciones
+                      </span>
+                    </div>
 
-          {/* VISTA ESPECÍFICA: PRODUCTO VARIABLE (CON TABLA DE VARIACIONES) */}
-          {productType === 'variable' && (
-            <div className="space-y-4 pt-2 border-t border-slate-100">
-              <div className="flex items-center justify-between">
-                <div className="w-1/2">
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Nombre del Atributo de Variación
-                  </label>
-                  <input
-                    type="text"
-                    value={attributeName}
-                    onChange={(e) => setAttributeName(e.target.value)}
-                    placeholder="Ej: Color, Talla, Grosor"
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500"
-                  />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          Precio Venta por defecto (CLP)
+                        </label>
+                        <input
+                          type="text"
+                          value={salePrice}
+                          onChange={(e) => {
+                            const val = parseCLP(e.target.value)
+                            setSalePrice(val === 0 && !e.target.value.trim() ? '' : val.toLocaleString('es-CL'))
+                          }}
+                          placeholder="Ej: 3.500"
+                          className="w-full px-2.5 py-1.5 text-xs bg-white border border-lilac-200 rounded-lg focus:outline-none focus:border-lilac-500 font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          Precio Costo por defecto (CLP)
+                        </label>
+                        <input
+                          type="text"
+                          value={costPrice}
+                          onChange={(e) => {
+                            const val = parseCLP(e.target.value)
+                            setCostPrice(val === 0 && !e.target.value.trim() ? '' : val.toLocaleString('es-CL'))
+                          }}
+                          placeholder="Opcional"
+                          className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-lilac-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          Stock Mínimo por defecto
+                        </label>
+                        <input
+                          type="number"
+                          value={minStock}
+                          onChange={(e) => setMinStock(e.target.value)}
+                          min="0"
+                          className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-lilac-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Barra de Agregar Variación */}
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-xs font-bold text-slate-700">
+                      Variaciones a registrar ({variations.length})
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleAddVariation}
+                      className="px-3 py-1.5 bg-lilac-50 hover:bg-lilac-100 text-lilac-700 border border-lilac-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1 shadow-sm"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Agregar Variación</span>
+                    </button>
+                  </div>
+
+                  {/* Tabla de Variaciones */}
+                  <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-slate-100 border-b border-slate-200 text-slate-600 font-semibold">
+                        <tr>
+                          <th className="p-2.5">Valor ({attributeName || 'Atributo'}) *</th>
+                          <th className="p-2.5">Código / SKU *</th>
+                          <th className="p-2.5">Precio Venta (CLP) *</th>
+                          <th className="p-2.5">P. Costo</th>
+                          <th className="p-2.5">Stock</th>
+                          <th className="p-2.5">Mínimo</th>
+                          <th className="p-2.5 text-center w-12">Quitar</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 bg-white">
+                        {variations.map((v, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/70">
+                            <td className="p-2">
+                              <input
+                                type="text"
+                                value={v.attributeValue}
+                                onChange={(e) => handleVariationChange(idx, 'attributeValue', e.target.value)}
+                                placeholder="Ej: Negro, Azul"
+                                className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-lilac-500 font-medium"
+                              />
+                            </td>
+                            <td className="p-2">
+                              <input
+                                type="text"
+                                value={v.code}
+                                onChange={(e) => handleVariationChange(idx, 'code', e.target.value)}
+                                placeholder="Ej: 7801001"
+                                className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-lilac-500"
+                              />
+                            </td>
+                            <td className="p-2">
+                              <input
+                                type="text"
+                                value={v.salePrice}
+                                onChange={(e) => {
+                                  const val = parseCLP(e.target.value)
+                                  handleVariationChange(
+                                    idx,
+                                    'salePrice',
+                                    val === 0 && !e.target.value.trim() ? '' : val.toLocaleString('es-CL')
+                                  )
+                                }}
+                                placeholder="0"
+                                className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs text-right font-bold focus:outline-none focus:border-lilac-500"
+                              />
+                            </td>
+                            <td className="p-2">
+                              <input
+                                type="text"
+                                value={v.costPrice}
+                                onChange={(e) => {
+                                  const val = parseCLP(e.target.value)
+                                  handleVariationChange(
+                                    idx,
+                                    'costPrice',
+                                    val === 0 && !e.target.value.trim() ? '' : val.toLocaleString('es-CL')
+                                  )
+                                }}
+                                placeholder="Opcional"
+                                className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs text-right focus:outline-none focus:border-lilac-500"
+                              />
+                            </td>
+                            <td className="p-2">
+                              <input
+                                type="number"
+                                value={v.stock}
+                                onChange={(e) => handleVariationChange(idx, 'stock', e.target.value)}
+                                min="0"
+                                className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs text-right focus:outline-none focus:border-lilac-500"
+                              />
+                            </td>
+                            <td className="p-2">
+                              <input
+                                type="number"
+                                value={v.minStock}
+                                onChange={(e) => handleVariationChange(idx, 'minStock', e.target.value)}
+                                min="0"
+                                className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs text-right focus:outline-none focus:border-lilac-500"
+                              />
+                            </td>
+                            <td className="p-2 text-center">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveVariation(idx)}
+                                className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
+                                title="Eliminar variación"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={handleAddVariation}
-                  className="px-3 py-1.5 bg-lilac-50 hover:bg-lilac-100 text-lilac-700 border border-lilac-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1 shadow-sm"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Agregar Variación</span>
-                </button>
-              </div>
-
-              {/* Tabla de Variaciones */}
-              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-slate-100 border-b border-slate-200 text-slate-600 font-semibold">
-                    <tr>
-                      <th className="p-2.5">Valor ({attributeName || 'Atributo'}) *</th>
-                      <th className="p-2.5">Código / SKU *</th>
-                      <th className="p-2.5">Precio Venta (CLP) *</th>
-                      <th className="p-2.5">Stock *</th>
-                      <th className="p-2.5">Mínimo</th>
-                      <th className="p-2.5 text-center w-12">Quitar</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
-                    {variations.map((v, idx) => (
-                      <tr key={idx} className="hover:bg-slate-50/70">
-                        <td className="p-2">
-                          <input
-                            type="text"
-                            value={v.attributeValue}
-                            onChange={(e) => handleVariationChange(idx, 'attributeValue', e.target.value)}
-                            placeholder="Ej: Negro, Azul"
-                            className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-lilac-500 font-medium"
-                          />
-                        </td>
-                        <td className="p-2">
-                          <input
-                            type="text"
-                            value={v.code}
-                            onChange={(e) => handleVariationChange(idx, 'code', e.target.value)}
-                            placeholder="Ej: 7801001"
-                            className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-lilac-500"
-                          />
-                        </td>
-                        <td className="p-2">
-                          <input
-                            type="text"
-                            value={v.salePrice}
-                            onChange={(e) => {
-                              const val = parseCLP(e.target.value)
-                              handleVariationChange(
-                                idx,
-                                'salePrice',
-                                val === 0 && !e.target.value.trim() ? '' : val.toLocaleString('es-CL')
-                              )
-                            }}
-                            placeholder="0"
-                            className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs text-right font-bold focus:outline-none focus:border-lilac-500"
-                          />
-                        </td>
-                        <td className="p-2">
-                          <input
-                            type="number"
-                            value={v.stock}
-                            onChange={(e) => handleVariationChange(idx, 'stock', e.target.value)}
-                            min="0"
-                            className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs text-right focus:outline-none focus:border-lilac-500"
-                          />
-                        </td>
-                        <td className="p-2">
-                          <input
-                            type="number"
-                            value={v.minStock}
-                            onChange={(e) => handleVariationChange(idx, 'minStock', e.target.value)}
-                            min="0"
-                            className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs text-right focus:outline-none focus:border-lilac-500"
-                          />
-                        </td>
-                        <td className="p-2 text-center">
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveVariation(idx)}
-                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
-                            title="Eliminar variación"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              )}
             </div>
           )}
 
           {/* Footer buttons */}
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-2">
+          <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-2 shrink-0">
             <button
               type="button"
               onClick={onClose}

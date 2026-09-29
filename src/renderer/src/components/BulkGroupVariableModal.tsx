@@ -98,7 +98,7 @@ export const BulkGroupVariableModal: React.FC<BulkGroupVariableModalProps> = ({
 
     setRows(initialRows)
     setError(null)
-  }, [isOpen, selectedProducts])
+  }, [isOpen])
 
   const handleAddInlineSupplier = async (): Promise<void> => {
     const trimmed = newInlineSupplierName.trim()
@@ -171,7 +171,7 @@ export const BulkGroupVariableModal: React.FC<BulkGroupVariableModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl border border-lilac-100 max-w-3xl w-full overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white rounded-2xl shadow-2xl border border-lilac-100 max-w-3xl w-full overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150 select-text">
         {/* Header */}
         <div className="px-6 py-4 bg-slate-50 border-b border-lilac-100 flex items-center justify-between">
           <div className="flex items-center gap-2.5 text-slate-800 font-bold text-base">
@@ -225,7 +225,7 @@ export const BulkGroupVariableModal: React.FC<BulkGroupVariableModalProps> = ({
                 value={parentName}
                 onChange={(e) => setParentName(e.target.value)}
                 placeholder="Ej: Algodón Rústico, Lana Merino Gruesa..."
-                className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 focus:border-lilac-500 focus:bg-white rounded-xl text-xs text-slate-800 focus:outline-none font-semibold transition-all"
+                className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 focus:border-lilac-500 focus:bg-white rounded-xl text-xs text-slate-800 focus:outline-none font-semibold transition-all select-text cursor-text"
               />
             </div>
 
@@ -441,7 +441,7 @@ export const BulkGroupVariableModal: React.FC<BulkGroupVariableModalProps> = ({
                           value={row.attributeValue}
                           onChange={(e) => handleAttributeValueChange(idx, e.target.value)}
                           placeholder="Ej: Azul, Rojo, M, 100gr..."
-                          className="w-full px-2.5 py-1 bg-slate-50 border border-slate-200 focus:border-lilac-500 focus:bg-white rounded-lg text-xs font-semibold text-slate-800 focus:outline-none"
+                          className="w-full px-2.5 py-1 bg-slate-50 border border-slate-200 focus:border-lilac-500 focus:bg-white rounded-lg text-xs font-semibold text-slate-800 focus:outline-none select-text cursor-text"
                         />
                       </td>
                       <td className="py-2 px-3 text-right font-semibold text-slate-700">

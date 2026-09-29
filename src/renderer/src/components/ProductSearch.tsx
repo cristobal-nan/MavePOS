@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react'
+import React, { useRef, useState, useEffect } from 'react'
 import {
   Search,
   ArrowUpDown,
@@ -7,7 +7,8 @@ import {
   Layers,
   AlertTriangle,
   GitBranch,
-  CheckCircle2
+  CheckCircle2,
+  RefreshCw
 } from 'lucide-react'
 import { ProductSearchResult } from '@shared/types'
 import { formatCLP } from '../utils/formatters'
@@ -51,8 +52,15 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
     toggleSort,
     columnWidths,
     setColumnWidth,
-    isLoading
+    isLoading,
+    isLoadingMore,
+    hasMore,
+    loadMoreProducts
   } = useCatalogStore()
+
+  // Infinite scroll refs
+  const containerRef = useRef<HTMLDivElement>(null)
+  const sentinelRef = useRef<HTMLDivElement>(null)
 
   // Column resizing state
   const [resizingCol, setResizingCol] = useState<string | null>(null)
@@ -80,6 +88,39 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
 
     window.addEventListener('mousemove', handleMouseMove)
     window.addEventListener('mouseup', handleMouseUp)
+  }
+
+  // Set up IntersectionObserver for progressive / infinite scrolling
+  useEffect(() => {
+    const container = containerRef.current
+    const sentinel = sentinelRef.current
+    if (!container || !sentinel) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries
+        if (entry.isIntersecting && hasMore && !isLoading && !isLoadingMore) {
+          loadMoreProducts()
+        }
+      },
+      {
+        root: container,
+        rootMargin: '300px',
+        threshold: 0
+      }
+    )
+
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [hasMore, isLoading, isLoadingMore, loadMoreProducts])
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>): void => {
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget
+    if (scrollHeight - scrollTop - clientHeight < 300) {
+      if (hasMore && !isLoading && !isLoadingMore) {
+        loadMoreProducts()
+      }
+    }
   }
 
   const renderSortIcon = (column: 'name' | 'stock' | 'sale_price'): React.ReactNode => {
@@ -117,16 +158,19 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
           )}
         </div>
 
-        <div className="text-xs text-slate-400 whitespace-nowrap hidden sm:flex items-center gap-1 font-medium">
-          <span>Coincidencias:</span>
+        <div className="text-xs text-slate-400 whitespace-nowrap hidden sm:flex items-center gap-1.5 font-medium">
+          <span>Mostrando:</span>
           <span className="font-bold text-lilac-700 bg-lilac-50 border border-lilac-200 px-2 py-0.5 rounded-full">
-            {products.length}
+            {products.length}{hasMore ? '+' : ''}
           </span>
+          {hasMore && (
+            <span className="text-[11px] text-slate-400 italic">(baja para ver más)</span>
+          )}
         </div>
       </div>
 
       {/* Table Container with persistent resizable headers */}
-      <div className="flex-1 overflow-auto bg-slate-50/50">
+      <div ref={containerRef} onScroll={handleScroll} className="flex-1 overflow-auto bg-slate-50/50">
         <table className="w-full text-left border-collapse table-fixed">
           <thead className="bg-slate-100/80 sticky top-0 z-10 border-b border-slate-200 text-xs font-semibold text-slate-600 shadow-sm backdrop-blur-sm">
             <tr>
@@ -415,6 +459,21 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
             )}
           </tbody>
         </table>
+
+        {/* Infinite scroll sentinel & status indicators */}
+        <div ref={sentinelRef} className="py-4 text-center">
+          {isLoadingMore && (
+            <div className="inline-flex items-center justify-center gap-2 py-2 px-4 bg-white/90 rounded-full border border-lilac-200 text-xs font-semibold text-lilac-700 shadow-sm animate-pulse">
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-lilac-600" />
+              <span>Cargando más productos...</span>
+            </div>
+          )}
+          {!hasMore && products.length > 0 && (
+            <div className="text-[11px] text-slate-400 font-medium py-1">
+              Has llegado al final del catálogo • {products.length} productos mostrados
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
