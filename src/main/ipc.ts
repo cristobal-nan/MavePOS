@@ -7,6 +7,9 @@ import { BackupService } from './services/backupService'
 import { SalesService } from './services/salesService'
 import { InventoryService } from './services/inventoryService'
 import { ExcelService } from './services/excelService'
+import { SupplierService } from './services/supplierService'
+import { ReportService } from './services/reportService'
+import { PrinterService } from './services/printerService'
 import {
   ProductInput,
   ProductSearchOptions,
@@ -16,7 +19,10 @@ import {
   MovementType,
   SalesHistoryFilter,
   ExcelColumnMapping,
-  GroupAsVariableInput
+  GroupAsVariableInput,
+  ReportFilter,
+  PrinterConfig,
+  SaleDetail
 } from '../shared/types'
 
 let isQuittingFromRenderer = false
@@ -29,6 +35,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
   salesService: SalesService
   inventoryService: InventoryService
   excelService: ExcelService
+  supplierService: SupplierService
+  reportService: ReportService
+  printerService: PrinterService
 } {
   const db = getDatabase()
   const productService = new ProductService(db)
@@ -38,10 +47,18 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
   const salesService = new SalesService(db)
   const inventoryService = new InventoryService(db)
   const excelService = new ExcelService(db)
+  const supplierService = new SupplierService(db)
+  const reportService = new ReportService(db)
+  const printerService = new PrinterService(db, settingsService)
 
-  // ---------------- Ping & Health ----------------
+  // ---------------- Ping & Health & Reset ----------------
   ipcMain.handle('db:ping', () => {
     return { ok: true, timestamp: new Date().toISOString() }
+  })
+
+  ipcMain.handle('db:reset', (_event, keepSettings = false) => {
+    settingsService.resetDatabase(keepSettings)
+    return { ok: true }
   })
 
   // ---------------- Products, Categories, Families ----------------
@@ -82,8 +99,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
     return productService.saveVariableProduct(parent, variations)
   })
 
-  ipcMain.handle('products:bulkUpdateCategory', (_event, productIds: number[], categoryId: number | null) => {
-    return productService.bulkUpdateCategory(productIds, categoryId)
+  ipcMain.handle('products:bulkUpdateCategory', (_event, productIds: number[], categoryId?: number | null, supplierIds?: number[]) => {
+    return productService.bulkUpdateCategory(productIds, categoryId, supplierIds)
   })
 
   ipcMain.handle('products:groupAsVariable', (_event, input: GroupAsVariableInput) => {
@@ -104,6 +121,19 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
 
   ipcMain.handle('categories:delete', (_event, id: number) => {
     return productService.deleteCategory(id)
+  })
+
+  // ---------------- Suppliers ----------------
+  ipcMain.handle('suppliers:getAll', (_event, includeInactive = false) => {
+    return supplierService.getAllSuppliers(includeInactive)
+  })
+
+  ipcMain.handle('suppliers:save', (_event, name: string, id?: number) => {
+    return supplierService.saveSupplier(name, id)
+  })
+
+  ipcMain.handle('suppliers:delete', (_event, id: number) => {
+    return supplierService.deleteSupplier(id)
   })
 
   // ---------------- Cash Sessions ----------------
@@ -159,6 +189,19 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
 
   ipcMain.handle('backup:getDirectory', () => {
     return backupService.getBackupDirectory()
+  })
+
+  ipcMain.handle('backup:openDirectory', () => {
+    return backupService.openBackupDirectory()
+  })
+
+  ipcMain.handle('backup:selectDirectory', () => {
+    return backupService.selectBackupDirectory(mainWindow)
+  })
+
+  ipcMain.handle('backup:restore', (_event, backupFilePath: string) => {
+    backupService.restoreBackup(backupFilePath)
+    return { ok: true }
   })
 
   // ---------------- Close Hook & Application Exit ----------------
@@ -260,5 +303,49 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
     return excelService.importExcel(filePath, customMapping)
   })
 
-  return { productService, cashService, settingsService, backupService, salesService, inventoryService, excelService }
+  // ---------------- Printers & ESC/POS (Fase 9) ----------------
+  ipcMain.handle('printers:getList', () => {
+    return printerService.getInstalledPrinters(mainWindow)
+  })
+
+  ipcMain.handle('printers:getConfig', () => {
+    return printerService.getPrinterConfig()
+  })
+
+  ipcMain.handle('printers:saveConfig', (_event, config: Partial<PrinterConfig>) => {
+    printerService.savePrinterConfig(config)
+    return { ok: true }
+  })
+
+  ipcMain.handle(
+    'printers:printThermal',
+    (_event, saleDetail: SaleDetail, change = 0, customConfig?: Partial<PrinterConfig>) => {
+      return printerService.printThermalReceipt(saleDetail, change, customConfig)
+    }
+  )
+
+  ipcMain.handle('printers:openCashDrawer', (_event, customConfig?: Partial<PrinterConfig>) => {
+    return printerService.openCashDrawer(customConfig)
+  })
+
+  ipcMain.handle('printers:testThermal', (_event, customConfig?: Partial<PrinterConfig>) => {
+    return printerService.printTestTicket(customConfig)
+  })
+
+  ipcMain.handle('printers:printNormal', (_event, saleDetail: SaleDetail, printerName?: string) => {
+    return printerService.printNormalReceipt(saleDetail, printerName)
+  })
+
+  return {
+    productService,
+    cashService,
+    settingsService,
+    backupService,
+    salesService,
+    inventoryService,
+    excelService,
+    supplierService,
+    reportService,
+    printerService
+  }
 }

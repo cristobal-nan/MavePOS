@@ -10,13 +10,15 @@ import {
   FolderInput,
   GitBranch,
   Trash2,
-  X
+  X,
+  Truck
 } from 'lucide-react'
 import { ProductSearchResult } from '@shared/types'
 import { useCatalogStore } from '../store/catalogStore'
 import { ProductSearch } from '../components/ProductSearch'
 import { ProductFormModal } from '../components/ProductFormModal'
 import { CategoryModal } from '../components/CategoryModal'
+import { SupplierModal } from '../components/SupplierModal'
 import { ExcelImportModal } from '../components/ExcelImportModal'
 import { BulkCategoryModal } from '../components/BulkCategoryModal'
 import { BulkGroupVariableModal } from '../components/BulkGroupVariableModal'
@@ -25,8 +27,11 @@ export const CatalogView: React.FC = () => {
   const {
     products,
     categories,
+    suppliers,
     selectedCategory,
     setSelectedCategory,
+    selectedSupplier,
+    setSelectedSupplier,
     selectedProductType,
     setSelectedProductType,
     loadMetadata,
@@ -39,6 +44,7 @@ export const CatalogView: React.FC = () => {
   const [selectedProductForEdit, setSelectedProductForEdit] = useState<ProductSearchResult | null>(null)
   const [isProductModalOpen, setIsProductModalOpen] = useState(false)
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
+  const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false)
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false)
   const [isBulkCategoryModalOpen, setIsBulkCategoryModalOpen] = useState(false)
   const [isBulkGroupModalOpen, setIsBulkGroupModalOpen] = useState(false)
@@ -135,6 +141,14 @@ export const CatalogView: React.FC = () => {
           </button>
 
           <button
+            onClick={() => setIsSupplierModalOpen(true)}
+            className="px-3 py-2 bg-slate-100 hover:bg-lilac-50 text-slate-700 hover:text-lilac-800 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-200/60"
+          >
+            <Truck className="w-3.5 h-3.5 text-lilac-600" />
+            <span>Proveedores</span>
+          </button>
+
+          <button
             onClick={() => setIsExcelModalOpen(true)}
             className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 border border-emerald-200/60"
             title="Importar catálogo masivo desde archivo Excel (.xlsx)"
@@ -168,7 +182,24 @@ export const CatalogView: React.FC = () => {
               <option value="">Todas las categorías</option>
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.parent_id !== null ? `↳ ${c.name}` : c.name}
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Supplier Filter */}
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 text-xs">
+            <Truck className="w-3 h-3 text-slate-400" />
+            <select
+              value={selectedSupplier || ''}
+              onChange={(e) => setSelectedSupplier(e.target.value ? Number(e.target.value) : null)}
+              className="bg-transparent text-slate-700 focus:outline-none cursor-pointer"
+            >
+              <option value="">Todos los proveedores</option>
+              {suppliers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
                 </option>
               ))}
             </select>
@@ -215,10 +246,10 @@ export const CatalogView: React.FC = () => {
             <button
               onClick={() => setIsBulkCategoryModalOpen(true)}
               className="px-3 py-1.5 bg-white text-lilac-800 hover:bg-lilac-50 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
-              title="Asignar Departamento / Subcategoría a los productos seleccionados"
+              title="Asignar Categoría y/o Proveedores a los productos seleccionados"
             >
               <FolderInput className="w-3.5 h-3.5 text-lilac-600" />
-              <span>Mover a Categoría...</span>
+              <span>Categoría y Proveedores...</span>
             </button>
 
             <button
@@ -276,6 +307,11 @@ export const CatalogView: React.FC = () => {
       <CategoryModal
         isOpen={isCategoryModalOpen}
         onClose={() => setIsCategoryModalOpen(false)}
+      />
+
+      <SupplierModal
+        isOpen={isSupplierModalOpen}
+        onClose={() => setIsSupplierModalOpen(false)}
       />
 
       <ExcelImportModal

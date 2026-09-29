@@ -55,8 +55,12 @@ Requisitos transversales:
 ## 3. Modelo de dominio (reglas vinculantes)
 
 1. **Moneda CLP**: montos como **enteros**, sin decimales, separador de miles con punto. Ej: `19.990`.
-2. **Categorías: exactamente 2 niveles** — Departamento → Subcategoría. Ej: `Ukryl` → `Lanas`, `Hilos`.
-   Sin árbol recursivo.
+2. **Categorías y Proveedores (Relación N:M)**:
+   - La **Categoría** define el objeto o clasificación principal del producto (ej: *Lanas*, *Hilos*, *Accesorios*).
+   - Los **Proveedores** son una entidad independiente (`suppliers`) asociada a los productos mediante una relación de muchos a muchos (`product_suppliers`). Un producto puede comprarse a varios proveedores (ej: *Lana Natural* provista por *Revesderecho* y *Ukryl*).
+   - **Sintaxis de visualización:** La columna en el catálogo y tablas se titula **"Categoría"**, y su contenido se formatea automáticamente como:
+     `"Categoría - Proveedor1 / Proveedor2"` (ej: `"Lanas - Revesderecho / Ukryl"`). Si no tiene proveedor: `"Lanas"`. Si no tiene categoría pero sí proveedor: `"Proveedor1 / Proveedor2"` (ej: `"Revesderecho"` o `"Revesderecho / Ukryl"`, sin prefijo "Sin Categoría"). Si no tiene ni categoría ni proveedor: `"Sin Categoría"`.
+   - **Filtros en Catálogo:** Existen dos selectores desplegables independientes en la barra superior: uno para filtrar por **Categoría** y otro para filtrar por **Proveedor**. Al filtrar por un proveedor, se muestran tanto los productos directamente asociados a él como las variaciones de un producto padre vinculado a ese proveedor.
 3. **Unidad vendible y referencias**: Toda venta, kardex y movimiento de inventario referencia la unidad
    vendible (`products.code`), correspondiente a productos simples (`product_type = 'simple'`) o
    variaciones individuales (`product_type = 'variation'`).
@@ -84,7 +88,28 @@ Requisitos transversales:
 ## 4. Esquema de base de datos
 
 ```sql
-categories(id PK, name, parent_id NULL→categories.id)   -- parent_id NULL = nivel 1 (depto); nivel 2 = subcat
+schema_migrations(version PK, applied_at)
+
+categories(
+  id PK AUTOINCREMENT,
+  name TEXT NOT NULL,
+  parent_id NULL→categories.id          -- nullable (categorías tratadas como nivel único en interfaz)
+)
+
+suppliers(
+  id PK AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  search_name TEXT NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+)
+
+product_suppliers(
+  product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  supplier_id INTEGER NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
+  PRIMARY KEY (product_id, supplier_id)
+)
 
 products(
   id PK AUTOINCREMENT,
@@ -95,26 +120,48 @@ products(
   attribute_name NULL,                  -- ej: 'Color', 'Grosor', 'Talla'
   attribute_value NULL,                 -- ej: 'Azul', 'Rojo'
   sale_price, cost_price NULL,          -- enteros CLP; cost_price opcional
-  category_id NULL→categories.id,       -- subcategoría o departamento
+  category_id NULL→categories.id,       -- categoría principal del producto
   stock, min_stock, active,             -- active=1 activo, 0 soft delete
   created_at, updated_at
 )
 
-sales(id PK, folio, status 'pending'|'completed'|'cancelled',
-      total, cash_session_id→cash_sessions.id, created_at, completed_at)
+sales(
+  id PK AUTOINCREMENT,
+  folio INTEGER NULL UNIQUE,            -- folio correlativo global e irrepetible (se asigna al cobrar)
+  ticket_number INTEGER NOT NULL,       -- orden visual del turno (inicia en 1 por sesión de caja, sin huecos)
+  status 'pending'|'completed'|'cancelled',
+  total, cash_session_id NULL→cash_sessions.id,
+  created_at, completed_at NULL
+)
 
-sale_items(id PK, sale_id→sales.id, product_code→products.code, name,
-           unit_price, quantity, returned_qty)
+sale_items(
+  id PK AUTOINCREMENT,
+  sale_id→sales.id, product_code→products.code, name,
+  unit_price, quantity, returned_qty DEFAULT 0
+)
 
-sale_payments(id PK, sale_id→sales.id, method 'cash'|'card'|'transfer', amount)
+sale_payments(
+  id PK AUTOINCREMENT,
+  sale_id→sales.id, method 'cash'|'card'|'transfer', amount
+)
 
-inventory_movements(id PK, product_code→products.code, delta ±,
-                    type 'venta'|'devolucion'|'ajuste'|'importacion'|'inicial',
-                    reason, ref_sale_id NULL, created_at)
+inventory_movements(
+  id PK AUTOINCREMENT,
+  product_code→products.code, delta ±,
+  type 'venta'|'devolucion'|'ajuste'|'importacion'|'inicial',
+  reason, ref_sale_id NULL→sales.id, created_at
+)
 
-cash_sessions(id PK, opening_fund, opened_at, closed_at)
+cash_sessions(
+  id PK AUTOINCREMENT,
+  opening_fund, opened_at, closed_at NULL,
+  closing_cash NULL, expected_cash NULL, difference NULL, notes NULL
+)
 
-cash_movements(id PK, cash_session_id, type 'salida', amount, reason, created_at)
+cash_movements(
+  id PK AUTOINCREMENT,
+  cash_session_id→cash_sessions.id, type 'salida', amount, reason, created_at
+)
 
 settings(key PK, value)   -- carpeta respaldos, impresora elegida, ancho ticket, etc.
 ```
@@ -228,12 +275,12 @@ Monto + campo de texto de **motivo**. Queda registrado y aparece **separado** en
 
 | Subpestaña | Contenido |
 |---|---|
-| **Crear** | Selector entre **Producto Simple** o **Producto Variable**. Para Simple: código, nombre, precio venta, costo (opcional), categoría (depto→subcat), stock inicial, stock mínimo. Para Variable: define producto contenedor y genera N variaciones vendibles (cada una con su código, atributo ej: Color: Azul/Negro, precio, costo, stock y stock mínimo). |
+| **Crear** | Selector entre **Producto Simple** o **Producto Variable**. Para Simple: código, nombre, precio venta, costo (opcional), categoría (lista directa), proveedores (selección múltiple con creación rápida), stock inicial, stock mínimo. Para Variable: define producto contenedor con categoría y proveedores compartidos, y genera N variaciones vendibles (cada una con su código, atributo ej: Color: Azul/Negro, precio, costo, stock y stock mínimo). |
 | **Modificar** | Cualquier atributo **menos inventario** (el inventario solo cambia por Ajuste/Importación/Venta). En variables permite agregar, editar o descontinuar variaciones. |
 | **Eliminar** | Por código o búsqueda por nombre; soft delete (`active=0`). Eliminar un padre desactiva en cascada sus variaciones. |
-| **Categorías** | Lista de departamentos con sus subcategorías (exactamente 2 niveles); crear y renombrar ambos niveles; validación de eliminación si contiene productos asociados. |
+| **Categorías** | Lista directa de categorías de nivel único (crear, renombrar en línea y eliminar con validación si tiene productos asociados). |
 | **Importar** | .xlsx (ver §7). |
-| **Catálogo** | Tabla completa con filtros (texto con `%`, depto→subcat, stock bajo) y orden persistente de columnas. **Muestra exclusivamente productos vendibles** (`simple` y `variation`, sin el padre contenedor). **Orden alfabético**: ordenado por el nombre del producto padre (o simple): `COALESCE(parent.search_name, p.search_name) ASC, p.search_name ASC`. Selección múltiple para mover categoría o agrupar bajo producto variable. |
+| **Catálogo** | Tabla completa con filtros independientes (texto con `%`, selector de categoría, selector de proveedor, stock bajo) y orden persistente de columnas. Sintaxis de columna Categoría: `"Categoría - Proveedor1 / Proveedor2"`. **Muestra exclusivamente productos vendibles** (`simple` y `variation`, sin el padre contenedor). **Orden alfabético**: ordenado por el nombre del producto padre (o simple): `COALESCE(parent.search_name, p.search_name) ASC, p.search_name ASC`. Selección múltiple para mover categoría y proveedores o agrupar bajo producto variable. |
 
 ### 6.6 Inventario (subpestañas)
 
@@ -254,9 +301,10 @@ Monto + campo de texto de **motivo**. Queda registrado y aparece **separado** en
 
 ### 6.7 Corte
 
-Botón **Hacer corte** → muestra: fondo de caja · ventas en efectivo · ventas con tarjeta · ventas por
-transferencia · ventas totales · monto de devoluciones · monto de salidas de dinero → **cierra la sesión
-de caja**.
+- Resumen detallado de la sesión activa: fondo inicial de caja, ventas por método de pago (efectivo, tarjeta, transferencia), ventas totales netas, devoluciones totales (discriminando las efectuadas en efectivo) y salidas registradas.
+- **Arqueo y cuadre de efectivo**: cálculo automático del efectivo esperado en caja (`fondo inicial + ventas efectivo - devoluciones efectivo - salidas de dinero`).
+- **Modal de confirmación de corte**: campo para ingresar el efectivo contado físicamente, previsualización en tiempo real de la diferencia (cuadre perfecto, faltante o sobrante) y notas u observaciones de cierre.
+- **Cierre formal**: actualiza `cash_sessions` con fecha de cierre y métricas de arqueo, y bloquea la aplicación para exigir una nueva apertura de fondo de caja al siguiente turno.
 
 ### 6.8 Reportes (propuesta, ajustable)
 
@@ -266,10 +314,10 @@ período anterior.
 
 ### 6.9 Configuración
 
-Datos del negocio (nombre, dirección, teléfono, RUT — base para ticket y futuro email) · impresora térmica
-(conexión tcp/USB compartida/serie, ancho 58/80mm) · impresora normal · cajón (activado, se abre al
-imprimir ticket) · **test de impresión y apertura de cajón** · carpeta de respaldos, respaldo/restaurar
-manual, abrir carpeta, lista de respaldos con fecha y tamaño.
+- **Datos del negocio**: nombre, dirección, teléfono, RUT (base para ticket y futuro email).
+- **Periféricos**: impresora térmica (conexión tcp/USB compartida/serie, ancho 58/80mm), impresora normal, cajón de dinero (apertura automática por pulso ESC/POS al imprimir ticket) y pruebas de test de impresión y apertura de cajón.
+- **Respaldos**: carpeta de respaldos configurable, generación y restauración manual de copias `.bak` con `db.backup()`, acceso rápido al directorio y lista histórica de respaldos con fecha y tamaño.
+- **Mantenimiento y desarrollo**: botón de vaciado controlado de base de datos (`resetDatabase`) protegido por modal de confirmación escrita ("VACIAR"), con opción para conservar o restablecer parámetros del negocio y periféricos.
 
 ## 7. Importación Excel (.xlsx)
 
@@ -295,8 +343,8 @@ reorganizar después**.
 
 En **Catálogo**, con filtros y selección múltiple (incluye "seleccionar todo el resultado"):
 
-- **Mover a categoría/subcategoría** (selección cascada Depto→Subcat).
-- **Agrupar bajo producto variable** (nombre nuevo o existente) → crea el padre contenedor y asigna `parent_id` al lote.
+- **Mover a categoría y asignar proveedores** (selección de categoría y casillas de verificación de proveedores con creación rápida).
+- **Agrupar bajo producto variable** (nombre nuevo o existente) → crea el padre contenedor, asigna categoría y proveedores compartidos al lote, y vincula las variaciones (`parent_id`).
 - **Desagrupar de producto variable** → convierte las variaciones en productos simples autónomos.
 - Flujo típico: filtrar `%ALGODON%` → seleccionar todo → agrupar bajo producto variable "Algodón" → asignar
   valores de atributo a cada variación.
@@ -334,7 +382,7 @@ En **Catálogo**, con filtros y selección múltiple (incluye "seleccionar todo 
 
 - **Pausa en cada fase**: se implementa la fase, se compila, se hace typecheck, se corren los tests y se
   avisa; el dueño prueba la app y da el visto bueno para seguir.
-- **Tests automatizados** (vitest) de la lógica crítica (**76 pruebas automatizadas pasando al 100%**):
+- **Tests automatizados** (vitest) de la lógica crítica (**115 pruebas automatizadas pasando al 100%**):
 
   | Fase | Estado | Qué se testea |
   |---|---|---|
@@ -346,19 +394,22 @@ En **Catálogo**, con filtros y selección múltiple (incluye "seleccionar todo 
   | 6 | Completada | Ajustes relativos y reemplazo, auditoría de movimientos, alertas stock bajo y kardex |
   | 7 | Completada | Cancelación total de ventas, devoluciones parciales y salidas de dinero |
   | 8 | Completada | Cuadre exacto del corte de caja con ventas, devoluciones y salidas |
-  | 10 | Pendiente | Importador Excel, mapeo de columnas, reemplazo de stock, categorías |
+  | 10 | Completada | Importador Excel (.xlsx), mapeo de columnas, reemplazo de stock, categorías, reorganización en lote y proveedores N:M |
+  | 11 | Completada | Métricas clave (ventas netas, ticket promedio, unidades, márgenes), gráficos Recharts, filtros temporales y exportación Excel (.xlsx) |
+  | 12 | Completada | Datos del negocio, gestión y restauración atómica de respaldos, atajos de teclado y mantenimiento |
+  | 9 | Completada | Impresión térmica ESC/POS (node-thermal-printer, PC850), impresora normal Windows (spooler HTML), cajón monetario (pulso RJ11), auto-print, test de conexión |
 
 ## 13. Orden de implementación (12 fases)
 
 1. [x] **Base**: scaffold electron-vite, ventana fullscreen sin bordes + titlebar propia, tema blanco/lila, layout de pestañas.
 2. [x] **Datos**: esquema SQLite completo + migraciones, IPC tipado, hook de cierre y `backupService`.
 3. [x] **Arranque de caja**: pantalla de fondo de caja / entrada directa con sesión activa.
-4. [x] **Productos**: CRUD simples y variables con variaciones, categorías 2 niveles, `ProductSearch` con `%`, catálogo ordenado por padre.
+4. [x] **Productos**: CRUD simples y variables con variaciones, categorías y proveedores N:M, `ProductSearch` con `%`, catálogo ordenado por padre.
 5. [x] **Ventas**: carrito reactivo, tickets simultáneos/pendientes en BD, modal de cobro (efectivo, tarjeta, transferencia, mixto).
 6. [x] **Inventario**: ajustes de existencia (relativo/reemplazo) con motivo obligatorio, alertas de stock bajo, movimientos por día y kardex de producto.
 7. [x] **Historial y dinero**: cancelaciones, devoluciones parciales con reposición de inventario, registro de salidas de dinero.
 8. [x] **Corte**: resumen de caja por método de pago y cierre de sesión.
-9. [ ] **Impresión**: ticket térmico ESC/POS, impresora normal, cajón, test de conexión.
-10. [ ] **Importación Excel** + herramientas de organización masiva en catálogo.
-11. [ ] **Reportes**: gráficos Recharts e intervalos temporales.
-12. [ ] **Configuración y pulido**: datos negocio, impresoras, respaldos, atajos de teclado y focos de escáner.
+10. [x] **Importación Excel** + herramientas de organización masiva en catálogo (Reorganización en lote y Modelo de Proveedores N:M).
+11. [x] **Reportes**: métricas clave, gráficos Recharts, intervalos temporales y exportación Excel (.xlsx).
+12. [x] **Configuración y pulido**: datos negocio, respaldos, atajos de teclado y focos de escáner.
+9. [x] **Impresión**: ticket térmico ESC/POS (node-thermal-printer), impresora normal Windows (spooler HTML), cajón monetario (pulso RJ11), auto-print al cobrar, test de conexión, UI en Configuración y botones en CheckoutModal e HistoryView.

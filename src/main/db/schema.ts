@@ -36,6 +36,28 @@ export const INITIAL_SCHEMA = `
   CREATE INDEX IF NOT EXISTS idx_products_parent ON products(parent_id);
   CREATE INDEX IF NOT EXISTS idx_products_type ON products(product_type);
 
+  CREATE TABLE IF NOT EXISTS suppliers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    search_name TEXT NOT NULL,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_suppliers_name ON suppliers(name);
+  CREATE INDEX IF NOT EXISTS idx_suppliers_search_name ON suppliers(search_name);
+  CREATE INDEX IF NOT EXISTS idx_suppliers_active ON suppliers(active);
+
+  CREATE TABLE IF NOT EXISTS product_suppliers (
+    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    supplier_id INTEGER NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
+    PRIMARY KEY (product_id, supplier_id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_product_suppliers_prod ON product_suppliers(product_id);
+  CREATE INDEX IF NOT EXISTS idx_product_suppliers_supp ON product_suppliers(supplier_id);
+
   CREATE TABLE IF NOT EXISTS cash_sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     opening_fund INTEGER NOT NULL,

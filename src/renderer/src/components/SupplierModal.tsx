@@ -1,17 +1,17 @@
 import React, { useState } from 'react'
-import { X, Plus, Trash2, Layers, Edit2, Check } from 'lucide-react'
+import { X, Plus, Trash2, Truck, Edit2, Check } from 'lucide-react'
 import { useCatalogStore } from '../store/catalogStore'
-import { Category } from '@shared/types'
+import { Supplier } from '@shared/types'
 
-interface CategoryModalProps {
+interface SupplierModalProps {
   isOpen: boolean
   onClose: () => void
 }
 
-export const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose }) => {
-  const { categories, saveCategory, deleteCategory } = useCatalogStore()
+export const SupplierModal: React.FC<SupplierModalProps> = ({ isOpen, onClose }) => {
+  const { suppliers, saveSupplier, deleteSupplier } = useCatalogStore()
 
-  const [newCategoryName, setNewCategoryName] = useState('')
+  const [newSupplierName, setNewSupplierName] = useState('')
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editingName, setEditingName] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -19,60 +19,60 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose })
 
   if (!isOpen) return null
 
-  const handleCreateCategory = async (e: React.FormEvent): Promise<void> => {
+  const handleCreate = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault()
     setError(null)
-    const trimmed = newCategoryName.trim()
+    const trimmed = newSupplierName.trim()
     if (!trimmed) {
-      setError('Ingresa el nombre de la categoría.')
+      setError('Ingresa el nombre del proveedor.')
       return
     }
 
     setIsSubmitting(true)
     try {
-      await saveCategory(trimmed)
-      setNewCategoryName('')
+      await saveSupplier(trimmed)
+      setNewSupplierName('')
     } catch (err: any) {
-      setError(err.message || 'Error al crear categoría.')
+      setError(err.message || 'Error al guardar proveedor.')
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const handleStartEdit = (category: Category): void => {
-    setEditingId(category.id)
-    setEditingName(category.name)
+  const handleStartEdit = (supplier: Supplier): void => {
+    setEditingId(supplier.id)
+    setEditingName(supplier.name)
     setError(null)
   }
 
   const handleSaveEdit = async (id: number): Promise<void> => {
     const trimmed = editingName.trim()
     if (!trimmed) {
-      setError('El nombre de la categoría no puede estar vacío.')
+      setError('El nombre del proveedor no puede estar vacío.')
       return
     }
 
     setIsSubmitting(true)
     try {
-      await saveCategory(trimmed, null, id)
+      await saveSupplier(trimmed, id)
       setEditingId(null)
       setEditingName('')
     } catch (err: any) {
-      setError(err.message || 'Error al actualizar categoría.')
+      setError(err.message || 'Error al actualizar proveedor.')
     } finally {
       setIsSubmitting(false)
     }
   }
 
   const handleDelete = async (id: number, name: string): Promise<void> => {
-    if (confirm(`¿Estás seguro de eliminar la categoría "${name}"?\n\nLos productos asociados quedarán sin categoría asignada.`)) {
+    if (confirm(`¿Estás seguro de eliminar el proveedor "${name}"?`)) {
       try {
-        await deleteCategory(id)
+        await deleteSupplier(id)
         if (editingId === id) {
           setEditingId(null)
         }
       } catch (err: any) {
-        setError(err.message || 'Error al eliminar categoría.')
+        setError(err.message || 'Error al eliminar proveedor.')
       }
     }
   }
@@ -84,9 +84,9 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose })
         <div className="px-6 py-4 bg-slate-50 border-b border-lilac-100 flex items-center justify-between">
           <div className="flex items-center gap-2 text-slate-800 font-bold text-base">
             <div className="w-8 h-8 rounded-lg bg-lilac-100 text-lilac-600 flex items-center justify-center">
-              <Layers className="w-4 h-4" />
+              <Truck className="w-4 h-4" />
             </div>
-            <span>Administrar Categorías</span>
+            <span>Administrar Proveedores</span>
           </div>
           <button
             onClick={onClose}
@@ -104,13 +104,13 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose })
 
         {/* Modal Body */}
         <div className="p-6 flex flex-col gap-4 overflow-y-auto">
-          {/* Form to add Category */}
-          <form onSubmit={handleCreateCategory} className="flex gap-2">
+          {/* Form to add Supplier */}
+          <form onSubmit={handleCreate} className="flex gap-2">
             <input
               type="text"
-              value={newCategoryName}
-              onChange={(e) => setNewCategoryName(e.target.value)}
-              placeholder="Nueva categoría (ej: Lanas, Hilos, Accesorios)..."
+              value={newSupplierName}
+              onChange={(e) => setNewSupplierName(e.target.value)}
+              placeholder="Nombre del nuevo proveedor (ej. Revesderecho)..."
               className="flex-1 px-3 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500 shadow-sm"
               autoFocus
             />
@@ -124,18 +124,18 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose })
             </button>
           </form>
 
-          {/* List of Categories */}
+          {/* List of Suppliers */}
           <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/50 flex flex-col max-h-80 overflow-y-auto space-y-1.5">
-            {categories.length === 0 ? (
+            {suppliers.length === 0 ? (
               <p className="text-xs text-slate-400 text-center py-6">
-                No hay categorías registradas aún. Agrega una arriba.
+                No hay proveedores registrados aún. Agrega uno arriba.
               </p>
             ) : (
-              categories.map((c) => {
-                const isEditing = editingId === c.id
+              suppliers.map((s) => {
+                const isEditing = editingId === s.id
                 return (
                   <div
-                    key={c.id}
+                    key={s.id}
                     className="flex items-center justify-between p-2.5 rounded-lg text-sm bg-white border border-slate-200 shadow-sm group hover:border-lilac-200 transition-all"
                   >
                     {isEditing ? (
@@ -147,12 +147,12 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose })
                           className="flex-1 px-2 py-1 text-xs bg-slate-50 border border-lilac-400 rounded focus:outline-none"
                           autoFocus
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSaveEdit(c.id)
+                            if (e.key === 'Enter') handleSaveEdit(s.id)
                             if (e.key === 'Escape') setEditingId(null)
                           }}
                         />
                         <button
-                          onClick={() => handleSaveEdit(c.id)}
+                          onClick={() => handleSaveEdit(s.id)}
                           disabled={isSubmitting}
                           className="p-1 text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
                           title="Guardar cambios"
@@ -169,19 +169,19 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose })
                       </div>
                     ) : (
                       <>
-                        <span className="font-semibold text-slate-800">{c.name}</span>
+                        <span className="font-semibold text-slate-800">{s.name}</span>
                         <div className="flex items-center gap-1">
                           <button
-                            onClick={() => handleStartEdit(c)}
+                            onClick={() => handleStartEdit(s)}
                             className="p-1 text-slate-400 hover:text-lilac-600 hover:bg-lilac-50 rounded transition-colors"
                             title="Editar nombre"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => handleDelete(c.id, c.name)}
+                            onClick={() => handleDelete(s.id, s.name)}
                             className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors"
-                            title="Eliminar categoría"
+                            title="Eliminar proveedor"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -197,7 +197,7 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose })
 
         {/* Modal Footer */}
         <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 flex justify-between items-center text-xs text-slate-500">
-          <span>{categories.length} categoría(s) en total</span>
+          <span>{suppliers.length} proveedor(es) en total</span>
           <button
             onClick={onClose}
             className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg transition-colors"

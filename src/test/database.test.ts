@@ -6,7 +6,7 @@ import { CashService } from '../main/services/cashService'
 import { SettingsService } from '../main/services/settingsService'
 import { BackupService, MAX_BACKUPS_RETENTION } from '../main/services/backupService'
 import { normalizeSearchName } from '../main/db/utils'
-import { mkdtempSync, rmSync, existsSync, readdirSync } from 'fs'
+import { mkdtempSync, rmSync, existsSync, readdirSync, mkdirSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 
@@ -295,6 +295,85 @@ describe('Fase 2: Datos, Esquema, Servicios y Backup', () => {
           rmSync(tempDir, { recursive: true, force: true })
         }
       }
+    })
+
+    it('restaura una copia de respaldo reemplazando los datos de forma consistente', async () => {
+      const tempDir = join(tmpdir(), `test_restore_${Date.now()}`)
+      const backupService = new BackupService(db, settingsService)
+      try {
+        mkdirSync(tempDir, { recursive: true })
+        // 1. Estado inicial: producto LANA-BACKUP
+        productService.upsertProduct({
+          code: 'LANA-BACKUP',
+          name: 'Lana para Respaldo',
+          sale_price: 3500
+        })
+
+        // 2. Creamos respaldo
+        const backupPath = await backupService.createBackup(tempDir)
+        expect(existsSync(backupPath)).toBe(true)
+
+        // 3. Modificamos la BD (agregamos otro producto y borramos el original)
+        productService.upsertProduct({
+          code: 'OTRO-PROD',
+          name: 'Otro Producto',
+          sale_price: 9990
+        })
+        productService.softDeleteProduct('LANA-BACKUP')
+        expect(productService.getProductByCode('LANA-BACKUP')).toBeNull()
+        expect(productService.getProductByCode('OTRO-PROD')).not.toBeNull()
+
+        // 4. Restauramos el respaldo
+        backupService.restoreBackup(backupPath)
+
+        // 5. La base de datos debe tener el estado exacto del respaldo
+        expect(productService.getProductByCode('LANA-BACKUP')).not.toBeNull()
+        expect(productService.getProductByCode('OTRO-PROD')).toBeNull()
+      } finally {
+        if (existsSync(tempDir)) {
+          rmSync(tempDir, { recursive: true, force: true })
+        }
+      }
+    })
+  })
+
+  describe('Vaciado / Reset de Base de Datos (resetDatabase)', () => {
+    it('elimina todos los datos operacionales respetando integridad y reseteando autoincrement', () => {
+      // 1. Poblamos datos
+      const cat = productService.saveCategory('Lanas')
+      const prod = productService.upsertProduct({
+        code: 'PROD-RESET',
+        name: 'Producto Reset',
+        sale_price: 1500,
+        category_id: cat.id
+      })
+      cashService.openSession(50000)
+      settingsService.set('printer_type', 'thermal')
+
+      // Verificar que existen registros
+      expect(productService.getProductByCode('PROD-RESET')).not.toBeNull()
+      expect(db.prepare('SELECT count(*) as count FROM categories').get()).toEqual({ count: 1 })
+      expect(db.prepare('SELECT count(*) as count FROM cash_sessions').get()).toEqual({ count: 1 })
+
+      // 2. Ejecutamos vaciado preservando settings (keepSettings = true)
+      settingsService.resetDatabase(true)
+
+      // 3. Verificar que los datos operacionales están vacíos
+      expect(db.prepare('SELECT count(*) as count FROM products').get()).toEqual({ count: 0 })
+      expect(db.prepare('SELECT count(*) as count FROM categories').get()).toEqual({ count: 0 })
+      expect(db.prepare('SELECT count(*) as count FROM cash_sessions').get()).toEqual({ count: 0 })
+      expect(db.prepare('SELECT count(*) as count FROM sales').get()).toEqual({ count: 0 })
+      expect(db.prepare('SELECT count(*) as count FROM inventory_movements').get()).toEqual({ count: 0 })
+
+      // Las configuraciones se mantuvieron
+      expect(settingsService.get('printer_type')).toBe('thermal')
+
+      // Migraciones permanecen intactas
+      expect(db.prepare('SELECT count(*) as count FROM schema_migrations').get()).not.toEqual({ count: 0 })
+
+      // 4. Si vaciamos con keepSettings = false, también borra configuraciones
+      settingsService.resetDatabase(false)
+      expect(settingsService.get('printer_type')).toBeNull()
     })
   })
 })

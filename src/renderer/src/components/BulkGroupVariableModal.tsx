@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { X, GitBranch, CheckCircle2, Layers, Tag, Sparkles } from 'lucide-react'
+import { X, GitBranch, CheckCircle2, Layers, Tag, Sparkles, Truck, Plus } from 'lucide-react'
 import { ProductSearchResult } from '@shared/types'
 import { formatCLP } from '../utils/formatters'
 import { useCatalogStore } from '../store/catalogStore'
@@ -38,10 +38,13 @@ export const BulkGroupVariableModal: React.FC<BulkGroupVariableModalProps> = ({
   onClose,
   onSuccess
 }) => {
-  const { categories, groupProductsAsVariable } = useCatalogStore()
+  const { categories, suppliers, saveSupplier, groupProductsAsVariable } = useCatalogStore()
 
   const [parentName, setParentName] = useState('')
   const [categoryId, setCategoryId] = useState<number | null>(null)
+  const [selectedSupplierIds, setSelectedSupplierIds] = useState<Set<number>>(new Set())
+  const [isAddingSupplierInline, setIsAddingSupplierInline] = useState(false)
+  const [newInlineSupplierName, setNewInlineSupplierName] = useState('')
   const [attributeName, setAttributeName] = useState('Color')
   const [customAttrInput, setCustomAttrInput] = useState('')
   const [rows, setRows] = useState<VariationRowState[]>([])
@@ -62,6 +65,16 @@ export const BulkGroupVariableModal: React.FC<BulkGroupVariableModalProps> = ({
     // Inherit category from first product if available
     const initialCategory = selectedProducts.find((p) => p.category_id !== null)?.category_id || null
     setCategoryId(initialCategory)
+
+    // Inherit suppliers from selected products
+    const initialSuppliers = new Set<number>()
+    selectedProducts.forEach((p) => {
+      p.supplier_ids?.forEach((id) => initialSuppliers.add(id))
+      p.suppliers?.forEach((s) => initialSuppliers.add(s.id))
+    })
+    setSelectedSupplierIds(initialSuppliers)
+    setIsAddingSupplierInline(false)
+    setNewInlineSupplierName('')
 
     // Build row items and infer attribute values
     const initialRows: VariationRowState[] = selectedProducts.map((p) => {
@@ -86,6 +99,19 @@ export const BulkGroupVariableModal: React.FC<BulkGroupVariableModalProps> = ({
     setRows(initialRows)
     setError(null)
   }, [isOpen, selectedProducts])
+
+  const handleAddInlineSupplier = async (): Promise<void> => {
+    const trimmed = newInlineSupplierName.trim()
+    if (!trimmed) return
+    try {
+      const newSup = await saveSupplier(trimmed)
+      setSelectedSupplierIds((prev) => new Set([...prev, newSup.id]))
+      setNewInlineSupplierName('')
+      setIsAddingSupplierInline(false)
+    } catch (err: any) {
+      setError(err.message || 'Error al agregar proveedor.')
+    }
+  }
 
   if (!isOpen) return null
 
@@ -125,6 +151,7 @@ export const BulkGroupVariableModal: React.FC<BulkGroupVariableModalProps> = ({
       await groupProductsAsVariable({
         parentName: trimmedParentName,
         categoryId,
+        supplierIds: Array.from(selectedSupplierIds),
         attributeName: currentAttribute,
         items: rows.map((r) => ({
           productId: r.productId,
@@ -216,7 +243,7 @@ export const BulkGroupVariableModal: React.FC<BulkGroupVariableModalProps> = ({
                 <option value="">-- Sin categoría asignada --</option>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.parent_id !== null ? `↳ ${c.name}` : c.name}
+                    {c.name}
                   </option>
                 ))}
               </select>
@@ -270,6 +297,108 @@ export const BulkGroupVariableModal: React.FC<BulkGroupVariableModalProps> = ({
                 />
               )}
             </div>
+          </div>
+
+          {/* Proveedores Compartidos (Selección Múltiple) */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <Truck className="w-3.5 h-3.5 text-lilac-600" />
+                <span>Proveedores Compartidos (Selecciona uno o más)</span>
+              </label>
+
+              <div className="flex items-center gap-2">
+                {selectedSupplierIds.size > 0 && (
+                  <span className="text-[11px] font-semibold text-lilac-600 bg-lilac-50 border border-lilac-200 px-2 py-0.5 rounded-full">
+                    {selectedSupplierIds.size} seleccionado(s)
+                  </span>
+                )}
+                {!isAddingSupplierInline && (
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingSupplierInline(true)}
+                    className="text-xs text-lilac-600 hover:text-lilac-700 font-bold flex items-center gap-1 hover:underline shrink-0"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>+ Nuevo Proveedor</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {isAddingSupplierInline && (
+              <div className="flex items-center gap-2 p-2 bg-white border border-lilac-200 rounded-lg shadow-sm">
+                <input
+                  type="text"
+                  value={newInlineSupplierName}
+                  onChange={(e) => setNewInlineSupplierName(e.target.value)}
+                  placeholder="Nombre del nuevo proveedor..."
+                  className="flex-1 px-2.5 py-1 text-xs bg-slate-50 border border-slate-200 rounded focus:outline-none focus:border-lilac-500"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      handleAddInlineSupplier()
+                    }
+                    if (e.key === 'Escape') {
+                      setIsAddingSupplierInline(false)
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddInlineSupplier}
+                  className="px-2.5 py-1 bg-lilac-600 hover:bg-lilac-700 text-white rounded text-xs font-bold transition-colors"
+                >
+                  Guardar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAddingSupplierInline(false)}
+                  className="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {suppliers.length === 0 ? (
+              <p className="text-xs text-slate-400 italic py-1 text-center">
+                No hay proveedores registrados aún. Haz clic en "+ Nuevo Proveedor" para crear uno.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-0.5">
+                {suppliers.map((s) => {
+                  const isChecked = selectedSupplierIds.has(s.id)
+                  return (
+                    <label
+                      key={s.id}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium cursor-pointer transition-all ${
+                        isChecked
+                          ? 'bg-lilac-500 border-lilac-600 text-white shadow-sm'
+                          : 'bg-white border-slate-200 text-slate-700 hover:border-lilac-300 hover:bg-slate-100/50'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          const next = new Set(selectedSupplierIds)
+                          if (e.target.checked) {
+                            next.add(s.id)
+                          } else {
+                            next.delete(s.id)
+                          }
+                          setSelectedSupplierIds(next)
+                        }}
+                        className="rounded text-lilac-600 focus:ring-lilac-500 w-3.5 h-3.5 accent-lilac-600 cursor-pointer"
+                      />
+                      <span>{s.name}</span>
+                    </label>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           {/* Variations Table */}

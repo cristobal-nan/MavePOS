@@ -337,12 +337,17 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                       )}
                     </td>
 
-                    {/* Categoría (Depto / Subcat) */}
-                    <td className="py-2.5 px-3 text-slate-600 truncate">
-                      {p.category_name ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
-                          <Layers className="w-3 h-3 text-slate-400" />
-                          <span>
+                    {/* Categoría */}
+                    <td className="py-2.5 px-3 text-slate-600 truncate" title={p.category_display || p.category_name || 'Sin categoría'}>
+                      {p.category_display ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md truncate max-w-full">
+                          <Layers className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span className="truncate">{p.category_display}</span>
+                        </span>
+                      ) : p.category_name ? (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md truncate max-w-full">
+                          <Layers className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span className="truncate">
                             {p.parent_category_name ? `${p.parent_category_name} / ` : ''}
                             {p.category_name}
                           </span>

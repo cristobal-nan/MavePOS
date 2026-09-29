@@ -17,7 +17,8 @@ import {
   Package,
   ShoppingBag,
   Banknote,
-  CornerDownLeft
+  CornerDownLeft,
+  Printer
 } from 'lucide-react'
 import { useHistoryStore } from '../store/historyStore'
 import { useCashStore } from '../store/cashStore'
@@ -77,6 +78,11 @@ export const HistoryView: React.FC = () => {
   const [withdrawalSuccessMsg, setWithdrawalSuccessMsg] = useState<string | null>(null)
   const [withdrawalErrorMsg, setWithdrawalErrorMsg] = useState<string | null>(null)
   const [isSubmittingWithdrawal, setIsSubmittingWithdrawal] = useState(false)
+
+  // Estado local para impresión desde detalle de venta
+  const [isPrintingThermal, setIsPrintingThermal] = useState(false)
+  const [isPrintingNormal, setIsPrintingNormal] = useState(false)
+  const [printFeedback, setPrintFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   // Cargar datos al montar
   useEffect(() => {
@@ -187,6 +193,43 @@ export const HistoryView: React.FC = () => {
   }
 
   const totalCashWithdrawals = cashMovements.reduce((acc, m) => acc + m.amount, 0)
+
+  // Impresión de ticket desde detalle de venta
+  const handlePrintThermalFromDetail = async (): Promise<void> => {
+    if (!selectedSaleDetail) return
+    setIsPrintingThermal(true)
+    setPrintFeedback(null)
+    try {
+      const res = await window.api.printThermalReceipt(selectedSaleDetail, 0)
+      if (res.success) {
+        setPrintFeedback({ type: 'success', text: '¡Ticket térmico enviado a la impresora!' })
+      } else {
+        setPrintFeedback({ type: 'error', text: res.error || 'Error al imprimir ticket.' })
+      }
+    } catch (err: any) {
+      setPrintFeedback({ type: 'error', text: err.message || 'Error al imprimir ticket térmico.' })
+    } finally {
+      setIsPrintingThermal(false)
+    }
+  }
+
+  const handlePrintNormalFromDetail = async (): Promise<void> => {
+    if (!selectedSaleDetail) return
+    setIsPrintingNormal(true)
+    setPrintFeedback(null)
+    try {
+      const res = await window.api.printNormalReceipt(selectedSaleDetail)
+      if (res.success) {
+        setPrintFeedback({ type: 'success', text: '¡Comprobante enviado a la impresora de Windows!' })
+      } else {
+        setPrintFeedback({ type: 'error', text: res.error || 'Error al imprimir comprobante.' })
+      }
+    } catch (err: any) {
+      setPrintFeedback({ type: 'error', text: err.message || 'Error al imprimir comprobante.' })
+    } finally {
+      setIsPrintingNormal(false)
+    }
+  }
 
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-50 overflow-hidden">
@@ -1088,33 +1131,73 @@ export const HistoryView: React.FC = () => {
             </div>
 
             {/* Footer del Modal */}
-            <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
-              <div>
-                {selectedSaleDetail.status !== 'cancelled' && (
+            <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex flex-col gap-2 shrink-0">
+              {/* Print Feedback */}
+              {printFeedback && (
+                <div
+                  className={`p-2 rounded-lg text-xs font-semibold flex items-center gap-2 ${
+                    printFeedback.type === 'success'
+                      ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+                      : 'bg-rose-50 border border-rose-200 text-rose-800'
+                  }`}
+                >
+                  {printFeedback.type === 'success' ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  )}
+                  <span>{printFeedback.text}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {selectedSaleDetail.status !== 'cancelled' && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleOpenCancelModal(
+                          selectedSaleDetail.id,
+                          selectedSaleDetail.folio,
+                          selectedSaleDetail.total
+                        )
+                      }
+                      className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 transition-colors"
+                    >
+                      <XCircle className="w-4 h-4" />
+                      <span>Cancelar Venta</span>
+                    </button>
+                  )}
+
                   <button
                     type="button"
-                    onClick={() =>
-                      handleOpenCancelModal(
-                        selectedSaleDetail.id,
-                        selectedSaleDetail.folio,
-                        selectedSaleDetail.total
-                      )
-                    }
-                    className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 transition-colors"
+                    onClick={handlePrintThermalFromDetail}
+                    disabled={isPrintingThermal}
+                    className="px-3 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition-colors disabled:opacity-50"
                   >
-                    <XCircle className="w-4 h-4" />
-                    <span>Cancelar Venta Completa</span>
+                    <Printer className="w-3.5 h-3.5 text-lilac-600" />
+                    <span>{isPrintingThermal ? 'Imprimiendo...' : 'Ticket Térmico'}</span>
                   </button>
-                )}
-              </div>
 
-              <button
-                type="button"
-                onClick={closeSaleDetail}
-                className="px-5 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs transition-colors"
-              >
-                Cerrar Detalle
-              </button>
+                  <button
+                    type="button"
+                    onClick={handlePrintNormalFromDetail}
+                    disabled={isPrintingNormal}
+                    className="px-3 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-lilac-600" />
+                    <span>{isPrintingNormal ? 'Imprimiendo...' : 'Comprobante Normal'}</span>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => { closeSaleDetail(); setPrintFeedback(null) }}
+                  className="px-5 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs transition-colors"
+                >
+                  Cerrar Detalle
+                </button>
+              </div>
             </div>
           </div>
         </div>

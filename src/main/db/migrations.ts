@@ -141,6 +141,34 @@ const MIGRATIONS: Migration[] = [
       }
       db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_folio_unique ON sales(folio);')
     }
+  },
+  {
+    version: 6,
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS suppliers (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL UNIQUE,
+          search_name TEXT NOT NULL,
+          active INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_suppliers_name ON suppliers(name);
+        CREATE INDEX IF NOT EXISTS idx_suppliers_search_name ON suppliers(search_name);
+        CREATE INDEX IF NOT EXISTS idx_suppliers_active ON suppliers(active);
+
+        CREATE TABLE IF NOT EXISTS product_suppliers (
+          product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+          supplier_id INTEGER NOT NULL REFERENCES suppliers(id) ON DELETE CASCADE,
+          PRIMARY KEY (product_id, supplier_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_product_suppliers_prod ON product_suppliers(product_id);
+        CREATE INDEX IF NOT EXISTS idx_product_suppliers_supp ON product_suppliers(supplier_id);
+      `)
+    }
   }
 ]
 

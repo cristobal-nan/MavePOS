@@ -8,7 +8,10 @@ import {
   AlertCircle,
   Coins,
   Receipt,
-  ArrowRight
+  ArrowRight,
+  Printer,
+  FileText,
+  Archive
 } from 'lucide-react'
 import { PaymentMethod, CompletedSaleResult } from '@shared/types'
 import { formatCLP, parseCLP } from '../utils/formatters'
@@ -41,6 +44,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [completedResult, setCompletedResult] = useState<CompletedSaleResult | null>(null)
+  const [isPrintingThermal, setIsPrintingThermal] = useState(false)
+  const [isPrintingNormal, setIsPrintingNormal] = useState(false)
+  const [isOpeningDrawer, setIsOpeningDrawer] = useState(false)
+  const [printStatusMsg, setPrintStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const cashInputRef = useRef<HTMLInputElement>(null)
 
@@ -124,12 +131,89 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         cashPaid: cashPaidAmount
       })
       setCompletedResult(result)
+      setPrintStatusMsg(null)
       onSuccess(result)
+
+      // Auto-print thermal ticket if enabled in settings
+      try {
+        const pConfig = await window.api.getPrinterConfig()
+        if (pConfig.autoPrintOnSale && pConfig.thermalInterface) {
+          const saleDetail = await window.api.getSaleDetail(result.sale.id)
+          if (saleDetail) {
+            await window.api.printThermalReceipt(saleDetail, result.change)
+          }
+        }
+      } catch (printErr) {
+        console.warn('Auto-print falló (no crítico):', printErr)
+      }
     } catch (err: any) {
       console.error('Error al registrar venta:', err)
       setError(err.message || 'Error al completar la venta.')
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handlePrintThermal = async (): Promise<void> => {
+    if (!completedResult) return
+    setIsPrintingThermal(true)
+    setPrintStatusMsg(null)
+    try {
+      const saleDetail = await window.api.getSaleDetail(completedResult.sale.id)
+      if (!saleDetail) {
+        setPrintStatusMsg({ type: 'error', text: 'No se encontró el detalle de la venta.' })
+        return
+      }
+      const res = await window.api.printThermalReceipt(saleDetail, completedResult.change)
+      if (res.success) {
+        setPrintStatusMsg({ type: 'success', text: '¡Ticket térmico enviado a la impresora!' })
+      } else {
+        setPrintStatusMsg({ type: 'error', text: res.error || 'Error al imprimir.' })
+      }
+    } catch (err: any) {
+      setPrintStatusMsg({ type: 'error', text: err.message || 'Error al imprimir ticket térmico.' })
+    } finally {
+      setIsPrintingThermal(false)
+    }
+  }
+
+  const handlePrintNormal = async (): Promise<void> => {
+    if (!completedResult) return
+    setIsPrintingNormal(true)
+    setPrintStatusMsg(null)
+    try {
+      const saleDetail = await window.api.getSaleDetail(completedResult.sale.id)
+      if (!saleDetail) {
+        setPrintStatusMsg({ type: 'error', text: 'No se encontró el detalle de la venta.' })
+        return
+      }
+      const res = await window.api.printNormalReceipt(saleDetail)
+      if (res.success) {
+        setPrintStatusMsg({ type: 'success', text: '¡Comprobante enviado a la impresora de Windows!' })
+      } else {
+        setPrintStatusMsg({ type: 'error', text: res.error || 'Error al imprimir comprobante.' })
+      }
+    } catch (err: any) {
+      setPrintStatusMsg({ type: 'error', text: err.message || 'Error al imprimir comprobante.' })
+    } finally {
+      setIsPrintingNormal(false)
+    }
+  }
+
+  const handleOpenDrawer = async (): Promise<void> => {
+    setIsOpeningDrawer(true)
+    setPrintStatusMsg(null)
+    try {
+      const res = await window.api.openCashDrawer()
+      if (res.success) {
+        setPrintStatusMsg({ type: 'success', text: '¡Cajón de dinero abierto!' })
+      } else {
+        setPrintStatusMsg({ type: 'error', text: res.error || 'Error al abrir cajón.' })
+      }
+    } catch (err: any) {
+      setPrintStatusMsg({ type: 'error', text: err.message || 'Error al abrir cajón.' })
+    } finally {
+      setIsOpeningDrawer(false)
     }
   }
 
@@ -153,12 +237,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             <span className="text-xs font-semibold text-lilac-600 bg-lilac-50 px-2.5 py-0.5 rounded-full mb-2">
               Ticket de Turno #{completedResult.sale.ticket_number ?? 0}
             </span>
-            <p className="text-sm text-slate-500 mb-6">
+            <p className="text-sm text-slate-500 mb-4">
               Total pagado: <span className="font-bold text-slate-700">{formatCLP(completedResult.sale.total)}</span>
             </p>
 
             {completedResult.change > 0 && (
-              <div className="w-full bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-6 text-center">
+              <div className="w-full bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-4 text-center">
                 <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">
                   Vuelto a Entregar
                 </span>
@@ -167,6 +251,57 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </div>
               </div>
             )}
+
+            {/* Print Status Message */}
+            {printStatusMsg && (
+              <div
+                className={`w-full p-2.5 rounded-xl text-xs font-semibold mb-3 flex items-center gap-2 ${
+                  printStatusMsg.type === 'success'
+                    ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+                    : 'bg-rose-50 border border-rose-200 text-rose-800'
+                }`}
+              >
+                {printStatusMsg.type === 'success' ? (
+                  <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                )}
+                <span>{printStatusMsg.text}</span>
+              </div>
+            )}
+
+            {/* Print Action Buttons */}
+            <div className="w-full grid grid-cols-3 gap-2 mb-4">
+              <button
+                type="button"
+                onClick={handlePrintThermal}
+                disabled={isPrintingThermal}
+                className="py-2.5 px-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-[11px] font-bold transition-all flex flex-col items-center gap-1.5 disabled:opacity-50"
+              >
+                <Printer className="w-4 h-4 text-lilac-600" />
+                <span>{isPrintingThermal ? 'Imprimiendo...' : 'Ticket Térmico'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handlePrintNormal}
+                disabled={isPrintingNormal}
+                className="py-2.5 px-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-[11px] font-bold transition-all flex flex-col items-center gap-1.5 disabled:opacity-50"
+              >
+                <FileText className="w-4 h-4 text-lilac-600" />
+                <span>{isPrintingNormal ? 'Imprimiendo...' : 'Comprobante Normal'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOpenDrawer}
+                disabled={isOpeningDrawer}
+                className="py-2.5 px-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-[11px] font-bold transition-all flex flex-col items-center gap-1.5 disabled:opacity-50"
+              >
+                <Archive className="w-4 h-4 text-amber-600" />
+                <span>{isOpeningDrawer ? 'Abriendo...' : 'Abrir Cajón'}</span>
+              </button>
+            </div>
 
             <button
               onClick={onClose}

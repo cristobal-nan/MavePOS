@@ -8,7 +8,8 @@ import {
   Boxes,
   GitBranch,
   Plus,
-  Trash2
+  Trash2,
+  Truck
 } from 'lucide-react'
 import { ProductInput, ProductSearchResult, ProductType } from '@shared/types'
 import { useCatalogStore } from '../store/catalogStore'
@@ -35,15 +36,17 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   isOpen,
   onClose
 }) => {
-  const { categories, saveProduct, saveVariableProduct, getVariations } = useCatalogStore()
+  const { categories, suppliers, saveSupplier, saveProduct, saveVariableProduct, getVariations } = useCatalogStore()
 
   const [productType, setProductType] = useState<ProductType>('simple')
   const [code, setCode] = useState('')
   const [name, setName] = useState('')
   const [salePrice, setSalePrice] = useState('')
   const [costPrice, setCostPrice] = useState('')
-  const [selectedDeptoId, setSelectedDeptoId] = useState<number | null>(null)
-  const [selectedSubcatId, setSelectedSubcatId] = useState<number | null>(null)
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null)
+  const [selectedSupplierIds, setSelectedSupplierIds] = useState<Set<number>>(new Set())
+  const [isAddingSupplierInline, setIsAddingSupplierInline] = useState(false)
+  const [newInlineSupplierName, setNewInlineSupplierName] = useState('')
   const [stock, setStock] = useState('0')
   const [minStock, setMinStock] = useState('5')
 
@@ -53,11 +56,6 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  // Categorías de nivel 1 (Departamentos)
-  const departments = categories.filter((c) => c.parent_id === null)
-  // Subcategorías del departamento seleccionado
-  const subcategories = categories.filter((c) => c.parent_id === selectedDeptoId)
 
   useEffect(() => {
     if (product) {
@@ -69,22 +67,17 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setAttributeName(product.attribute_name || 'Color')
       setStock(product.stock !== undefined ? product.stock.toString() : '0')
       setMinStock(product.min_stock !== undefined ? product.min_stock.toString() : '5')
+      setSelectedCategoryId(product.category_id || null)
 
-      // Resolve department vs subcategory
-      if (product.category_id) {
-        const cat = categories.find((c) => c.id === product.category_id)
-        if (cat) {
-          if (cat.parent_id !== null) {
-            setSelectedDeptoId(cat.parent_id)
-            setSelectedSubcatId(cat.id)
-          } else {
-            setSelectedDeptoId(cat.id)
-            setSelectedSubcatId(null)
+      // Resolve suppliers
+      const supIds = product.supplier_ids || product.suppliers?.map((s) => s.id) || []
+      setSelectedSupplierIds(new Set(supIds))
+      if (product.id && supIds.length === 0) {
+        window.api.getProductById(product.id).then((fullProd) => {
+          if (fullProd?.supplier_ids && fullProd.supplier_ids.length > 0) {
+            setSelectedSupplierIds(new Set(fullProd.supplier_ids))
           }
-        }
-      } else {
-        setSelectedDeptoId(null)
-        setSelectedSubcatId(null)
+        })
       }
 
       // If variable product, fetch its variations
@@ -112,8 +105,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setName('')
       setSalePrice('')
       setCostPrice('')
-      setSelectedDeptoId(null)
-      setSelectedSubcatId(null)
+      setSelectedCategoryId(null)
+      setSelectedSupplierIds(new Set())
       setAttributeName('Color')
       setStock('0')
       setMinStock('5')
@@ -128,15 +121,25 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         }
       ])
     }
+    setIsAddingSupplierInline(false)
+    setNewInlineSupplierName('')
     setError(null)
   }, [product, categories, isOpen, getVariations])
 
-  if (!isOpen) return null
-
-  const handleDeptoChange = (id: number | null): void => {
-    setSelectedDeptoId(id)
-    setSelectedSubcatId(null)
+  const handleAddInlineSupplier = async (): Promise<void> => {
+    const trimmed = newInlineSupplierName.trim()
+    if (!trimmed) return
+    try {
+      const newSup = await saveSupplier(trimmed)
+      setSelectedSupplierIds((prev) => new Set([...prev, newSup.id]))
+      setNewInlineSupplierName('')
+      setIsAddingSupplierInline(false)
+    } catch (err: any) {
+      setError(err.message || 'Error al agregar proveedor.')
+    }
   }
+
+  if (!isOpen) return null
 
   const handleAddVariation = (): void => {
     setVariations([
@@ -171,7 +174,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       return
     }
 
-    const finalCategoryId = selectedSubcatId || selectedDeptoId || null
+    const finalCategoryId = selectedCategoryId
+    const supplierIdsArray = Array.from(selectedSupplierIds)
 
     if (productType === 'simple' || productType === 'variation') {
       if (!code.trim()) {
@@ -200,6 +204,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         sale_price: parsedSalePrice,
         cost_price: parsedCostPrice,
         category_id: finalCategoryId,
+        supplier_ids: supplierIdsArray,
         stock: parsedStock,
         min_stock: parsedMinStock
       }
@@ -244,6 +249,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         name: name.trim(),
         product_type: 'variable',
         category_id: finalCategoryId,
+        supplier_ids: supplierIdsArray,
         attribute_name: attributeName.trim() || 'Color',
         sale_price: 0,
         stock: 0
@@ -260,7 +266,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         cost_price: v.costPrice.trim() ? parseCLP(v.costPrice) : null,
         stock: parseInt(v.stock, 10) || 0,
         min_stock: parseInt(v.minStock, 10) || 0,
-        category_id: finalCategoryId
+        category_id: finalCategoryId,
+        supplier_ids: supplierIdsArray
       }))
 
       setIsSubmitting(true)
@@ -348,52 +355,118 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               />
             </div>
 
-            {/* Categoría (Cascada Depto -> Subcategoría de 2 niveles) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
-                  <Layers className="w-3.5 h-3.5 text-lilac-600" />
-                  <span>Departamento (Nivel 1)</span>
+            {/* Categoría */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                <Layers className="w-3.5 h-3.5 text-lilac-600" />
+                <span>Categoría</span>
+              </label>
+              <select
+                value={selectedCategoryId || ''}
+                onChange={(e) => setSelectedCategoryId(e.target.value ? Number(e.target.value) : null)}
+                className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500"
+              >
+                <option value="">-- Sin categoría --</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Proveedores (Múltiples con Checkboxes) */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                  <Truck className="w-3.5 h-3.5 text-lilac-600" />
+                  <span>Proveedores Asociados</span>
                 </label>
-                <select
-                  value={selectedDeptoId || ''}
-                  onChange={(e) => handleDeptoChange(e.target.value ? Number(e.target.value) : null)}
-                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500"
-                >
-                  <option value="">-- Sin departamento --</option>
-                  {departments.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
-                    </option>
-                  ))}
-                </select>
+                {!isAddingSupplierInline ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingSupplierInline(true)}
+                    className="text-xs text-lilac-600 hover:text-lilac-700 font-bold flex items-center gap-1 hover:underline"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>+ Nuevo Proveedor</span>
+                  </button>
+                ) : null}
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
-                  <Layers className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Subcategoría (Nivel 2)</span>
-                </label>
-                <select
-                  value={selectedSubcatId || ''}
-                  disabled={!selectedDeptoId || subcategories.length === 0}
-                  onChange={(e) => setSelectedSubcatId(e.target.value ? Number(e.target.value) : null)}
-                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500 disabled:opacity-50"
-                >
-                  <option value="">
-                    {!selectedDeptoId
-                      ? 'Selecciona un departamento primero'
-                      : subcategories.length === 0
-                      ? 'No tiene subcategorías'
-                      : '-- Sin subcategoría --'}
-                  </option>
-                  {subcategories.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {isAddingSupplierInline && (
+                <div className="flex items-center gap-2 p-2 bg-lilac-50 border border-lilac-200 rounded-lg">
+                  <input
+                    type="text"
+                    value={newInlineSupplierName}
+                    onChange={(e) => setNewInlineSupplierName(e.target.value)}
+                    placeholder="Nombre del nuevo proveedor..."
+                    className="flex-1 px-2.5 py-1 text-xs bg-white border border-slate-200 rounded focus:outline-none focus:border-lilac-500"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        handleAddInlineSupplier()
+                      }
+                      if (e.key === 'Escape') {
+                        setIsAddingSupplierInline(false)
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddInlineSupplier}
+                    className="px-2.5 py-1 bg-lilac-600 hover:bg-lilac-700 text-white rounded text-xs font-bold transition-colors"
+                  >
+                    Guardar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingSupplierInline(false)}
+                    className="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {suppliers.length === 0 ? (
+                <p className="text-xs text-slate-400 italic py-1">
+                  No hay proveedores registrados aún. Haz clic en "+ Nuevo Proveedor" para crear uno.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-1">
+                  {suppliers.map((sup) => {
+                    const isChecked = selectedSupplierIds.has(sup.id)
+                    return (
+                      <label
+                        key={sup.id}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium cursor-pointer transition-all ${
+                          isChecked
+                            ? 'bg-lilac-500 border-lilac-600 text-white shadow-sm'
+                            : 'bg-white border-slate-200 text-slate-700 hover:border-lilac-300 hover:bg-slate-50'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            const next = new Set(selectedSupplierIds)
+                            if (e.target.checked) {
+                              next.add(sup.id)
+                            } else {
+                              next.delete(sup.id)
+                            }
+                            setSelectedSupplierIds(next)
+                          }}
+                          className="rounded text-lilac-600 focus:ring-lilac-500 w-3.5 h-3.5 accent-lilac-600 cursor-pointer"
+                        />
+                        <span>{sup.name}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           </div>
 

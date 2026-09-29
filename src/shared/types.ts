@@ -10,6 +10,15 @@ export interface Category {
   parent_id: number | null
 }
 
+export interface Supplier {
+  id: number
+  name: string
+  search_name: string
+  active: number
+  created_at: string
+  updated_at: string
+}
+
 export type ProductType = 'simple' | 'variable' | 'variation'
 
 export interface Product {
@@ -29,7 +38,11 @@ export interface Product {
   active: number // 1: active, 0: soft-deleted
   created_at: string
   updated_at: string
+  supplier_ids?: number[]
+  suppliers?: ProductSupplierInfo[]
 }
+
+export type ProductSupplierInfo = { id: number; name: string }
 
 export interface ProductInput {
   id?: number
@@ -44,6 +57,7 @@ export interface ProductInput {
   category_id?: number | null
   stock?: number
   min_stock?: number
+  supplier_ids?: number[]
 }
 
 export interface ProductSearchResult extends Product {
@@ -51,11 +65,14 @@ export interface ProductSearchResult extends Product {
   parent_category_name?: string | null
   parent_name?: string | null
   variations_count?: number
+  suppliers?: ProductSupplierInfo[]
+  category_display?: string
 }
 
 export interface ProductSearchOptions {
   query?: string
   categoryId?: number | null
+  supplierId?: number | null
   productType?: ProductType | 'sellable' | 'all'
   parentId?: number | null
   onlySellable?: boolean
@@ -75,6 +92,7 @@ export interface GroupAsVariableItemInput {
 export interface GroupAsVariableInput {
   parentName: string
   categoryId: number | null
+  supplierIds?: number[]
   attributeName: string
   items: GroupAsVariableItemInput[]
 }
@@ -312,3 +330,112 @@ export interface ImportReportResult {
   departmentsCreated: number
   errors: ImportErrorDetail[]
 }
+
+// ----------------------------------------------------
+// Fase 11: Reportes, Métricas y Gráficos (Recharts)
+// ----------------------------------------------------
+
+export type ReportPeriodType = 'today' | 'last7days' | 'thisMonth' | 'lastMonth' | 'custom'
+
+export interface ReportFilter {
+  periodType: ReportPeriodType
+  startDate?: string // YYYY-MM-DD
+  endDate?: string // YYYY-MM-DD
+}
+
+export interface ReportKPISummary {
+  totalSales: number // Ventas netas CLP
+  salesCount: number // Número de transacciones
+  averageTicket: number // Ticket promedio CLP
+  unitsSold: number // Unidades físicas netas
+  estimatedCost: number // Costo total de bienes vendidos (con costo conocido)
+  estimatedMargin: number // Ganancia bruta estimada CLP
+  marginPercentage: number // % de margen
+  // Comparativos con el período anterior equivalente
+  prevTotalSales: number
+  prevSalesCount: number
+  prevAverageTicket: number
+  prevUnitsSold: number
+  salesGrowthPct: number | null // % variación ventas
+  countGrowthPct: number | null // % variación transacciones
+}
+
+export interface SalesOverTimePoint {
+  label: string // '10:00' o '24 Sep'
+  date: string // '2026-09-24' o ISO
+  total: number // CLP
+  count: number // cantidad ventas
+}
+
+export interface PaymentMethodStat {
+  method: PaymentMethod
+  methodName: string // 'Efectivo', 'Tarjeta', 'Transferencia'
+  total: number
+  percentage: number
+  count: number
+}
+
+export interface TopProductStat {
+  code: string
+  name: string
+  categoryName: string
+  unitsSold: number
+  totalRevenue: number
+  unitPrice: number
+}
+
+export interface CategorySalesStat {
+  categoryId: number | null
+  categoryName: string
+  totalRevenue: number
+  unitsSold: number
+  percentage: number
+}
+
+export interface FullReportData {
+  filter: ReportFilter
+  dateRange: {
+    start: string
+    end: string
+    prevStart: string
+    prevEnd: string
+  }
+  kpi: ReportKPISummary
+  salesOverTime: SalesOverTimePoint[]
+  paymentMethods: PaymentMethodStat[]
+  topProducts: TopProductStat[]
+  categorySales: CategorySalesStat[]
+}
+
+// ----------------------------------------------------
+// Fase 9: Impresión y Periféricos
+// ----------------------------------------------------
+
+export type ThermalPrinterType = 'epson' | 'star'
+export type ThermalPaperWidth = '58mm' | '80mm'
+export type ThermalInterfaceType = 'windows_printer' | 'tcp' | 'shared'
+
+export interface PrinterInfo {
+  name: string
+  displayName: string
+  description: string
+  isDefault: boolean
+  status: number
+}
+
+export interface PrinterConfig {
+  thermalType: ThermalPrinterType
+  thermalInterfaceType: ThermalInterfaceType
+  thermalInterface: string
+  paperWidth: ThermalPaperWidth
+  openDrawerOnPrint: boolean
+  autoPrintOnSale: boolean
+  normalPrinterName?: string
+}
+
+export interface PrintResult {
+  success: boolean
+  error?: string
+}
+
+

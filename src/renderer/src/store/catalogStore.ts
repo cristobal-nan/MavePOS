@@ -1,10 +1,12 @@
 import { create } from 'zustand'
-import { Category, Product, ProductInput, ProductSearchResult, ProductType, GroupAsVariableInput } from '@shared/types'
+import { Category, Product, ProductInput, ProductSearchResult, ProductType, GroupAsVariableInput, Supplier } from '@shared/types'
 
 interface CatalogState {
   products: ProductSearchResult[]
   categories: Category[]
+  suppliers: Supplier[]
   selectedCategory: number | null
+  selectedSupplier: number | null
   selectedProductType: 'sellable' | 'simple' | 'variation' | 'variable' | 'all'
   searchQuery: string
   orderBy: 'name' | 'stock' | 'sale_price'
@@ -26,6 +28,7 @@ interface CatalogState {
   fetchProducts: (customQuery?: string) => Promise<void>
   setSearchQuery: (query: string) => void
   setSelectedCategory: (catId: number | null) => void
+  setSelectedSupplier: (supId: number | null) => void
   setSelectedProductType: (type: 'sellable' | 'simple' | 'variation' | 'variable' | 'all') => void
   toggleSort: (column: 'name' | 'stock' | 'sale_price') => void
   setColumnWidth: (column: string, width: number) => void
@@ -34,17 +37,21 @@ interface CatalogState {
   getVariations: (parentId: number) => Promise<Product[]>
   deleteProduct: (codeOrId: string | number) => Promise<boolean>
   bulkDeleteProducts: (productIds: number[]) => Promise<{ deletedCount: number }>
-  bulkUpdateCategory: (productIds: number[], categoryId: number | null) => Promise<{ updatedCount: number }>
+  bulkUpdateCategory: (productIds: number[], categoryId?: number | null, supplierIds?: number[]) => Promise<{ updatedCount: number }>
   groupProductsAsVariable: (input: GroupAsVariableInput) => Promise<{ parentId: number; count: number }>
   saveCategory: (name: string, parentId?: number | null, id?: number) => Promise<Category>
   deleteCategory: (id: number) => Promise<void>
+  saveSupplier: (name: string, id?: number) => Promise<Supplier>
+  deleteSupplier: (id: number) => Promise<boolean>
   seedSampleData: () => Promise<void>
 }
 
 export const useCatalogStore = create<CatalogState>((set, get) => ({
   products: [],
   categories: [],
+  suppliers: [],
   selectedCategory: null,
+  selectedSupplier: null,
   selectedProductType: 'sellable',
   searchQuery: '',
   orderBy: 'name',
@@ -63,17 +70,20 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
 
   loadMetadata: async () => {
     try {
-      const cats = await window.api.getCategories()
-      set({ categories: cats })
+      const [cats, sups] = await Promise.all([
+        window.api.getCategories(),
+        window.api.getSuppliers()
+      ])
+      set({ categories: cats, suppliers: sups })
     } catch (err: any) {
-      console.error('Error cargando categorías:', err)
+      console.error('Error cargando metadatos de catálogo:', err)
       set({ error: err.message })
     }
   },
 
   fetchProducts: async (customQuery?: string) => {
     set({ isLoading: true, error: null })
-    const { searchQuery, selectedCategory, selectedProductType, orderBy, orderDir } = get()
+    const { searchQuery, selectedCategory, selectedSupplier, selectedProductType, orderBy, orderDir } = get()
     const query = customQuery !== undefined ? customQuery : searchQuery
 
     try {
@@ -91,6 +101,7 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
       const results = await window.api.searchProducts({
         query,
         categoryId: selectedCategory,
+        supplierId: selectedSupplier,
         productType: pType,
         onlySellable,
         orderBy,
@@ -111,6 +122,11 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
 
   setSelectedCategory: (catId: number | null) => {
     set({ selectedCategory: catId })
+    get().fetchProducts()
+  },
+
+  setSelectedSupplier: (supId: number | null) => {
+    set({ selectedSupplier: supId })
     get().fetchProducts()
   },
 
@@ -169,8 +185,8 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     return res
   },
 
-  bulkUpdateCategory: async (productIds: number[], categoryId: number | null) => {
-    const res = await window.api.bulkUpdateCategory(productIds, categoryId)
+  bulkUpdateCategory: async (productIds: number[], categoryId?: number | null, supplierIds?: number[]) => {
+    const res = await window.api.bulkUpdateCategory(productIds, categoryId, supplierIds)
     await get().fetchProducts()
     return res
   },
@@ -191,6 +207,19 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     await window.api.deleteCategory(id)
     await get().loadMetadata()
     await get().fetchProducts()
+  },
+
+  saveSupplier: async (name: string, id?: number) => {
+    const sup = await window.api.saveSupplier(name, id)
+    await get().loadMetadata()
+    return sup
+  },
+
+  deleteSupplier: async (id: number) => {
+    const ok = await window.api.deleteSupplier(id)
+    await get().loadMetadata()
+    await get().fetchProducts()
+    return ok
   },
 
   seedSampleData: async () => {

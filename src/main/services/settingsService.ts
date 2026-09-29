@@ -22,4 +22,38 @@ export class SettingsService {
     }
     return result
   }
+
+  resetDatabase(keepSettings = false): void {
+    const tx = this.db.transaction(() => {
+      this.db.pragma('foreign_keys = OFF')
+      try {
+        this.db.prepare('DELETE FROM sale_payments').run()
+        this.db.prepare('DELETE FROM sale_items').run()
+        this.db.prepare('DELETE FROM sales').run()
+        this.db.prepare('DELETE FROM inventory_movements').run()
+        this.db.prepare('DELETE FROM cash_movements').run()
+        this.db.prepare('DELETE FROM cash_sessions').run()
+        this.db.prepare('DELETE FROM product_suppliers').run()
+        this.db.prepare('DELETE FROM suppliers').run()
+        this.db.prepare('DELETE FROM products').run()
+        this.db.prepare('DELETE FROM categories').run()
+        if (!keepSettings) {
+          this.db.prepare('DELETE FROM settings').run()
+        }
+        try {
+          this.db
+            .prepare(
+              "DELETE FROM sqlite_sequence WHERE name IN ('sales', 'sale_items', 'sale_payments', 'products', 'categories', 'suppliers', 'cash_sessions', 'cash_movements', 'inventory_movements')"
+            )
+            .run()
+        } catch {
+          // ignore if sqlite_sequence doesn't exist
+        }
+      } finally {
+        this.db.pragma('foreign_keys = ON')
+      }
+    })
+
+    tx()
+  }
 }

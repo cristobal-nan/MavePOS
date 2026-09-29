@@ -67,11 +67,27 @@ export class ProductService {
   // Products (Simple, Variable & Variations)
   // ----------------------------------------------------
 
+  private attachSuppliersToProduct(product: Product): void {
+    if (!product.id) return
+    const suppRows = this.db
+      .prepare(`
+        SELECT s.id, s.name, s.search_name, s.active, s.created_at, s.updated_at
+        FROM product_suppliers ps
+        JOIN suppliers s ON s.id = ps.supplier_id
+        WHERE ps.product_id = ?
+        ORDER BY s.name ASC
+      `)
+      .all(product.id) as any[]
+    product.supplier_ids = suppRows.map((s) => s.id)
+    product.suppliers = suppRows
+  }
+
   getProductByCode(code: string, includeInactive = false): Product | null {
     const query = includeInactive
       ? 'SELECT * FROM products WHERE code = ?'
       : 'SELECT * FROM products WHERE code = ? AND active = 1'
     const row = this.db.prepare(query).get(code) as Product | undefined
+    if (row) this.attachSuppliersToProduct(row)
     return row || null
   }
 
@@ -80,6 +96,7 @@ export class ProductService {
       ? 'SELECT * FROM products WHERE id = ?'
       : 'SELECT * FROM products WHERE id = ? AND active = 1'
     const row = this.db.prepare(query).get(id) as Product | undefined
+    if (row) this.attachSuppliersToProduct(row)
     return row || null
   }
 
@@ -87,7 +104,11 @@ export class ProductService {
     const query = includeInactive
       ? 'SELECT * FROM products WHERE parent_id = ? ORDER BY id ASC'
       : 'SELECT * FROM products WHERE parent_id = ? AND active = 1 ORDER BY id ASC'
-    return this.db.prepare(query).all(parentId) as Product[]
+    const rows = this.db.prepare(query).all(parentId) as Product[]
+    for (const r of rows) {
+      this.attachSuppliersToProduct(r)
+    }
+    return rows
   }
 
   upsertProduct(input: ProductInput): Product {
@@ -130,7 +151,9 @@ export class ProductService {
       existing = this.db.prepare('SELECT * FROM products WHERE code = ?').get(trimmedCode) as Product | undefined
     }
 
+    let targetId: number
     if (existing) {
+      targetId = existing.id!
       this.db.prepare(`
         UPDATE products SET
           code = ?,
@@ -162,9 +185,8 @@ export class ProductService {
         stock,
         minStock,
         now,
-        existing.id
+        targetId
       )
-      return this.getProductById(existing.id!, true)!
     } else {
       const result = this.db.prepare(`
         INSERT INTO products (
@@ -188,8 +210,19 @@ export class ProductService {
         now,
         now
       )
-      return this.getProductById(Number(result.lastInsertRowid), true)!
+      targetId = Number(result.lastInsertRowid)
     }
+
+    // Persist suppliers if provided
+    if (input.supplier_ids !== undefined) {
+      this.db.prepare('DELETE FROM product_suppliers WHERE product_id = ?').run(targetId)
+      const insertSupplierStmt = this.db.prepare('INSERT OR IGNORE INTO product_suppliers (product_id, supplier_id) VALUES (?, ?)')
+      for (const sId of input.supplier_ids) {
+        insertSupplierStmt.run(targetId, sId)
+      }
+    }
+
+    return this.getProductById(targetId, true)!
   }
 
   saveVariableProduct(
@@ -257,36 +290,64 @@ export class ProductService {
     return tx()
   }
 
-  bulkUpdateCategory(productIds: number[], categoryId: number | null): { updatedCount: number } {
+  bulkUpdateCategory(
+    productIds: number[],
+    categoryId?: number | null,
+    supplierIds?: number[]
+  ): { updatedCount: number } {
     if (!productIds || productIds.length === 0) return { updatedCount: 0 }
 
     const now = new Date().toISOString()
     const tx = this.db.transaction(() => {
       const placeholders = productIds.map(() => '?').join(',')
-      // Update directly selected products
-      const updateDirect = this.db.prepare(`
-        UPDATE products
-        SET category_id = ?, updated_at = ?
-        WHERE id IN (${placeholders})
-      `)
-      const res = updateDirect.run(categoryId, now, ...productIds)
+      let changes = 0
 
-      // Also cascade to variations if any selected product was a variable parent
-      const updateChildren = this.db.prepare(`
-        UPDATE products
-        SET category_id = ?, updated_at = ?
-        WHERE parent_id IN (${placeholders})
-      `)
-      updateChildren.run(categoryId, now, ...productIds)
+      if (categoryId !== undefined) {
+        // Update directly selected products
+        const updateDirect = this.db.prepare(`
+          UPDATE products
+          SET category_id = ?, updated_at = ?
+          WHERE id IN (${placeholders})
+        `)
+        const res = updateDirect.run(categoryId, now, ...productIds)
+        changes = res.changes
 
-      return { updatedCount: res.changes }
+        // Also cascade to variations if any selected product was a variable parent
+        const updateChildren = this.db.prepare(`
+          UPDATE products
+          SET category_id = ?, updated_at = ?
+          WHERE parent_id IN (${placeholders})
+        `)
+        updateChildren.run(categoryId, now, ...productIds)
+      }
+
+      if (supplierIds !== undefined) {
+        const allTargetIds = this.db
+          .prepare(
+            `SELECT id FROM products WHERE id IN (${placeholders}) OR parent_id IN (${placeholders})`
+          )
+          .all(...productIds, ...productIds) as { id: number }[]
+
+        const insertSuppStmt = this.db.prepare(
+          'INSERT OR IGNORE INTO product_suppliers (product_id, supplier_id) VALUES (?, ?)'
+        )
+
+        for (const target of allTargetIds) {
+          this.db.prepare('DELETE FROM product_suppliers WHERE product_id = ?').run(target.id)
+          for (const sId of supplierIds) {
+            insertSuppStmt.run(target.id, sId)
+          }
+        }
+      }
+
+      return { updatedCount: changes || productIds.length }
     })
 
     return tx()
   }
 
   groupProductsAsVariable(input: GroupAsVariableInput): { parentId: number; count: number } {
-    const { parentName, categoryId, attributeName, items } = input
+    const { parentName, categoryId, attributeName, items, supplierIds } = input
     const trimmedParentName = parentName.trim()
     const trimmedAttr = attributeName.trim()
 
@@ -324,6 +385,19 @@ export class ProductService {
       )
       const parentId = Number(parentRes.lastInsertRowid)
 
+      // Associate suppliers if provided
+      if (supplierIds && supplierIds.length > 0) {
+        const insertSuppStmt = this.db.prepare(
+          'INSERT OR IGNORE INTO product_suppliers (product_id, supplier_id) VALUES (?, ?)'
+        )
+        for (const sId of supplierIds) {
+          insertSuppStmt.run(parentId, sId)
+          for (const item of items) {
+            insertSuppStmt.run(item.productId, sId)
+          }
+        }
+      }
+
       // 2. Prepared statements for updating child items into variations
       const getProductStmt = this.db.prepare('SELECT * FROM products WHERE id = ?')
       const updateToVariationStmt = this.db.prepare(`
@@ -345,7 +419,6 @@ export class ProductService {
         if (!prod) continue
 
         const attrVal = (item.attributeValue || '').trim()
-        // If a custom variation name is provided, use it; otherwise `${trimmedParentName} ${attrVal}`
         const variationName = item.name && item.name.trim() !== ''
           ? item.name.trim()
           : attrVal
@@ -414,6 +487,7 @@ export class ProductService {
     const {
       query = '',
       categoryId = null,
+      supplierId = null,
       productType,
       parentId = null,
       onlySellable = false,
@@ -436,6 +510,15 @@ export class ProductService {
     if (categoryId !== null && categoryId !== undefined) {
       conditions.push('(p.category_id = ? OR c.parent_id = ? OR parent.category_id = ?)')
       params.push(categoryId, categoryId, categoryId)
+    }
+
+    // Supplier filter
+    if (supplierId !== null && supplierId !== undefined) {
+      conditions.push(`(
+        EXISTS (SELECT 1 FROM product_suppliers ps WHERE ps.product_id = p.id AND ps.supplier_id = ?)
+        OR EXISTS (SELECT 1 FROM product_suppliers psp WHERE psp.product_id = parent.id AND psp.supplier_id = ?)
+      )`)
+      params.push(supplierId, supplierId)
     }
 
     // Product Type filter
@@ -508,7 +591,13 @@ export class ProductService {
         c.name AS category_name,
         pc.name AS parent_category_name,
         parent.name AS parent_name,
-        (SELECT COUNT(*) FROM products v WHERE v.parent_id = p.id AND v.active = 1) AS variations_count
+        (SELECT COUNT(*) FROM products v WHERE v.parent_id = p.id AND v.active = 1) AS variations_count,
+        (
+          SELECT GROUP_CONCAT(s.id || ':' || s.name, ';;')
+          FROM product_suppliers ps
+          JOIN suppliers s ON s.id = ps.supplier_id
+          WHERE ps.product_id = p.id OR (p.parent_id IS NOT NULL AND ps.product_id = p.parent_id)
+        ) AS raw_suppliers
       FROM products p
       LEFT JOIN categories c ON p.category_id = c.id
       LEFT JOIN categories pc ON c.parent_id = pc.id
@@ -520,7 +609,43 @@ export class ProductService {
 
     params.push(limit, offset)
 
-    return this.db.prepare(sql).all(...params) as ProductSearchResult[]
+    const rows = this.db.prepare(sql).all(...params) as any[]
+
+    return rows.map((row) => {
+      let suppliers: { id: number; name: string }[] = []
+      if (row.raw_suppliers) {
+        suppliers = String(row.raw_suppliers)
+          .split(';;')
+          .map((pair) => {
+            const [idStr, ...nameParts] = pair.split(':')
+            return { id: Number(idStr), name: nameParts.join(':') }
+          })
+
+        // Remove duplicate suppliers if both parent and child had them
+        const seen = new Set<number>()
+        suppliers = suppliers.filter((s) => {
+          if (seen.has(s.id)) return false
+          seen.add(s.id)
+          return true
+        })
+      }
+      delete row.raw_suppliers
+      row.suppliers = suppliers
+
+      const catName = row.category_name || (row.parent_id ? row.parent_category_name : null) || ''
+      const suppNames = suppliers.map((s) => s.name).join(' / ')
+      if (catName && suppNames) {
+        row.category_display = `${catName} - ${suppNames}`
+      } else if (catName) {
+        row.category_display = catName
+      } else if (suppNames) {
+        row.category_display = suppNames
+      } else {
+        row.category_display = 'Sin Categoría'
+      }
+
+      return row as ProductSearchResult
+    })
   }
 
   seedSampleData(): void {

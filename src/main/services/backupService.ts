@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3'
-import { app } from 'electron'
+import { app, shell, dialog, BrowserWindow } from 'electron'
 import { join } from 'path'
-import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync, copyFileSync } from 'fs'
+import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'fs'
 import { SettingsService } from './settingsService'
 import { BackupInfo } from '../../shared/types'
 
@@ -93,12 +93,75 @@ export class BackupService {
     }
   }
 
-  restoreBackup(backupFilePath: string, currentDbPath: string): void {
+  /**
+   * Restores a backup database file atomically using SQLite ATTACH.
+   */
+  restoreBackup(backupFilePath: string): void {
     if (!existsSync(backupFilePath)) {
-      throw new Error('El archivo de respaldo no existe')
+      throw new Error('El archivo de respaldo especificado no existe')
     }
 
-    // Replace current database file with the backup
-    copyFileSync(backupFilePath, currentDbPath)
+    const safePath = backupFilePath.replace(/'/g, "''")
+
+    this.db.pragma('foreign_keys = OFF')
+    try {
+      this.db.exec(`ATTACH DATABASE '${safePath}' AS src_backup`)
+      try {
+        const tx = this.db.transaction(() => {
+          const tables = [
+            'categories',
+            'suppliers',
+            'product_suppliers',
+            'products',
+            'cash_sessions',
+            'cash_movements',
+            'sales',
+            'sale_items',
+            'sale_payments',
+            'inventory_movements',
+            'settings'
+          ]
+          for (const t of tables) {
+            const exists = this.db
+              .prepare("SELECT count(*) as cnt FROM src_backup.sqlite_master WHERE type='table' AND name=?")
+              .get(t) as { cnt: number }
+            if (exists && exists.cnt > 0) {
+              this.db.prepare(`DELETE FROM ${t}`).run()
+              this.db.prepare(`INSERT INTO ${t} SELECT * FROM src_backup.${t}`).run()
+            }
+          }
+        })
+        tx()
+      } finally {
+        this.db.exec('DETACH DATABASE src_backup')
+      }
+    } finally {
+      this.db.pragma('foreign_keys = ON')
+    }
+  }
+
+  async openBackupDirectory(): Promise<boolean> {
+    const dir = this.getBackupDirectory()
+    this.ensureBackupDirectory(dir)
+    if (shell && shell.openPath) {
+      await shell.openPath(dir)
+      return true
+    }
+    return false
+  }
+
+  async selectBackupDirectory(window?: BrowserWindow): Promise<string | null> {
+    if (!dialog || !dialog.showOpenDialog) return null
+
+    const res = await dialog.showOpenDialog(window as any, {
+      title: 'Seleccionar Carpeta de Respaldos',
+      properties: ['openDirectory', 'createDirectory']
+    })
+    if (res.canceled || res.filePaths.length === 0) return null
+    const chosen = res.filePaths[0]
+    if (this.settingsService) {
+      this.settingsService.set('backup_directory', chosen)
+    }
+    return chosen
   }
 }

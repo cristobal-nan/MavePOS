@@ -25,7 +25,13 @@ import {
   ExcelColumnMapping,
   ExcelParsePreview,
   ImportReportResult,
-  GroupAsVariableInput
+  GroupAsVariableInput,
+  Supplier,
+  ReportFilter,
+  FullReportData,
+  PrinterInfo,
+  PrinterConfig,
+  PrintResult
 } from '../shared/types'
 
 export interface WindowAPI {
@@ -40,8 +46,9 @@ export interface WindowAPI {
   onPromptClose: (callback: () => void) => () => void
   confirmClose: (shouldBackup: boolean) => Promise<void>
 
-  // Health
+  // Health & Maintenance
   pingDb: () => Promise<{ ok: boolean; timestamp: string }>
+  resetDatabase: (keepSettings?: boolean) => Promise<{ ok: boolean }>
 
   // Products
   saveProduct: (input: ProductInput) => Promise<Product>
@@ -51,7 +58,7 @@ export interface WindowAPI {
   getVariations: (parentId: number, includeInactive?: boolean) => Promise<Product[]>
   deleteProduct: (codeOrId: string | number) => Promise<boolean>
   bulkDeleteProducts: (productIds: number[]) => Promise<{ deletedCount: number }>
-  bulkUpdateCategory: (productIds: number[], categoryId: number | null) => Promise<{ updatedCount: number }>
+  bulkUpdateCategory: (productIds: number[], categoryId?: number | null, supplierIds?: number[]) => Promise<{ updatedCount: number }>
   groupProductsAsVariable: (input: GroupAsVariableInput) => Promise<{ parentId: number; count: number }>
   getActiveProducts: (limit?: number, offset?: number) => Promise<Product[]>
   searchProducts: (options?: ProductSearchOptions) => Promise<ProductSearchResult[]>
@@ -61,6 +68,11 @@ export interface WindowAPI {
   getCategories: () => Promise<Category[]>
   saveCategory: (name: string, parentId?: number | null, id?: number) => Promise<Category>
   deleteCategory: (id: number) => Promise<void>
+
+  // Suppliers
+  getSuppliers: (includeInactive?: boolean) => Promise<Supplier[]>
+  saveSupplier: (name: string, id?: number) => Promise<Supplier>
+  deleteSupplier: (id: number) => Promise<boolean>
 
   // Cash Session
   getCurrentCashSession: () => Promise<CashSession | null>
@@ -80,6 +92,9 @@ export interface WindowAPI {
   createBackup: () => Promise<string>
   listBackups: () => Promise<BackupInfo[]>
   getBackupDirectory: () => Promise<string>
+  openBackupDirectory: () => Promise<boolean>
+  selectBackupDirectory: () => Promise<string | null>
+  restoreBackup: (backupFilePath: string) => Promise<{ ok: boolean }>
 
   // Sales & Tickets
   getNextFolio: () => Promise<number>
@@ -103,6 +118,19 @@ export interface WindowAPI {
   selectExcelFile: () => Promise<string | null>
   parseExcelFile: (filePath: string) => Promise<ExcelParsePreview>
   importExcelFile: (filePath: string, customMapping?: Partial<ExcelColumnMapping>) => Promise<ImportReportResult>
+
+  // Reports (Fase 11)
+  getReportData: (filter: ReportFilter) => Promise<FullReportData>
+  exportReportToExcel: (filter: ReportFilter) => Promise<{ success: boolean; filePath?: string }>
+
+  // Printers & ESC/POS (Fase 9)
+  getInstalledPrinters: () => Promise<PrinterInfo[]>
+  getPrinterConfig: () => Promise<PrinterConfig>
+  savePrinterConfig: (config: Partial<PrinterConfig>) => Promise<{ ok: boolean }>
+  printThermalReceipt: (saleDetail: SaleDetail, change?: number, customConfig?: Partial<PrinterConfig>) => Promise<PrintResult>
+  openCashDrawer: (customConfig?: Partial<PrinterConfig>) => Promise<PrintResult>
+  testThermalPrinter: (customConfig?: Partial<PrinterConfig>) => Promise<PrintResult>
+  printNormalReceipt: (saleDetail: SaleDetail, printerName?: string) => Promise<PrintResult>
 }
 
 const api: WindowAPI = {
@@ -128,6 +156,7 @@ const api: WindowAPI = {
   confirmClose: (shouldBackup) => ipcRenderer.invoke('app:confirm-close', shouldBackup),
 
   pingDb: () => ipcRenderer.invoke('db:ping'),
+  resetDatabase: (keepSettings) => ipcRenderer.invoke('db:reset', keepSettings),
 
   saveProduct: (input) => ipcRenderer.invoke('products:save', input),
   saveVariableProduct: (parent, variations) => ipcRenderer.invoke('products:saveVariable', parent, variations),
@@ -136,7 +165,7 @@ const api: WindowAPI = {
   getVariations: (parentId, includeInactive) => ipcRenderer.invoke('products:getVariations', parentId, includeInactive),
   deleteProduct: (codeOrId) => ipcRenderer.invoke('products:delete', codeOrId),
   bulkDeleteProducts: (productIds) => ipcRenderer.invoke('products:bulkDelete', productIds),
-  bulkUpdateCategory: (productIds, categoryId) => ipcRenderer.invoke('products:bulkUpdateCategory', productIds, categoryId),
+  bulkUpdateCategory: (productIds, categoryId, supplierIds) => ipcRenderer.invoke('products:bulkUpdateCategory', productIds, categoryId, supplierIds),
   groupProductsAsVariable: (input) => ipcRenderer.invoke('products:groupAsVariable', input),
   getActiveProducts: (limit, offset) => ipcRenderer.invoke('products:getActive', limit, offset),
   searchProducts: (options) => ipcRenderer.invoke('products:search', options),
@@ -145,6 +174,10 @@ const api: WindowAPI = {
   getCategories: () => ipcRenderer.invoke('categories:getAll'),
   saveCategory: (name, parentId, id) => ipcRenderer.invoke('categories:save', name, parentId, id),
   deleteCategory: (id) => ipcRenderer.invoke('categories:delete', id),
+
+  getSuppliers: (includeInactive) => ipcRenderer.invoke('suppliers:getAll', includeInactive),
+  saveSupplier: (name, id) => ipcRenderer.invoke('suppliers:save', name, id),
+  deleteSupplier: (id) => ipcRenderer.invoke('suppliers:delete', id),
 
   getCurrentCashSession: () => ipcRenderer.invoke('cash:getCurrentSession'),
   openCashSession: (openingFund) => ipcRenderer.invoke('cash:openSession', openingFund),
@@ -161,6 +194,9 @@ const api: WindowAPI = {
   createBackup: () => ipcRenderer.invoke('backup:create'),
   listBackups: () => ipcRenderer.invoke('backup:list'),
   getBackupDirectory: () => ipcRenderer.invoke('backup:getDirectory'),
+  openBackupDirectory: () => ipcRenderer.invoke('backup:openDirectory'),
+  selectBackupDirectory: () => ipcRenderer.invoke('backup:selectDirectory'),
+  restoreBackup: (backupFilePath) => ipcRenderer.invoke('backup:restore', backupFilePath),
 
   getNextFolio: () => ipcRenderer.invoke('sales:getNextFolio'),
   getNextTicketNumber: (openTickets, cashSessionId) => ipcRenderer.invoke('sales:getNextTicketNumber', openTickets, cashSessionId),
@@ -181,7 +217,20 @@ const api: WindowAPI = {
 
   selectExcelFile: () => ipcRenderer.invoke('excel:selectFile'),
   parseExcelFile: (filePath) => ipcRenderer.invoke('excel:parseFile', filePath),
-  importExcelFile: (filePath, customMapping) => ipcRenderer.invoke('excel:importFile', filePath, customMapping)
+  importExcelFile: (filePath, customMapping) => ipcRenderer.invoke('excel:importFile', filePath, customMapping),
+
+  getReportData: (filter) => ipcRenderer.invoke('reports:getData', filter),
+  exportReportToExcel: (filter) => ipcRenderer.invoke('reports:exportExcel', filter),
+
+  getInstalledPrinters: () => ipcRenderer.invoke('printers:getList'),
+  getPrinterConfig: () => ipcRenderer.invoke('printers:getConfig'),
+  savePrinterConfig: (config) => ipcRenderer.invoke('printers:saveConfig', config),
+  printThermalReceipt: (saleDetail, change, customConfig) =>
+    ipcRenderer.invoke('printers:printThermal', saleDetail, change, customConfig),
+  openCashDrawer: (customConfig) => ipcRenderer.invoke('printers:openCashDrawer', customConfig),
+  testThermalPrinter: (customConfig) => ipcRenderer.invoke('printers:testThermal', customConfig),
+  printNormalReceipt: (saleDetail, printerName) =>
+    ipcRenderer.invoke('printers:printNormal', saleDetail, printerName)
 }
 
 if (process.contextIsolated) {

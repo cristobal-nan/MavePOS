@@ -55,9 +55,16 @@ export const SalesView: React.FC = () => {
 
   // Maintain focus on barcode input for wedge scanner
   useEffect(() => {
-    if (!isSearchModalOpen && !isCheckoutModalOpen) {
-      barcodeInputRef.current?.focus()
+    const focusBarcode = (): void => {
+      if (!isSearchModalOpen && !isCheckoutModalOpen) {
+        barcodeInputRef.current?.focus()
+      }
     }
+
+    focusBarcode()
+
+    window.addEventListener('focus', focusBarcode)
+    return () => window.removeEventListener('focus', focusBarcode)
   }, [isSearchModalOpen, isCheckoutModalOpen, activeTicketIndex])
 
   const activeTicket = tickets[activeTicketIndex] || { items: [] }
@@ -79,11 +86,25 @@ export const SalesView: React.FC = () => {
           setIsCheckoutModalOpen(true)
         }
       }
+      // Ctrl+T: New Ticket
+      if (e.ctrlKey && e.key.toLowerCase() === 't') {
+        e.preventDefault()
+        if (currentSession?.id) {
+          createTicket(currentSession.id)
+        } else {
+          createTicket()
+        }
+      }
+      // Ctrl+W: Close / Discard current ticket
+      if (e.ctrlKey && e.key.toLowerCase() === 'w') {
+        e.preventDefault()
+        deleteTicket(activeTicketIndex)
+      }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [activeTicket.items.length])
+  }, [activeTicket.items.length, activeTicketIndex, currentSession?.id, createTicket, deleteTicket])
 
   const handleBarcodeSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault()

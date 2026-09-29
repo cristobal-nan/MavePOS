@@ -13,12 +13,17 @@ Las decisiones de abajo fueron acordadas con el dueño del proyecto y son vincul
 - Ventana fullscreen sin bordes (`frame: false`) con titlebar propia (minimizar/cerrar).
 - Tema: blanco + lila (acentos `#8B5CF6`, superficies `#EDE9FE`).
 - Comandos: `npm run dev` (desarrollo), `npm run typecheck` (validación de tipos TS), `npm run build` (compilación producción), `npm run test` (pruebas unitarias con vitest).
-- **Progreso actual:** Fases 1 a 8, Fase 10 (Importación de Catálogo desde Excel) y Herramientas de Reorganización en Lote completadas y probadas (90 tests unitarios pasando). Fase 9 (Impresión y Tickets Térmicos) siguiente.
+- **Progreso actual:** **Todas las 12 fases completadas y probadas (124 tests unitarios pasando).** Fases 1–8, Fase 9 (Impresión y Tickets Térmicos ESC/POS, cajón monetario, impresora normal Windows), Fase 10 (Importación Excel / Reorganización / Proveedores N:M), Fase 11 (Reportes y Gráficos Recharts) y Fase 12 (Configuración y pulido).
 
 ## Reglas de dominio (no negociables)
 
 - Moneda **CLP**: montos como enteros, sin decimales, separador de miles con punto (`formatCLP`).
-- Categorías: **exactamente 2 niveles** (Departamento → Subcategoría). No usar árbol recursivo.
+- **Categorías y Proveedores (Relación N:M)**:
+  - La **Categoría** define el objeto o clasificación principal del producto (ej: Lanas, Hilos, Accesorios).
+  - Los **Proveedores** son una entidad independiente (`suppliers`) asociada a los productos mediante una relación de muchos a muchos (`product_suppliers`). Un producto puede comprarse a varios proveedores (ej: *Lana Natural* provista por *Revesderecho* y *Ukryl*).
+  - **Sintaxis de visualización:** La columna en el catálogo y tablas se titula **"Categoría"**, y su contenido se formatea automáticamente como:
+    `"Categoría - Proveedor1 / Proveedor2"` (ej: `"Lanas - Revesderecho / Ukryl"`). Si no tiene proveedor: `"Lanas"`. Si no tiene categoría pero sí proveedor: `"Proveedor1 / Proveedor2"` (ej: `"Revesderecho"` o `"Revesderecho / Ukryl"`, sin prefijo "Sin Categoría"). Si no tiene ni categoría ni proveedor: `"Sin Categoría"`.
+  - **Filtros en Catálogo:** Existen dos selectores desplegables independientes en la barra superior: uno para filtrar por **Categoría** y otro para filtrar por **Proveedor**. Al filtrar por un proveedor, se muestran tanto los productos directamente asociados a él como las variaciones de un producto padre vinculado a ese proveedor.
 - **Productos Simples y Variables con Variaciones** (reemplaza el concepto previo de familias):
   - Columna `product_type`: `'simple' | 'variable' | 'variation'`.
   - **Producto Simple (`simple`)**: Unidad vendible directa con código propio, stock propio y precio propio.
@@ -68,8 +73,8 @@ Mapeo exacto acordado (upsert por código): Código→code, Producto→name, P. 
 P. Venta→sale_price, Existencia→stock (**reemplaza**, registra movimiento 'importación'),
 Inv. Mínimo→min_stock, Departamento→categoría nivel 1 (se crea si no existe).
 **Ignorar columnas**: P. Mayoreo e Inv. Máximo (el dueño decidió no almacenarlas).
-Los 10k+ productos iniciales importan plano; la reorganización (subcategorías/variantes) se hace después
-con selección múltiple en Catálogo → mover categoría / agrupar como producto variable con variaciones.
+Los 10k+ productos iniciales importan plano; la reorganización (categoría, proveedores y variaciones) se hace después
+con selección múltiple en Catálogo → mover categoría y proveedores / agrupar como producto variable con variaciones.
 
 ## Flujo de caja
 
