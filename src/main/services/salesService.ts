@@ -10,6 +10,7 @@ import {
   SaleDetail,
   SalesHistoryFilter
 } from '../../shared/types'
+import { calculateCartTotal } from '../../shared/finance'
 
 export class SalesService {
   constructor(private db: Database.Database) {}
@@ -90,7 +91,7 @@ export class SalesService {
   }
 
   savePendingSale(data: { id?: number; ticket_number?: number; cashSessionId: number | null; items: CartItem[] }): PendingTicket {
-    const total = data.items.reduce((acc, it) => acc + it.unit_price * it.quantity, 0)
+    const { totalAmount: total } = calculateCartTotal(data.items)
     const now = new Date().toISOString()
 
     const tx = this.db.transaction(() => {
@@ -166,11 +167,19 @@ export class SalesService {
       throw new Error('La venta debe contener al menos un producto')
     }
 
-    const total = input.items.reduce((acc, it) => acc + it.unit_price * it.quantity, 0)
-    const totalPayments = input.payments.reduce((acc, p) => acc + p.amount, 0)
+    const { totalAmount: total } = calculateCartTotal(input.items)
+    const totalPayments = input.payments.reduce((acc, p) => acc + Math.round(p.amount), 0)
 
-    if (totalPayments !== total) {
-      throw new Error(`El monto pagado ($ ${totalPayments}) no coincide exactamente con el total de la venta ($ ${total})`)
+    const isExchange = !!input.exchangeInfo
+    const exchangeCredit = isExchange ? Math.round(input.exchangeInfo!.exchangeCredit) : 0
+    const differenceToPay = isExchange ? Math.max(0, total - exchangeCredit) : total
+
+    if (isExchange && total < exchangeCredit) {
+      throw new Error(`El valor de los nuevos productos ($ ${total}) debe ser igual o superior al crédito por cambio ($ ${exchangeCredit})`)
+    }
+
+    if (totalPayments !== differenceToPay) {
+      throw new Error(`El monto pagado ($ ${totalPayments}) no coincide exactamente con el total requerido ($ ${differenceToPay})`)
     }
 
     const now = new Date().toISOString()
@@ -203,6 +212,36 @@ export class SalesService {
         ticketNumber = this.getNextTicketNumber([], input.cashSessionId)
       }
 
+      // 3. Process returned exchange items if this is an exchange
+      if (input.exchangeInfo && input.exchangeInfo.returnedItems.length > 0) {
+        const updateOriginalItem = this.db.prepare(`
+          UPDATE sale_items
+          SET returned_qty = returned_qty + ?
+          WHERE sale_id = ? AND product_code = ?
+        `)
+        const restoreStock = this.db.prepare(`
+          UPDATE products SET stock = stock + ?, updated_at = ? WHERE code = ?
+        `)
+        const insertReturnMovement = this.db.prepare(`
+          INSERT INTO inventory_movements (product_code, delta, type, reason, ref_sale_id, created_at)
+          VALUES (?, ?, 'devolucion', ?, ?, ?)
+        `)
+
+        for (const ret of input.exchangeInfo.returnedItems) {
+          updateOriginalItem.run(ret.quantity, input.exchangeInfo.originalSaleId, ret.product_code)
+          restoreStock.run(ret.quantity, now, ret.product_code)
+          insertReturnMovement.run(
+            ret.product_code,
+            ret.quantity,
+            `Cambio por venta Folio #${folio} (Venta original Folio #${input.exchangeInfo.originalFolio})`,
+            input.exchangeInfo.originalSaleId,
+            now
+          )
+        }
+      }
+
+      const exchangeParentId = input.exchangeInfo ? input.exchangeInfo.originalSaleId : null
+
       if (input.saleId) {
         saleId = input.saleId
         this.db.prepare(`
@@ -212,21 +251,22 @@ export class SalesService {
             status = 'completed',
             total = ?,
             cash_session_id = ?,
+            exchange_parent_id = ?,
             completed_at = ?
           WHERE id = ?
-        `).run(folio, ticketNumber, total, input.cashSessionId, now, saleId)
+        `).run(folio, ticketNumber, total, input.cashSessionId, exchangeParentId, now, saleId)
 
         // Clear any temporary pending items
         this.db.prepare('DELETE FROM sale_items WHERE sale_id = ?').run(saleId)
       } else {
         const res = this.db.prepare(`
-          INSERT INTO sales (folio, ticket_number, status, total, cash_session_id, created_at, completed_at)
-          VALUES (?, ?, 'completed', ?, ?, ?, ?)
-        `).run(folio, ticketNumber, total, input.cashSessionId, now, now)
+          INSERT INTO sales (folio, ticket_number, status, total, cash_session_id, exchange_parent_id, created_at, completed_at)
+          VALUES (?, ?, 'completed', ?, ?, ?, ?, ?)
+        `).run(folio, ticketNumber, total, input.cashSessionId, exchangeParentId, now, now)
         saleId = Number(res.lastInsertRowid)
       }
 
-      // 1. Insert sale items, decrement stock, and record inventory movements
+      // 4. Insert sale items, decrement stock, and record inventory movements
       const insertItem = this.db.prepare(`
         INSERT INTO sale_items (sale_id, product_code, name, unit_price, quantity, returned_qty)
         VALUES (?, ?, ?, ?, ?, 0)
@@ -240,6 +280,9 @@ export class SalesService {
       `)
 
       const savedItems: SaleItem[] = []
+      const saleReason = isExchange
+        ? `Cambio por venta Folio #${folio} (Venta original Folio #${input.exchangeInfo!.originalFolio})`
+        : `Venta Folio #${folio}`
 
       for (const it of input.items) {
         const itemRes = insertItem.run(saleId, it.product_code, it.name, it.unit_price, it.quantity)
@@ -260,7 +303,7 @@ export class SalesService {
         insertInvMovement.run(
           it.product_code,
           -it.quantity,
-          `Venta Folio #${folio}`,
+          saleReason,
           saleId,
           now
         )
@@ -297,6 +340,8 @@ export class SalesService {
         status: 'completed',
         total,
         cash_session_id: input.cashSessionId,
+        exchange_parent_id: exchangeParentId,
+        exchange_parent_folio: input.exchangeInfo ? input.exchangeInfo.originalFolio : null,
         created_at: now,
         completed_at: now
       }
@@ -350,9 +395,11 @@ export class SalesService {
     const query = `
       SELECT
         s.*,
+        parent.folio AS exchange_parent_folio,
         COALESCE((SELECT SUM(quantity) FROM sale_items WHERE sale_id = s.id), 0) AS total_items,
         COALESCE((SELECT SUM(returned_qty) FROM sale_items WHERE sale_id = s.id), 0) AS returned_items_count
       FROM sales s
+      LEFT JOIN sales parent ON s.exchange_parent_id = parent.id
       ${where}
       ORDER BY s.id DESC
       LIMIT ? OFFSET ?
@@ -369,7 +416,14 @@ export class SalesService {
   }
 
   getSaleDetail(saleId: number): SaleDetail | null {
-    const sale = this.db.prepare('SELECT * FROM sales WHERE id = ?').get(saleId) as Sale | undefined
+    const sale = this.db.prepare(`
+      SELECT
+        s.*,
+        parent.folio AS exchange_parent_folio
+      FROM sales s
+      LEFT JOIN sales parent ON s.exchange_parent_id = parent.id
+      WHERE s.id = ?
+    `).get(saleId) as (Sale & { exchange_parent_folio?: number | null }) | undefined
     if (!sale) return null
 
     const items = this.db
@@ -394,6 +448,15 @@ export class SalesService {
       .prepare('SELECT * FROM sale_payments WHERE sale_id = ? ORDER BY id ASC')
       .all(saleId) as SalePayment[]
 
+    const child_exchanges = this.db
+      .prepare(`
+        SELECT id, folio, created_at
+        FROM sales
+        WHERE exchange_parent_id = ? AND status = 'completed'
+        ORDER BY id ASC
+      `)
+      .all(saleId) as { id: number; folio: number; created_at: string }[]
+
     const total_items = items.reduce((acc, it) => acc + it.quantity, 0)
     const returned_items_count = items.reduce((acc, it) => acc + it.returned_qty, 0)
 
@@ -402,7 +465,8 @@ export class SalesService {
       items,
       payments,
       total_items,
-      returned_items_count
+      returned_items_count,
+      child_exchanges
     }
   }
 

@@ -76,6 +76,7 @@ export const INITIAL_SCHEMA = `
     status TEXT NOT NULL CHECK(status IN ('pending', 'completed', 'cancelled')),
     total INTEGER NOT NULL DEFAULT 0,
     cash_session_id INTEGER NULL REFERENCES cash_sessions(id) ON DELETE SET NULL,
+    exchange_parent_id INTEGER NULL REFERENCES sales(id) ON DELETE SET NULL,
     created_at TEXT NOT NULL,
     completed_at TEXT NULL
   );
@@ -83,6 +84,7 @@ export const INITIAL_SCHEMA = `
   CREATE UNIQUE INDEX IF NOT EXISTS idx_sales_folio ON sales(folio);
   CREATE INDEX IF NOT EXISTS idx_sales_ticket_number ON sales(ticket_number);
   CREATE INDEX IF NOT EXISTS idx_sales_session_ticket ON sales(cash_session_id, ticket_number);
+  CREATE INDEX IF NOT EXISTS idx_sales_exchange_parent ON sales(exchange_parent_id);
   CREATE INDEX IF NOT EXISTS idx_sales_status ON sales(status);
   CREATE INDEX IF NOT EXISTS idx_sales_created ON sales(created_at);
 

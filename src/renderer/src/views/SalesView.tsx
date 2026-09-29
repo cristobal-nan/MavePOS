@@ -10,16 +10,19 @@ import {
   ShoppingCart,
   Minus,
   History,
-  ArrowUpRight
+  ArrowUpRight,
+  ArrowLeftRight,
+  CheckCircle2
 } from 'lucide-react'
 import { ProductSearchResult } from '@shared/types'
-import { formatCLP } from '../utils/formatters'
+import { formatCLP, formatDateTime } from '../utils/formatters'
+import { calculateCartTotal, calculateExchangeBalance, isExchangePeriodExceeded } from '@shared/finance'
 import { useSalesStore } from '../store/salesStore'
 import { useCashStore } from '../store/cashStore'
-import { useUIStore } from '../store/uiStore'
-import { useHistoryStore } from '../store/historyStore'
 import { ProductSearchModal } from '../components/ProductSearchModal'
 import { CheckoutModal } from '../components/CheckoutModal'
+import { SalesHistoryModal } from './history/SalesHistoryModal'
+import { CashWithdrawalModal } from './history/CashWithdrawalModal'
 
 export const SalesView: React.FC = () => {
   const { currentSession } = useCashStore()
@@ -32,15 +35,16 @@ export const SalesView: React.FC = () => {
     addItem,
     updateQuantity,
     removeItem,
-    deleteTicket
+    deleteTicket,
+    finalizeSale
   } = useSalesStore()
-  const { setActiveTab } = useUIStore()
-  const { setActiveSubTab } = useHistoryStore()
 
   const [barcodeInput, setBarcodeInput] = useState('')
   const [barcodeError, setBarcodeError] = useState<string | null>(null)
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false)
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false)
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
+  const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false)
 
   const barcodeInputRef = useRef<HTMLInputElement>(null)
 
@@ -56,7 +60,7 @@ export const SalesView: React.FC = () => {
   // Maintain focus on barcode input for wedge scanner
   useEffect(() => {
     const focusBarcode = (): void => {
-      if (!isSearchModalOpen && !isCheckoutModalOpen) {
+      if (!isSearchModalOpen && !isCheckoutModalOpen && !isHistoryModalOpen && !isWithdrawalModalOpen) {
         barcodeInputRef.current?.focus()
       }
     }
@@ -65,11 +69,33 @@ export const SalesView: React.FC = () => {
 
     window.addEventListener('focus', focusBarcode)
     return () => window.removeEventListener('focus', focusBarcode)
-  }, [isSearchModalOpen, isCheckoutModalOpen, activeTicketIndex])
+  }, [isSearchModalOpen, isCheckoutModalOpen, isHistoryModalOpen, isWithdrawalModalOpen, activeTicketIndex])
 
   const activeTicket = tickets[activeTicketIndex] || { items: [] }
-  const totalAmount = activeTicket.items.reduce((acc, it) => acc + it.unit_price * it.quantity, 0)
-  const totalItemsCount = activeTicket.items.reduce((acc, it) => acc + it.quantity, 0)
+  const { totalAmount, totalItems: totalItemsCount } = calculateCartTotal(activeTicket.items)
+
+  const isExchange = Boolean(activeTicket.exchangeInfo)
+  const exchangeInfo = activeTicket.exchangeInfo
+  const exchangeBalance = isExchange && exchangeInfo
+    ? calculateExchangeBalance(exchangeInfo.exchangeCredit, totalAmount)
+    : null
+  const periodCheck = isExchange && exchangeInfo
+    ? isExchangePeriodExceeded(exchangeInfo.originalDate, 30)
+    : { isExceeded: false, daysDiff: 0 }
+
+  const handleFinalizeExactExchange = async (): Promise<void> => {
+    if (!currentSession) return
+    try {
+      await finalizeSale({
+        cashSessionId: currentSession.id,
+        payments: []
+      })
+      barcodeInputRef.current?.focus()
+    } catch (err: any) {
+      console.error('Error finalizando cambio exacto:', err)
+      alert(err.message || 'Error al completar el cambio')
+    }
+  }
 
   // Keyboard shortcut listener for Sales screen
   useEffect(() => {
@@ -83,6 +109,13 @@ export const SalesView: React.FC = () => {
       if (e.key === 'F12') {
         e.preventDefault()
         if (activeTicket.items.length > 0) {
+          if (isExchange && exchangeBalance && !exchangeBalance.canComplete) {
+            return
+          }
+          if (isExchange && exchangeBalance && exchangeBalance.status === 'exact') {
+            handleFinalizeExactExchange()
+            return
+          }
           setIsCheckoutModalOpen(true)
         }
       }
@@ -158,8 +191,19 @@ export const SalesView: React.FC = () => {
     barcodeInputRef.current?.focus()
   }
 
+  const handleContainerClick = (e: React.MouseEvent): void => {
+    const target = e.target as HTMLElement | null
+    if (!target) return
+    const isInteractive = target.closest('button, input, select, textarea, [role="button"], a')
+    if (!isInteractive) {
+      if (!isSearchModalOpen && !isCheckoutModalOpen && !isHistoryModalOpen && !isWithdrawalModalOpen) {
+        barcodeInputRef.current?.focus()
+      }
+    }
+  }
+
   return (
-    <div className="flex-1 flex flex-col h-full bg-slate-100 select-none overflow-hidden">
+    <div onClick={handleContainerClick} className="flex-1 flex flex-col h-full bg-slate-100 select-none overflow-hidden">
       {/* Top Bar: Barcode Input + Simultaneous Tickets */}
       <div className="bg-white border-b border-lilac-200 px-4 py-2 flex flex-col gap-2 shadow-xs">
         {/* Ticket mini-tabs */}
@@ -169,6 +213,8 @@ export const SalesView: React.FC = () => {
               const isActive = activeTicketIndex === idx
               const hasItems = t.items.length > 0
               const isSavedPending = Boolean(t.id)
+
+              const isExchangeTab = Boolean(t.exchangeInfo)
 
               return (
                 <div
@@ -181,18 +227,32 @@ export const SalesView: React.FC = () => {
                       selectTicket(idx)
                     }
                   }}
-                  className={`h-8 pl-3 pr-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer select-none ${
+                  className={`h-8 pl-3 pr-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer select-none ${
                     isActive
-                      ? 'bg-lilac-600 text-white shadow-xs'
+                      ? isExchangeTab
+                        ? 'bg-amber-600 text-white shadow-sm ring-2 ring-amber-400/50'
+                        : 'bg-lilac-600 text-white shadow-xs'
+                      : isExchangeTab
+                      ? 'bg-amber-100/80 hover:bg-amber-200/80 text-amber-900 border border-amber-300'
                       : 'bg-slate-100 hover:bg-lilac-50 text-slate-600'
                   }`}
                 >
-                  {isSavedPending && <Clock className="w-3 h-3 opacity-80" />}
+                  {isExchangeTab ? (
+                    <ArrowLeftRight className="w-3.5 h-3.5 opacity-90 text-amber-200 shrink-0" />
+                  ) : (
+                    isSavedPending && <Clock className="w-3 h-3 opacity-80" />
+                  )}
                   <span>{t.label}</span>
                   {hasItems && (
                     <span
                       className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                        isActive ? 'bg-lilac-700 text-lilac-100' : 'bg-slate-200 text-slate-700'
+                        isActive
+                          ? isExchangeTab
+                            ? 'bg-amber-700 text-amber-100'
+                            : 'bg-lilac-700 text-lilac-100'
+                          : isExchangeTab
+                          ? 'bg-amber-200 text-amber-900'
+                          : 'bg-slate-200 text-slate-700'
                       }`}
                     >
                       {t.items.reduce((s, it) => s + it.quantity, 0)}
@@ -203,7 +263,9 @@ export const SalesView: React.FC = () => {
                     onClick={(e) => handleDeleteTicketByIndex(e, idx)}
                     className={`p-1 rounded-md transition-colors ml-0.5 cursor-pointer ${
                       isActive
-                        ? 'text-lilac-200 hover:text-white hover:bg-lilac-700'
+                        ? isExchangeTab
+                          ? 'text-amber-200 hover:text-white hover:bg-amber-700'
+                          : 'text-lilac-200 hover:text-white hover:bg-lilac-700'
                         : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
                     }`}
                     title={`Descartar / Cerrar ${t.label}`}
@@ -272,6 +334,68 @@ export const SalesView: React.FC = () => {
 
       {/* Main Cart Table */}
       <div className="flex-1 p-3 overflow-hidden flex flex-col">
+        {/* Banner de Cambio de Producto */}
+        {isExchange && exchangeInfo && (
+          <div className="mb-3 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-300 rounded-2xl p-4 flex flex-col gap-3 shadow-xs shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-md shadow-amber-500/20 font-bold shrink-0">
+                  <ArrowLeftRight className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-slate-900">
+                      CAMBIO DE PRODUCTO — Venta original Folio #{exchangeInfo.originalFolio}
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900 border border-amber-300">
+                      Ticket de Cambio
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Fecha de compra: {formatDateTime(exchangeInfo.originalDate)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="text-right">
+                <span className="text-xs font-semibold text-slate-500 block">
+                  Crédito a Favor
+                </span>
+                <span className="text-xl font-black text-amber-700">
+                  {formatCLP(exchangeInfo.exchangeCredit)}
+                </span>
+              </div>
+            </div>
+
+            {/* Advertencia si supera los 30 días */}
+            {periodCheck.isExceeded && (
+              <div className="p-2.5 rounded-xl bg-amber-100/70 border border-amber-300 text-amber-900 text-xs flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0" />
+                <span>
+                  <strong>Atención:</strong> Esta venta fue emitida hace {periodCheck.daysDiff} días (más de 1 mes). Se permite continuar bajo criterio comercial del vendedor.
+                </span>
+              </div>
+            )}
+
+            {/* Desglose de ítems devueltos */}
+            <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-amber-200/60 text-xs">
+              <span className="font-bold text-slate-700 text-[11px] uppercase tracking-wider">
+                Productos devueltos:
+              </span>
+              {exchangeInfo.returnedItems.map((item) => (
+                <span
+                  key={item.product_code}
+                  className="px-2.5 py-1 rounded-lg bg-white border border-amber-200 font-medium text-slate-800 flex items-center gap-1.5 shadow-2xs"
+                >
+                  <span className="font-bold text-amber-700">{item.quantity}x</span>
+                  <span>{item.name}</span>
+                  <span className="text-slate-400">({formatCLP(item.unit_price * item.quantity)})</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex-1 bg-white rounded-2xl border border-lilac-100 shadow-sm overflow-auto">
           <table className="w-full text-left border-collapse">
             <thead className="bg-slate-100/90 sticky top-0 z-10 text-xs font-semibold text-slate-600 border-b border-slate-200 backdrop-blur-sm">
@@ -403,57 +527,113 @@ export const SalesView: React.FC = () => {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => {
-              setActiveSubTab('sales')
-              setActiveTab('historial')
-            }}
-            className="px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-lilac-50 hover:border-lilac-300 text-xs font-bold text-slate-700 hover:text-lilac-700 flex items-center gap-2 transition-all shadow-sm"
+            onClick={() => setIsHistoryModalOpen(true)}
+            className="px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-lilac-50 hover:border-lilac-300 text-xs font-bold text-slate-700 hover:text-lilac-700 flex items-center gap-2 transition-all shadow-sm cursor-pointer"
           >
             <History className="w-4 h-4 text-lilac-600" />
-            <span>Historial de Ventas (F4)</span>
+            <span>Historial de Ventas</span>
           </button>
 
           <button
             type="button"
-            onClick={() => {
-              setActiveSubTab('cash_movements')
-              setActiveTab('historial')
-            }}
-            className="px-3.5 py-2 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-xs font-bold text-amber-850 hover:text-amber-900 flex items-center gap-2 transition-all shadow-sm"
+            onClick={() => setIsWithdrawalModalOpen(true)}
+            className="px-3.5 py-2 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-xs font-bold text-amber-850 hover:text-amber-900 flex items-center gap-2 transition-all shadow-sm cursor-pointer"
           >
             <ArrowUpRight className="w-4 h-4 text-amber-600" />
             <span>Salida de Dinero</span>
           </button>
-
-          <span className="hidden xl:inline text-xs text-slate-400 font-medium ml-2">
-            Ticket nuevo: <strong className="text-slate-600 font-bold">+</strong> superior
-          </span>
         </div>
 
         {/* Right Totals & Cobrar Button */}
-        <div className="flex items-center gap-6">
-          <div className="text-right">
-            <span className="text-xs text-slate-400 font-medium">Artículos en ticket:</span>
-            <div className="text-sm font-bold text-slate-700">{totalItemsCount} unidades</div>
-          </div>
-
-          <div className="text-right">
-            <span className="text-xs text-slate-400 font-medium">Total a Pagar:</span>
-            <div className="text-3xl font-black text-slate-900 tracking-tight">
-              {formatCLP(totalAmount)}
+        {isExchange && exchangeInfo && exchangeBalance ? (
+          <div className="flex items-center gap-6">
+            <div className="text-right">
+              <span className="text-xs text-slate-400 font-medium">Nuevos artículos:</span>
+              <div className="text-sm font-bold text-slate-700">{totalItemsCount} unidades</div>
+              <div className="text-xs text-slate-500 font-semibold">{formatCLP(totalAmount)}</div>
             </div>
-          </div>
 
-          <button
-            type="button"
-            onClick={() => setIsCheckoutModalOpen(true)}
-            disabled={activeTicket.items.length === 0}
-            className="px-8 py-3.5 bg-lilac-600 hover:bg-lilac-700 text-white rounded-2xl font-black text-base transition-all shadow-lg shadow-lilac-500/30 flex items-center gap-2 active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none hover:shadow-lilac-500/40 cursor-pointer disabled:cursor-not-allowed"
-          >
-            <CheckCircle className="w-5 h-5" />
-            <span>Cobrar (F12)</span>
-          </button>
-        </div>
+            <div className="text-right">
+              <span className="text-xs text-slate-400 font-medium">Crédito aplicado:</span>
+              <div className="text-sm font-bold text-amber-700">− {formatCLP(exchangeInfo.exchangeCredit)}</div>
+            </div>
+
+            {exchangeBalance.status === 'insufficient' ? (
+              <div className="text-right">
+                <span className="text-xs text-rose-500 font-bold block">Falta por cubrir:</span>
+                <span className="text-2xl font-black text-rose-600">
+                  {formatCLP(exchangeBalance.remainingCredit)}
+                </span>
+              </div>
+            ) : exchangeBalance.status === 'exact' ? (
+              <div className="text-right">
+                <span className="text-xs text-emerald-600 font-bold block">Cambio Exacto:</span>
+                <span className="text-2xl font-black text-emerald-700">$ 0</span>
+              </div>
+            ) : (
+              <div className="text-right">
+                <span className="text-xs text-amber-600 font-bold block">Diferencia a Pagar:</span>
+                <span className="text-3xl font-black text-slate-900">
+                  {formatCLP(exchangeBalance.differenceToPay)}
+                </span>
+              </div>
+            )}
+
+            {exchangeBalance.status === 'exact' ? (
+              <button
+                type="button"
+                onClick={handleFinalizeExactExchange}
+                disabled={activeTicket.items.length === 0}
+                className="px-8 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-base transition-all shadow-lg shadow-emerald-500/30 flex items-center gap-2 active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none hover:shadow-emerald-500/40 cursor-pointer"
+              >
+                <CheckCircle2 className="w-5 h-5" />
+                <span>Finalizar Cambio ($ 0)</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsCheckoutModalOpen(true)}
+                disabled={activeTicket.items.length === 0 || !exchangeBalance.canComplete}
+                className={`px-8 py-3.5 rounded-2xl font-black text-base transition-all shadow-lg flex items-center gap-2 active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none cursor-pointer disabled:cursor-not-allowed ${
+                  exchangeBalance.canComplete
+                    ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-500/30'
+                    : 'bg-slate-300 text-slate-500'
+                }`}
+              >
+                <CheckCircle className="w-5 h-5" />
+                <span>
+                  {exchangeBalance.canComplete
+                    ? `Cobrar Diferencia (${formatCLP(exchangeBalance.differenceToPay)}) (F12)`
+                    : `Faltan ${formatCLP(exchangeBalance.remainingCredit)}`}
+                </span>
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-6">
+            <div className="text-right">
+              <span className="text-xs text-slate-400 font-medium">Artículos en ticket:</span>
+              <div className="text-sm font-bold text-slate-700">{totalItemsCount} unidades</div>
+            </div>
+
+            <div className="text-right">
+              <span className="text-xs text-slate-400 font-medium">Total a Pagar:</span>
+              <div className="text-3xl font-black text-slate-900 tracking-tight">
+                {formatCLP(totalAmount)}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsCheckoutModalOpen(true)}
+              disabled={activeTicket.items.length === 0}
+              className="px-8 py-3.5 bg-lilac-600 hover:bg-lilac-700 text-white rounded-2xl font-black text-base transition-all shadow-lg shadow-lilac-500/30 flex items-center gap-2 active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none hover:shadow-lilac-500/40 cursor-pointer disabled:cursor-not-allowed"
+            >
+              <CheckCircle className="w-5 h-5" />
+              <span>Cobrar (F12)</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Modals */}
@@ -465,10 +645,26 @@ export const SalesView: React.FC = () => {
 
       <CheckoutModal
         isOpen={isCheckoutModalOpen}
-        totalAmount={totalAmount}
+        totalAmount={isExchange && exchangeBalance ? exchangeBalance.differenceToPay : totalAmount}
         onClose={() => setIsCheckoutModalOpen(false)}
         onSuccess={() => {
           setIsCheckoutModalOpen(false)
+          barcodeInputRef.current?.focus()
+        }}
+      />
+
+      <SalesHistoryModal
+        isOpen={isHistoryModalOpen}
+        onClose={() => {
+          setIsHistoryModalOpen(false)
+          barcodeInputRef.current?.focus()
+        }}
+      />
+
+      <CashWithdrawalModal
+        isOpen={isWithdrawalModalOpen}
+        onClose={() => {
+          setIsWithdrawalModalOpen(false)
           barcodeInputRef.current?.focus()
         }}
       />

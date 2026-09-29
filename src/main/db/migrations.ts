@@ -169,6 +169,19 @@ const MIGRATIONS: Migration[] = [
         CREATE INDEX IF NOT EXISTS idx_product_suppliers_supp ON product_suppliers(supplier_id);
       `)
     }
+  },
+  {
+    version: 7,
+    up: (db) => {
+      const cols = db.pragma('table_info(sales)') as { name: string }[]
+      const hasExchangeParent = cols.some((c) => c.name === 'exchange_parent_id')
+      if (!hasExchangeParent) {
+        db.exec(`
+          ALTER TABLE sales ADD COLUMN exchange_parent_id INTEGER NULL REFERENCES sales(id) ON DELETE SET NULL;
+          CREATE INDEX IF NOT EXISTS idx_sales_exchange_parent ON sales(exchange_parent_id);
+        `)
+      }
+    }
   }
 ]
 

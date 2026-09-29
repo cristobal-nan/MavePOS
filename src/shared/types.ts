@@ -104,6 +104,8 @@ export interface Sale {
   status: SaleStatus
   total: number
   cash_session_id: number | null
+  exchange_parent_id?: number | null
+  exchange_parent_folio?: number | null
   created_at: string
   completed_at: string | null
 }
@@ -143,6 +145,21 @@ export interface PendingTicket {
   items: CartItem[]
 }
 
+export interface ExchangeReturnedItem {
+  product_code: string
+  name: string
+  unit_price: number
+  quantity: number
+}
+
+export interface ExchangeInfo {
+  originalSaleId: number
+  originalFolio: number
+  originalDate: string
+  returnedItems: ExchangeReturnedItem[]
+  exchangeCredit: number
+}
+
 export interface CompleteSaleInput {
   saleId?: number
   folio?: number
@@ -159,6 +176,7 @@ export interface CompleteSaleInput {
     amount: number
   }[]
   cashPaid?: number
+  exchangeInfo?: ExchangeInfo
 }
 
 export interface CompletedSaleResult {
@@ -173,6 +191,7 @@ export interface SaleDetail extends Sale {
   payments: SalePayment[]
   total_items: number
   returned_items_count: number
+  child_exchanges?: { id: number; folio: number; created_at: string }[]
 }
 
 export interface SalesHistoryFilter {
