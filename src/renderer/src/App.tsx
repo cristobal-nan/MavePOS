@@ -3,10 +3,10 @@ import { TitleBar } from './components/TitleBar'
 import { NavigationTabs, TabId } from './components/NavigationTabs'
 import { useUIStore } from './store/uiStore'
 import { useCashStore } from './store/cashStore'
+import { useCatalogStore } from './store/catalogStore'
 import { SalesView } from './views/SalesView'
 import { CatalogView } from './views/CatalogView'
 import { InventoryView } from './views/InventoryView'
-import { HistoryView } from './views/HistoryView'
 import { CashCutView } from './views/CashCutView'
 import { ReportsView } from './views/ReportsView'
 import { SettingsView } from './views/SettingsView'
@@ -19,12 +19,17 @@ export const App: React.FC = () => {
   const { activeTab, setActiveTab } = useUIStore()
   const { currentSession, isLoading, checkCurrentSession } = useCashStore()
 
+  // Limpiar búsqueda de productos al cambiar de pestaña
+  useEffect(() => {
+    useCatalogStore.getState().setSearchQuery('')
+  }, [activeTab])
+
   // Check active cash session on app startup
   useEffect(() => {
     checkCurrentSession()
   }, [checkCurrentSession])
 
-  // Keyboard navigation between tabs (F1 to F7) - only active when cash is open
+  // Keyboard navigation between tabs (F1 to F6) - only active when cash is open
   useEffect(() => {
     if (!currentSession) return
 
@@ -33,10 +38,9 @@ export const App: React.FC = () => {
         F1: 'ventas',
         F2: 'catalogo',
         F3: 'inventario',
-        F4: 'historial',
-        F5: 'corte',
-        F6: 'reportes',
-        F7: 'configuracion'
+        F4: 'corte',
+        F5: 'reportes',
+        F6: 'configuracion'
       }
 
       if (shortcuts[e.key]) {
@@ -57,8 +61,6 @@ export const App: React.FC = () => {
         return <CatalogView />
       case 'inventario':
         return <InventoryView />
-      case 'historial':
-        return <HistoryView />
       case 'corte':
         return <CashCutView />
       case 'reportes':

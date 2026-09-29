@@ -34,8 +34,8 @@ export const useCashStore = create<CashState>((set, get) => ({
   checkCurrentSession: async () => {
     set({ isLoading: true, error: null })
     try {
-      if (window.api?.getCurrentCashSession) {
-        const session = await window.api.getCurrentCashSession()
+      if (window.api?.cash?.getCurrentSession) {
+        const session = await window.api.cash.getCurrentSession()
         set({ currentSession: session, isLoading: false })
         if (session) {
           await get().fetchSummary(session.id)
@@ -52,10 +52,10 @@ export const useCashStore = create<CashState>((set, get) => ({
   fetchSummary: async (sessionId: number) => {
     set({ isSummaryLoading: true, error: null })
     try {
-      if (!window.api?.getSessionSummary) {
+      if (!window.api?.cash?.getSessionSummary) {
         throw new Error('API no disponible')
       }
-      const summary = await window.api.getSessionSummary(sessionId)
+      const summary = await window.api.cash.getSessionSummary(sessionId)
       set({ currentSummary: summary, isSummaryLoading: false })
     } catch (err: any) {
       console.error('Error al cargar resumen de corte de caja:', err)
@@ -65,8 +65,8 @@ export const useCashStore = create<CashState>((set, get) => ({
 
   fetchPastSessions: async () => {
     try {
-      if (!window.api?.getPastSessions) return
-      const past = await window.api.getPastSessions(50, 0)
+      if (!window.api?.cash?.getPastSessions) return
+      const past = await window.api.cash.getPastSessions(50, 0)
       set({ pastSessions: past })
     } catch (err: any) {
       console.error('Error al cargar sesiones históricas:', err)
@@ -76,10 +76,10 @@ export const useCashStore = create<CashState>((set, get) => ({
   openSession: async (openingFund: number) => {
     set({ error: null })
     try {
-      if (!window.api?.openCashSession) {
+      if (!window.api?.cash?.openSession) {
         throw new Error('API no disponible')
       }
-      const session = await window.api.openCashSession(openingFund)
+      const session = await window.api.cash.openSession(openingFund)
       set({ currentSession: session })
       await get().fetchSummary(session.id)
       return true
@@ -96,10 +96,10 @@ export const useCashStore = create<CashState>((set, get) => ({
   ) => {
     set({ error: null })
     try {
-      if (!window.api?.closeCashSession) {
+      if (!window.api?.cash?.closeSession) {
         throw new Error('API no disponible')
       }
-      await window.api.closeCashSession(sessionId, closingData)
+      await window.api.cash.closeSession(sessionId, closingData)
       set({ currentSession: null, currentSummary: null })
       await get().fetchPastSessions()
       return true

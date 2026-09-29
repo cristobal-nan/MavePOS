@@ -5,6 +5,7 @@ import {
   CashCutSummary,
   CloseCashSessionInput
 } from '../../shared/types'
+import { calculateExpectedCash, calculateNetSales } from '../../shared/finance'
 
 export class CashService {
   constructor(private db: Database.Database) {}
@@ -178,7 +179,7 @@ export class CashService {
     const returnsTotal = cancelledSales.cancelled_total + partialReturns.partial_total
     const returnsCash = cancelledSales.cancelled_cash + partialCashTotal
     const returnsCount = cancelledSales.cancelled_count + partialReturns.partial_count
-    const netSales = salesStats.sales_total - returnsTotal
+    const netSales = calculateNetSales(salesStats.sales_total, returnsTotal)
 
     // 3. Salidas de dinero de caja
     const withdrawalsStats = this.db
@@ -196,11 +197,12 @@ export class CashService {
 
     // 4. Efectivo esperado en gaveta:
     // Fondo de apertura + Ventas en efectivo - Devoluciones en efectivo - Salidas de dinero
-    const expectedCash =
-      session.opening_fund +
-      salesStats.sales_cash -
-      returnsCash -
+    const expectedCash = calculateExpectedCash(
+      session.opening_fund,
+      salesStats.sales_cash,
+      returnsCash,
       withdrawalsStats.withdrawals_total
+    )
 
     return {
       sessionId: session.id,

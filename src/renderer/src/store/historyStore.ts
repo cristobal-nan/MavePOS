@@ -96,7 +96,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   fetchSalesHistory: async () => {
     set({ isLoading: true, error: null })
     try {
-      if (!window.api?.getSalesHistory) {
+      if (!window.api?.sales?.getHistory) {
         throw new Error('API no disponible')
       }
 
@@ -116,7 +116,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
         apiFilter.status = filter.status
       }
 
-      const sales = await window.api.getSalesHistory(apiFilter)
+      const sales = await window.api.sales.getHistory(apiFilter)
       set({ sales, isLoading: false })
     } catch (err: any) {
       console.error('Error al cargar historial de ventas:', err)
@@ -127,10 +127,10 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   openSaleDetail: async (saleId: number) => {
     set({ isDetailLoading: true, error: null })
     try {
-      if (!window.api?.getSaleDetail) {
+      if (!window.api?.sales?.getDetail) {
         throw new Error('API no disponible')
       }
-      const detail = await window.api.getSaleDetail(saleId)
+      const detail = await window.api.sales.getDetail(saleId)
       set({ selectedSaleDetail: detail, isDetailLoading: false })
     } catch (err: any) {
       console.error('Error al cargar detalle de venta:', err)
@@ -145,10 +145,10 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   cancelSale: async (saleId: number, reason?: string) => {
     set({ error: null })
     try {
-      if (!window.api?.cancelSale) {
+      if (!window.api?.sales?.cancel) {
         throw new Error('API no disponible')
       }
-      const updatedDetail = await window.api.cancelSale(saleId, reason)
+      const updatedDetail = await window.api.sales.cancel(saleId, reason)
       set({ selectedSaleDetail: updatedDetail })
       // Refrescamos lista de ventas
       await get().fetchSalesHistory()
@@ -163,10 +163,10 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   returnSaleItem: async (saleId: number, productCode: string, quantity: number, reason?: string) => {
     set({ error: null })
     try {
-      if (!window.api?.returnSaleItem) {
+      if (!window.api?.sales?.returnItem) {
         throw new Error('API no disponible')
       }
-      const updatedDetail = await window.api.returnSaleItem(saleId, productCode, quantity, reason)
+      const updatedDetail = await window.api.sales.returnItem(saleId, productCode, quantity, reason)
       set({ selectedSaleDetail: updatedDetail })
       // Refrescamos lista de ventas
       await get().fetchSalesHistory()
@@ -181,10 +181,10 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   fetchCashMovements: async (sessionId: number) => {
     set({ isLoading: true, error: null })
     try {
-      if (!window.api?.getSessionMovements) {
+      if (!window.api?.cash?.getSessionMovements) {
         throw new Error('API no disponible')
       }
-      const movements = await window.api.getSessionMovements(sessionId)
+      const movements = await window.api.cash.getSessionMovements(sessionId)
       set({ cashMovements: movements, isLoading: false })
     } catch (err: any) {
       console.error('Error al cargar salidas de caja:', err)
@@ -195,10 +195,10 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
   addCashMovement: async (sessionId: number, amount: number, reason: string) => {
     set({ error: null })
     try {
-      if (!window.api?.addCashMovement) {
+      if (!window.api?.cash?.addMovement) {
         throw new Error('API no disponible')
       }
-      await window.api.addCashMovement(sessionId, amount, reason)
+      await window.api.cash.addMovement(sessionId, amount, reason)
       // Refrescamos la lista de movimientos
       await get().fetchCashMovements(sessionId)
       return true

@@ -3,7 +3,6 @@ import {
   ShoppingCart,
   Layers,
   Boxes,
-  History,
   Calculator,
   BarChart3,
   Settings,
@@ -14,7 +13,6 @@ export type TabId =
   | 'ventas'
   | 'catalogo'
   | 'inventario'
-  | 'historial'
   | 'corte'
   | 'reportes'
   | 'configuracion'
@@ -30,7 +28,6 @@ const TABS: TabItem[] = [
   { id: 'ventas', label: 'Ventas', icon: ShoppingCart },
   { id: 'catalogo', label: 'Catálogo', icon: Layers },
   { id: 'inventario', label: 'Inventario', icon: Boxes },
-  { id: 'historial', label: 'Historial', icon: History },
   { id: 'corte', label: 'Corte', icon: Calculator },
   { id: 'reportes', label: 'Reportes', icon: BarChart3 },
   { id: 'configuracion', label: 'Configuración', icon: Settings }
