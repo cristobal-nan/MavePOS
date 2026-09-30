@@ -22,6 +22,7 @@ import {
   SalePayment,
   SaleDetail,
   SalesHistoryFilter,
+  PaymentMethod,
   ExcelColumnMapping,
   ExcelParsePreview,
   ImportReportResult,
@@ -70,6 +71,7 @@ export interface SalesAPI {
   getDetail: (saleId: number) => Promise<SaleDetail | null>
   cancel: (saleId: number, reason?: string) => Promise<SaleDetail>
   returnItem: (saleId: number, productCode: string, quantity: number, reason?: string) => Promise<SaleDetail>
+  updatePaymentMethod: (saleId: number, newMethod: PaymentMethod) => Promise<SaleDetail>
 }
 
 export interface CashAPI {
@@ -196,6 +198,7 @@ export interface WindowAPI {
   getSaleDetail: (saleId: number) => Promise<SaleDetail | null>
   cancelSale: (saleId: number, reason?: string) => Promise<SaleDetail>
   returnSaleItem: (saleId: number, productCode: string, quantity: number, reason?: string) => Promise<SaleDetail>
+  updatePaymentMethod: (saleId: number, newMethod: PaymentMethod) => Promise<SaleDetail>
 
   adjustStock: (input: AdjustStockInput) => Promise<{ product: Product; movement: InventoryMovement }>
   getLowStockProducts: (limit?: number, offset?: number) => Promise<(ProductSearchResult & { min_stock: number })[]>
@@ -259,7 +262,9 @@ const sales: SalesAPI = {
   getDetail: (saleId) => ipcRenderer.invoke('sales:getDetail', saleId),
   cancel: (saleId, reason) => ipcRenderer.invoke('sales:cancel', saleId, reason),
   returnItem: (saleId, productCode, quantity, reason) =>
-    ipcRenderer.invoke('sales:returnItem', saleId, productCode, quantity, reason)
+    ipcRenderer.invoke('sales:returnItem', saleId, productCode, quantity, reason),
+  updatePaymentMethod: (saleId, newMethod) =>
+    ipcRenderer.invoke('sales:updatePaymentMethod', saleId, newMethod)
 }
 
 const cash: CashAPI = {
@@ -400,6 +405,7 @@ const api: WindowAPI = {
   getSaleDetail: sales.getDetail,
   cancelSale: sales.cancel,
   returnSaleItem: sales.returnItem,
+  updatePaymentMethod: sales.updatePaymentMethod,
 
   adjustStock: inventory.adjustStock,
   getLowStockProducts: inventory.getLowStock,

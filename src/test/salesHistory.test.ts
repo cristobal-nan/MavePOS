@@ -263,4 +263,100 @@ describe('Fase 7: Historial y Dinero (Devoluciones, Cancelaciones y Salidas de C
       )
     })
   })
+
+  describe('Cambio de Método de Pago en Ventas', () => {
+    it('permite cambiar el método de pago de efectivo a tarjeta ajustando el corte de caja sin generar devoluciones', () => {
+      const sale = salesService.completeSale({
+        cashSessionId,
+        items: [{ product_code: 'PROD-A', name: 'Hilo Algodón Premium', unit_price: 3000, quantity: 2 }],
+        payments: [{ method: 'cash', amount: 6000 }]
+      })
+
+      // Estado antes del cambio
+      const summaryBefore = cashService.getSessionSummary(cashSessionId)
+      expect(summaryBefore.salesCash).toBe(6000)
+      expect(summaryBefore.salesCard).toBe(0)
+      expect(summaryBefore.expectedCash).toBe(56000) // 50000 + 6000
+
+      // Cambiar a tarjeta
+      const updated = salesService.updatePaymentMethod(sale.sale.id, 'card')
+      expect(updated.payments.length).toBe(1)
+      expect(updated.payments[0].method).toBe('card')
+      expect(updated.payments[0].amount).toBe(6000)
+
+      // Verificar que el corte de caja se recalculó al instante
+      const summaryAfter = cashService.getSessionSummary(cashSessionId)
+      expect(summaryAfter.salesCash).toBe(0)
+      expect(summaryAfter.salesCard).toBe(6000)
+      expect(summaryAfter.expectedCash).toBe(50000) // Fondo 50000, efectivo en venta ahora 0
+      expect(summaryAfter.returnsTotal).toBe(0)
+      expect(summaryAfter.returnsCash).toBe(0)
+    })
+
+    it('permite cambiar una venta con pago mixto a un método único manteniendo el monto total', () => {
+      const sale = salesService.completeSale({
+        cashSessionId,
+        items: [
+          { product_code: 'PROD-A', name: 'Hilo Algodón Premium', unit_price: 3000, quantity: 1 },
+          { product_code: 'PROD-B', name: 'Lana Merino Extra', unit_price: 5000, quantity: 1 }
+        ],
+        payments: [
+          { method: 'cash', amount: 3000 },
+          { method: 'card', amount: 5000 }
+        ]
+      })
+
+      const updated = salesService.updatePaymentMethod(sale.sale.id, 'transfer')
+      expect(updated.payments.length).toBe(1)
+      expect(updated.payments[0].method).toBe('transfer')
+      expect(updated.payments[0].amount).toBe(8000)
+
+      const summary = cashService.getSessionSummary(cashSessionId)
+      expect(summary.salesCash).toBe(0)
+      expect(summary.salesCard).toBe(0)
+      expect(summary.salesTransfer).toBe(8000)
+      expect(summary.returnsTotal).toBe(0)
+    })
+
+    it('rechaza el cambio si la venta fue creada en un día anterior', () => {
+      const sale = salesService.completeSale({
+        cashSessionId,
+        items: [{ product_code: 'PROD-A', name: 'Hilo Algodón Premium', unit_price: 3000, quantity: 1 }],
+        payments: [{ method: 'cash', amount: 3000 }]
+      })
+
+      // Modificamos artificialmente la fecha de la venta en la BD para simular un día pasado
+      db.prepare("UPDATE sales SET created_at = '2020-01-01T10:00:00.000Z' WHERE id = ?").run(sale.sale.id)
+
+      expect(() => salesService.updatePaymentMethod(sale.sale.id, 'card')).toThrow(
+        /Solo se puede modificar el método de pago para ventas realizadas en el día de hoy/
+      )
+    })
+
+    it('rechaza el cambio si la venta se encuentra cancelada', () => {
+      const sale = salesService.completeSale({
+        cashSessionId,
+        items: [{ product_code: 'PROD-A', name: 'Hilo Algodón Premium', unit_price: 3000, quantity: 1 }],
+        payments: [{ method: 'cash', amount: 3000 }]
+      })
+
+      salesService.cancelSale(sale.sale.id)
+
+      expect(() => salesService.updatePaymentMethod(sale.sale.id, 'card')).toThrow(
+        /Solo se puede modificar el método de pago en ventas completadas/
+      )
+    })
+
+    it('rechaza un método de pago inválido', () => {
+      const sale = salesService.completeSale({
+        cashSessionId,
+        items: [{ product_code: 'PROD-A', name: 'Hilo Algodón Premium', unit_price: 3000, quantity: 1 }],
+        payments: [{ method: 'cash', amount: 3000 }]
+      })
+
+      expect(() => salesService.updatePaymentMethod(sale.sale.id, 'bitcoin' as any)).toThrow(
+        /Método de pago 'bitcoin' no válido/
+      )
+    })
+  })
 })

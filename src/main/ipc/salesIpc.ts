@@ -3,7 +3,8 @@ import { SalesService } from '../services/salesService'
 import {
   CartItem,
   CompleteSaleInput,
-  SalesHistoryFilter
+  SalesHistoryFilter,
+  PaymentMethod
 } from '../../shared/types'
 
 export function registerSalesIpc(salesService: SalesService): void {
@@ -55,4 +56,12 @@ export function registerSalesIpc(salesService: SalesService): void {
       return salesService.returnSaleItem(saleId, productCode, quantity, reason)
     }
   )
+
+  ipcMain.handle(
+    'sales:updatePaymentMethod',
+    (_event, saleId: number, newMethod: PaymentMethod) => {
+      return salesService.updatePaymentMethod(saleId, newMethod)
+    }
+  )
 }
+

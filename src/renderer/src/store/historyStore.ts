@@ -4,7 +4,8 @@ import {
   SalePayment,
   SaleDetail,
   SalesHistoryFilter,
-  CashMovement
+  CashMovement,
+  PaymentMethod
 } from '@shared/types'
 
 export type HistorySubTab = 'sales' | 'cash_movements'
@@ -34,6 +35,7 @@ interface HistoryState {
   closeSaleDetail: () => void
   cancelSale: (saleId: number, reason?: string) => Promise<boolean>
   returnSaleItem: (saleId: number, productCode: string, quantity: number, reason?: string) => Promise<boolean>
+  updatePaymentMethod: (saleId: number, newMethod: PaymentMethod) => Promise<boolean>
   fetchCashMovements: (sessionId: number) => Promise<void>
   addCashMovement: (sessionId: number, amount: number, reason: string) => Promise<boolean>
   clearError: () => void
@@ -174,6 +176,23 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
     } catch (err: any) {
       console.error('Error al procesar devolución de producto:', err)
       set({ error: err.message || 'Error al devolver el producto' })
+      return false
+    }
+  },
+
+  updatePaymentMethod: async (saleId: number, newMethod: PaymentMethod) => {
+    set({ error: null })
+    try {
+      if (!window.api?.sales?.updatePaymentMethod) {
+        throw new Error('API no disponible')
+      }
+      const updatedDetail = await window.api.sales.updatePaymentMethod(saleId, newMethod)
+      set({ selectedSaleDetail: updatedDetail })
+      await get().fetchSalesHistory()
+      return true
+    } catch (err: any) {
+      console.error('Error al actualizar método de pago:', err)
+      set({ error: err.message || 'Error al actualizar método de pago' })
       return false
     }
   },
