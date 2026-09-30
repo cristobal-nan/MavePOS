@@ -211,15 +211,44 @@ export class ProductService {
           for (const child of children) {
             const childName = `${trimmedName} ${child.attribute_value || ''}`.trim()
             const childSearchName = normalizeSearchName(childName)
-            this.db.prepare(`
-              UPDATE products SET
-                name = ?,
-                search_name = ?,
-                category_id = ?,
-                attribute_name = ?,
-                updated_at = ?
-              WHERE id = ?
-            `).run(childName, childSearchName, categoryId, attributeName, now, child.id)
+
+            if (input.sync_variations) {
+              this.db.prepare(`
+                UPDATE products SET
+                  name = ?,
+                  search_name = ?,
+                  category_id = ?,
+                  attribute_name = ?,
+                  sale_price = CASE WHEN ? > 0 THEN ? ELSE sale_price END,
+                  cost_price = CASE WHEN ? IS NOT NULL THEN ? ELSE cost_price END,
+                  min_stock = CASE WHEN ? >= 0 THEN ? ELSE min_stock END,
+                  updated_at = ?
+                WHERE id = ?
+              `).run(
+                childName,
+                childSearchName,
+                categoryId,
+                attributeName,
+                salePrice,
+                salePrice,
+                costPrice,
+                costPrice,
+                minStock,
+                minStock,
+                now,
+                child.id
+              )
+            } else {
+              this.db.prepare(`
+                UPDATE products SET
+                  name = ?,
+                  search_name = ?,
+                  category_id = ?,
+                  attribute_name = ?,
+                  updated_at = ?
+                WHERE id = ?
+              `).run(childName, childSearchName, categoryId, attributeName, now, child.id)
+            }
           }
         }
       })

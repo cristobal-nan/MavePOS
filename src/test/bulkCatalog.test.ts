@@ -248,4 +248,79 @@ describe('Reorganización Post-Importación de Catálogo (Operaciones en Lote)',
       expect(oldMovements).toHaveLength(0)
     })
   })
+
+  describe('Sincronización masiva de campos desde el Producto Padre a sus Variaciones', () => {
+    it('sincroniza precio de venta, precio de costo y stock mínimo a todas las variaciones al activar sync_variations', () => {
+      const { parent } = productService.saveVariableProduct(
+        {
+          name: 'Algodón Rústico',
+          category_id: 1,
+          attribute_name: 'Color',
+          sale_price: 3000,
+          cost_price: 1500,
+          min_stock: 5
+        },
+        [
+          { code: 'ALG-AZUL', name: 'Algodón Rústico Azul', sale_price: 3000, cost_price: 1500, min_stock: 5, attribute_value: 'Azul' },
+          { code: 'ALG-ROJO', name: 'Algodón Rústico Rojo', sale_price: 3000, cost_price: 1500, min_stock: 5, attribute_value: 'Rojo' }
+        ]
+      )
+
+      // Actualizamos el padre con sync_variations: true
+      productService.upsertProduct({
+        id: parent.id,
+        name: 'Algodón Rústico Premium',
+        product_type: 'variable',
+        category_id: 2,
+        attribute_name: 'Color',
+        sale_price: 3800,
+        cost_price: 2000,
+        min_stock: 10,
+        sync_variations: true
+      })
+
+      const variations = productService.getVariations(parent.id!)
+      expect(variations).toHaveLength(2)
+
+      for (const v of variations) {
+        expect(v.name).toContain('Algodón Rústico Premium')
+        expect(v.category_id).toBe(2)
+        expect(v.sale_price).toBe(3800)
+        expect(v.cost_price).toBe(2000)
+        expect(v.min_stock).toBe(10)
+      }
+    })
+
+    it('conserva los precios individuales de las variaciones si sync_variations es false', () => {
+      const { parent } = productService.saveVariableProduct(
+        {
+          name: 'Algodón Rústico',
+          category_id: 1,
+          attribute_name: 'Color',
+          sale_price: 3000
+        },
+        [
+          { code: 'ALG-1', name: 'Algodón Rústico Azul', sale_price: 3000, attribute_value: 'Azul' },
+          { code: 'ALG-2', name: 'Algodón Rústico Dorado', sale_price: 3500, attribute_value: 'Dorado' }
+        ]
+      )
+
+      // Actualizamos solo nombre y categoría del padre sin sync_variations
+      productService.upsertProduct({
+        id: parent.id,
+        name: 'Algodón Rústico Plus',
+        product_type: 'variable',
+        category_id: 2,
+        attribute_name: 'Color',
+        sale_price: 4000,
+        sync_variations: false
+      })
+
+      const variations = productService.getVariations(parent.id!)
+      expect(variations[0].name).toBe('Algodón Rústico Plus Azul')
+      expect(variations[0].sale_price).toBe(3000) // Se mantuvo intacto
+      expect(variations[1].name).toBe('Algodón Rústico Plus Dorado')
+      expect(variations[1].sale_price).toBe(3500) // Se mantuvo intacto
+    })
+  })
 })

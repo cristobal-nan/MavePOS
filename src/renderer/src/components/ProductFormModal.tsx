@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   X,
   Save,
@@ -57,6 +57,24 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [attributeName, setAttributeName] = useState('Color')
   const [variations, setVariations] = useState<VariationRow[]>([])
 
+  // Parent product general editable fields for variable products
+  const [parentSalePrice, setParentSalePrice] = useState('')
+  const [parentCostPrice, setParentCostPrice] = useState('')
+  const [parentMinStock, setParentMinStock] = useState('5')
+
+  const initialParentSnapshot = useRef<{
+    parentName: string
+    attributeName: string
+    categoryId: number | null
+    supplierIds: number[]
+    salePrice: string
+    costPrice: string
+    minStock: string
+  } | null>(null)
+
+  const [isConfirmParentModalOpen, setIsConfirmParentModalOpen] = useState(false)
+  const [detectedParentChanges, setDetectedParentChanges] = useState<{ field: string; from: string; to: string }[]>([])
+
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -85,15 +103,29 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         setParentName(product.parent_name || '')
         window.api.getProductById(product.parent_id).then((parentProd) => {
           if (parentProd) {
+            const pSale = parentProd.sale_price ? parentProd.sale_price.toLocaleString('es-CL') : (product.sale_price ? product.sale_price.toLocaleString('es-CL') : '')
+            const pCost = parentProd.cost_price ? parentProd.cost_price.toLocaleString('es-CL') : (product.cost_price ? product.cost_price.toLocaleString('es-CL') : '')
+            const pMinStock = parentProd.min_stock !== undefined && parentProd.min_stock !== null ? parentProd.min_stock.toString() : (product.min_stock !== undefined ? product.min_stock.toString() : '5')
+            const pCat = parentProd.category_id || product.category_id || null
+            const pAttr = parentProd.attribute_name || 'Color'
+            const pSups = parentProd.supplier_ids && parentProd.supplier_ids.length > 0 ? parentProd.supplier_ids : supIds
+
             setParentName(parentProd.name)
-            if (parentProd.category_id && !product.category_id) {
-              setSelectedCategoryId(parentProd.category_id)
-            }
-            if (parentProd.attribute_name) {
-              setAttributeName(parentProd.attribute_name)
-            }
-            if (parentProd.supplier_ids && parentProd.supplier_ids.length > 0 && supIds.length === 0) {
-              setSelectedSupplierIds(new Set(parentProd.supplier_ids))
+            setSelectedCategoryId(pCat)
+            setAttributeName(pAttr)
+            setSelectedSupplierIds(new Set(pSups))
+            setParentSalePrice(pSale)
+            setParentCostPrice(pCost)
+            setParentMinStock(pMinStock)
+
+            initialParentSnapshot.current = {
+              parentName: parentProd.name,
+              attributeName: pAttr,
+              categoryId: pCat,
+              supplierIds: Array.from(new Set(pSups)).sort((a, b) => a - b),
+              salePrice: pSale,
+              costPrice: pCost,
+              minStock: pMinStock
             }
           }
         })
@@ -107,6 +139,28 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
       // If variable product container
       if (product.product_type === 'variable' && product.id) {
+        const pSale = product.sale_price ? product.sale_price.toLocaleString('es-CL') : ''
+        const pCost = product.cost_price ? product.cost_price.toLocaleString('es-CL') : ''
+        const pMinStock = product.min_stock !== undefined ? product.min_stock.toString() : '5'
+        const pCat = product.category_id || null
+        const pAttr = product.attribute_name || 'Color'
+        const pSups = product.supplier_ids || supIds || []
+
+        setParentName(product.name)
+        setParentSalePrice(pSale)
+        setParentCostPrice(pCost)
+        setParentMinStock(pMinStock)
+
+        initialParentSnapshot.current = {
+          parentName: product.name,
+          attributeName: pAttr,
+          categoryId: pCat,
+          supplierIds: Array.from(new Set(pSups)).sort((a, b) => a - b),
+          salePrice: pSale,
+          costPrice: pCost,
+          minStock: pMinStock
+        }
+
         getVariations(product.id).then((vars) => {
           setVariations(
             vars.map((v) => ({
@@ -120,7 +174,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             }))
           )
         })
-      } else {
+      } else if (!product.parent_id) {
         setVariations([])
       }
     } else {
@@ -137,6 +191,12 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setAttributeName('Color')
       setStock('0')
       setMinStock('5')
+      setParentSalePrice('')
+      setParentCostPrice('')
+      setParentMinStock('5')
+      initialParentSnapshot.current = null
+      setIsConfirmParentModalOpen(false)
+      setDetectedParentChanges([])
       setVariations([
         {
           attributeValue: '',
@@ -152,6 +212,21 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     setNewInlineSupplierName('')
     setError(null)
   }, [product, categories, isOpen, getVariations])
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') {
+        if (isConfirmParentModalOpen) {
+          e.stopPropagation()
+          setIsConfirmParentModalOpen(false)
+          return
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, isConfirmParentModalOpen])
 
   const handleAddInlineSupplier = async (): Promise<void> => {
     const trimmed = newInlineSupplierName.trim()
@@ -192,6 +267,186 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     setVariations(updated)
   }
 
+  const handleParentSalePriceChange = (valStr: string): void => {
+    const val = parseCLP(valStr)
+    const formatted = val === 0 && !valStr.trim() ? '' : val.toLocaleString('es-CL')
+    setParentSalePrice(formatted)
+
+    const currentVarPrice = parseCLP(salePrice)
+    const initialParentPrice = initialParentSnapshot.current ? parseCLP(initialParentSnapshot.current.salePrice) : 0
+    if (currentVarPrice === 0 || currentVarPrice === initialParentPrice) {
+      setSalePrice(formatted)
+    }
+  }
+
+  const handleParentCostPriceChange = (valStr: string): void => {
+    const val = parseCLP(valStr)
+    const formatted = val === 0 && !valStr.trim() ? '' : val.toLocaleString('es-CL')
+    setParentCostPrice(formatted)
+
+    const currentVarCost = costPrice.trim() ? parseCLP(costPrice) : null
+    const initialParentCost = initialParentSnapshot.current && initialParentSnapshot.current.costPrice.trim()
+      ? parseCLP(initialParentSnapshot.current.costPrice)
+      : null
+    if (currentVarCost === null || currentVarCost === initialParentCost) {
+      setCostPrice(formatted)
+    }
+  }
+
+  const handleParentMinStockChange = (valStr: string): void => {
+    setParentMinStock(valStr)
+
+    const currentVarMin = parseInt(minStock, 10) || 0
+    const initialParentMin = initialParentSnapshot.current ? parseInt(initialParentSnapshot.current.minStock, 10) || 0 : 5
+    if (currentVarMin === 0 || currentVarMin === initialParentMin) {
+      setMinStock(valStr)
+    }
+  }
+
+  const getParentChanges = (): { field: string; from: string; to: string }[] => {
+    if (!initialParentSnapshot.current) return []
+    const initial = initialParentSnapshot.current
+    const changes: { field: string; from: string; to: string }[] = []
+
+    if (parentName.trim() !== initial.parentName.trim()) {
+      changes.push({
+        field: 'Nombre del Padre',
+        from: initial.parentName || '(Vacío)',
+        to: parentName.trim()
+      })
+    }
+
+    if (attributeName.trim() !== initial.attributeName.trim()) {
+      changes.push({
+        field: 'Nombre del Atributo',
+        from: initial.attributeName || 'Color',
+        to: attributeName.trim()
+      })
+    }
+
+    if (selectedCategoryId !== initial.categoryId) {
+      const oldCatName = categories.find((c) => c.id === initial.categoryId)?.name || 'Sin Categoría'
+      const newCatName = categories.find((c) => c.id === selectedCategoryId)?.name || 'Sin Categoría'
+      changes.push({
+        field: 'Categoría',
+        from: oldCatName,
+        to: newCatName
+      })
+    }
+
+    const currentSupArray = Array.from(selectedSupplierIds).sort((a, b) => a - b)
+    const initialSupArray = [...initial.supplierIds].sort((a, b) => a - b)
+    const supsChanged =
+      currentSupArray.length !== initialSupArray.length ||
+      currentSupArray.some((id, idx) => id !== initialSupArray[idx])
+
+    if (supsChanged) {
+      const oldSupNames = suppliers
+        .filter((s) => initialSupArray.includes(s.id))
+        .map((s) => s.name)
+        .join(', ') || 'Ninguno'
+      const newSupNames = suppliers
+        .filter((s) => currentSupArray.includes(s.id))
+        .map((s) => s.name)
+        .join(', ') || 'Ninguno'
+      changes.push({
+        field: 'Proveedores',
+        from: oldSupNames,
+        to: newSupNames
+      })
+    }
+
+    const parsedParentSale = parseCLP(parentSalePrice)
+    const initialParentSale = parseCLP(initial.salePrice)
+    if (parsedParentSale !== initialParentSale && parsedParentSale > 0) {
+      changes.push({
+        field: 'Precio de Venta Base',
+        from: initialParentSale > 0 ? `$${initialParentSale.toLocaleString('es-CL')}` : 'Sin definir',
+        to: `$${parsedParentSale.toLocaleString('es-CL')}`
+      })
+    }
+
+    const parsedParentCost = parentCostPrice.trim() ? parseCLP(parentCostPrice) : null
+    const initialParentCost = initial.costPrice.trim() ? parseCLP(initial.costPrice) : null
+    if (parsedParentCost !== initialParentCost) {
+      changes.push({
+        field: 'Precio de Costo Base',
+        from: initialParentCost !== null ? `$${initialParentCost.toLocaleString('es-CL')}` : 'Sin definir',
+        to: parsedParentCost !== null ? `$${parsedParentCost.toLocaleString('es-CL')}` : 'Sin costo'
+      })
+    }
+
+    const parsedParentMin = parseInt(parentMinStock, 10) || 0
+    const initialParentMin = parseInt(initial.minStock, 10) || 0
+    if (parsedParentMin !== initialParentMin) {
+      changes.push({
+        field: 'Inventario Mínimo General',
+        from: `${initialParentMin} un.`,
+        to: `${parsedParentMin} un.`
+      })
+    }
+
+    return changes
+  }
+
+  const executeSave = async (syncVariations: boolean): Promise<void> => {
+    setIsSubmitting(true)
+    setError(null)
+    const finalCategoryId = selectedCategoryId
+    const supplierIdsArray = Array.from(selectedSupplierIds)
+
+    try {
+      const parsedParentSalePrice = parseCLP(parentSalePrice)
+      const parsedParentCostPrice = parentCostPrice.trim() ? parseCLP(parentCostPrice) : null
+      const parsedParentMinStock = parseInt(parentMinStock, 10) || 0
+
+      // 1. Guardar y actualizar producto padre con sincronización si aplica
+      await saveProduct({
+        id: product!.parent_id!,
+        name: parentName.trim(),
+        product_type: 'variable',
+        category_id: finalCategoryId,
+        supplier_ids: supplierIdsArray,
+        attribute_name: attributeName.trim(),
+        sale_price: parsedParentSalePrice,
+        cost_price: parsedParentCostPrice,
+        min_stock: parsedParentMinStock,
+        sync_variations: syncVariations
+      })
+
+      // 2. Guardar variación específica
+      let finalVariationSalePrice = parseCLP(salePrice)
+      if (syncVariations && parsedParentSalePrice > 0 && finalVariationSalePrice <= 0) {
+        finalVariationSalePrice = parsedParentSalePrice
+      }
+
+      const variationInput: ProductInput = {
+        id: product!.id,
+        code: code.trim(),
+        name: `${parentName.trim()} ${attributeValue.trim()}`,
+        product_type: 'variation',
+        parent_id: product!.parent_id,
+        attribute_name: attributeName.trim(),
+        attribute_value: attributeValue.trim(),
+        sale_price: finalVariationSalePrice > 0 ? finalVariationSalePrice : parsedParentSalePrice,
+        cost_price: costPrice.trim() ? parseCLP(costPrice) : parsedParentCostPrice,
+        category_id: finalCategoryId,
+        supplier_ids: supplierIdsArray,
+        stock: parseInt(stock, 10) || 0,
+        min_stock: parseInt(minStock, 10) >= 0 ? parseInt(minStock, 10) : parsedParentMinStock
+      }
+
+      await saveProduct(variationInput)
+      setIsConfirmParentModalOpen(false)
+      onClose()
+    } catch (err: any) {
+      console.error('Error guardando variación:', err)
+      setError(err.message || 'Error al guardar variación.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault()
     setError(null)
@@ -215,52 +470,21 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       }
 
       const parsedSalePrice = parseCLP(salePrice)
-      if (parsedSalePrice <= 0) {
+      if (parsedSalePrice <= 0 && parseCLP(parentSalePrice) <= 0) {
         setError('El precio de venta debe ser un número entero mayor a 0.')
         return
       }
 
-      const parsedCostPrice = costPrice.trim() ? parseCLP(costPrice) : null
-      const parsedStock = parseInt(stock, 10) || 0
-      const parsedMinStock = parseInt(minStock, 10) || 0
-
-      setIsSubmitting(true)
-      try {
-        // 1. Guardar y actualizar producto padre (sincronizará nombre y relaciones)
-        await saveProduct({
-          id: product.parent_id,
-          name: parentName.trim(),
-          product_type: 'variable',
-          category_id: finalCategoryId,
-          supplier_ids: supplierIdsArray,
-          attribute_name: attributeName.trim()
-        })
-
-        // 2. Guardar variación específica
-        const variationInput: ProductInput = {
-          id: product.id,
-          code: code.trim(),
-          name: `${parentName.trim()} ${attributeValue.trim()}`,
-          product_type: 'variation',
-          parent_id: product.parent_id,
-          attribute_name: attributeName.trim(),
-          attribute_value: attributeValue.trim(),
-          sale_price: parsedSalePrice,
-          cost_price: parsedCostPrice,
-          category_id: finalCategoryId,
-          supplier_ids: supplierIdsArray,
-          stock: parsedStock,
-          min_stock: parsedMinStock
-        }
-
-        await saveProduct(variationInput)
-        onClose()
-      } catch (err: any) {
-        console.error('Error guardando variación:', err)
-        setError(err.message || 'Error al guardar variación.')
-      } finally {
-        setIsSubmitting(false)
+      // Comprobar si hubo cambios en los datos del padre
+      const changes = getParentChanges()
+      if (changes.length > 0) {
+        setDetectedParentChanges(changes)
+        setIsConfirmParentModalOpen(true)
+        return
       }
+
+      // Si no hubo cambios en el padre, guardar directamente
+      await executeSave(false)
       return
     }
 
@@ -460,7 +684,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   <div>
                     <p className="font-bold">Aviso importante:</p>
                     <p className="text-[11px] text-amber-800 mt-0.5">
-                      Al modificar el nombre, la categoría o los proveedores del producto padre, los cambios se aplicarán y sincronizarán para todas las variaciones de este producto.
+                      Al modificar cualquier dato del producto padre (nombre, categoría, proveedores, precios o inv. mínimo), se abrirá una confirmación para aplicar y sincronizar los cambios en todas las variaciones.
                     </p>
                   </div>
                 </div>
@@ -586,6 +810,61 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         </label>
                       )
                     })}
+                  </div>
+                </div>
+
+                {/* Precios e Inventario Mínimo Generales del Padre */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-white p-3.5 rounded-xl border border-slate-200">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                      <DollarSign className="w-3.5 h-3.5 text-lilac-600" />
+                      <span>Precio de Venta Base (CLP)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={parentSalePrice}
+                      onChange={(e) => handleParentSalePriceChange(e.target.value)}
+                      placeholder="Ej: 3.500"
+                      className="w-full px-3 py-2 text-sm font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-1 block">
+                      Precio general para las variaciones.
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                      <DollarSign className="w-3.5 h-3.5 text-slate-400" />
+                      <span>Precio de Costo Base (CLP)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={parentCostPrice}
+                      onChange={(e) => handleParentCostPriceChange(e.target.value)}
+                      placeholder="Opcional"
+                      className="w-full px-3 py-2 text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-1 block">
+                      Costo base general.
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1">
+                      <AlertTriangle className="w-3.5 h-3.5 text-slate-400" />
+                      <span>Inv. Mínimo General</span>
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={parentMinStock}
+                      onChange={(e) => handleParentMinStockChange(e.target.value)}
+                      placeholder="5"
+                      className="w-full px-3 py-2 text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-1 block">
+                      Alerta stock bajo para variaciones.
+                    </span>
                   </div>
                 </div>
               </div>
@@ -1118,6 +1397,80 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           </div>
         </form>
       </div>
+
+      {/* Modal de Confirmación para Cambios en Producto Padre */}
+      {isConfirmParentModalOpen && (
+        <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-amber-50">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-800 text-sm">Confirmar Modificación Masiva</h3>
+                  <p className="text-[11px] text-amber-800 font-medium">Producto Padre: {parentName}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => setIsConfirmParentModalOpen(false)}
+                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 flex items-center justify-center cursor-pointer transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Has modificado los datos del producto padre. Los siguientes cambios se aplicarán y sincronizarán para <strong className="text-slate-900 font-bold">todas las variaciones</strong> de este producto:
+              </p>
+
+              <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 bg-slate-50 max-h-56 overflow-y-auto">
+                {detectedParentChanges.map((change, idx) => (
+                  <div key={idx} className="p-3 text-xs flex items-center justify-between gap-3">
+                    <span className="font-bold text-slate-700 shrink-0">{change.field}</span>
+                    <div className="flex items-center gap-2 text-right">
+                      <span className="text-slate-400 line-through text-[11px]">{change.from}</span>
+                      <span className="text-slate-400">→</span>
+                      <span className="font-black text-lilac-700 bg-lilac-50 px-2 py-0.5 rounded border border-lilac-200">
+                        {change.to}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 leading-relaxed flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>
+                  ¿Confirmas que deseas guardar y aplicar estos cambios a <strong>todas las variaciones</strong>?
+                </span>
+              </div>
+            </div>
+
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => setIsConfirmParentModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs cursor-pointer transition-colors"
+              >
+                Cancelar y Revisar
+              </button>
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => executeSave(true)}
+                className="px-4 py-2 rounded-xl bg-lilac-600 hover:bg-lilac-700 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 cursor-pointer transition-colors disabled:opacity-50"
+              >
+                {isSubmitting ? 'Guardando...' : 'Sí, Aplicar a Todas las Variaciones'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
