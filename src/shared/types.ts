@@ -58,6 +58,7 @@ export interface ProductInput {
   stock?: number
   min_stock?: number
   supplier_ids?: number[]
+  sync_variations?: boolean
 }
 
 export interface ProductSearchResult extends Product {
@@ -116,6 +117,7 @@ export interface SaleItem {
   product_code: string
   name: string
   unit_price: number
+  cost_price?: number | null
   quantity: number
   returned_qty: number
 }

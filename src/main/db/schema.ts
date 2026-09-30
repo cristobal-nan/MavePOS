@@ -94,6 +94,7 @@ export const INITIAL_SCHEMA = `
     product_code TEXT NOT NULL REFERENCES products(code),
     name TEXT NOT NULL,
     unit_price INTEGER NOT NULL,
+    cost_price INTEGER NULL,
     quantity INTEGER NOT NULL,
     returned_qty INTEGER NOT NULL DEFAULT 0
   );

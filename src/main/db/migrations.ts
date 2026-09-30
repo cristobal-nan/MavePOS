@@ -182,6 +182,18 @@ const MIGRATIONS: Migration[] = [
         `)
       }
     }
+  },
+  {
+    version: 8,
+    up: (db) => {
+      const cols = db.pragma('table_info(sale_items)') as { name: string }[]
+      const hasCostPrice = cols.some((c) => c.name === 'cost_price')
+      if (!hasCostPrice) {
+        db.exec(`
+          ALTER TABLE sale_items ADD COLUMN cost_price INTEGER NULL;
+        `)
+      }
+    }
   }
 ]
 

@@ -184,14 +184,14 @@ export class ReportService {
         COALESCE(SUM((si.quantity - si.returned_qty) * si.unit_price), 0) AS total_sales,
         COALESCE(SUM(si.quantity - si.returned_qty), 0) AS units_sold,
         COALESCE(SUM(
-          CASE WHEN p.cost_price IS NOT NULL
-            THEN (si.quantity - si.returned_qty) * p.cost_price
+          CASE WHEN COALESCE(si.cost_price, p.cost_price) IS NOT NULL
+            THEN (si.quantity - si.returned_qty) * COALESCE(si.cost_price, p.cost_price)
             ELSE 0
           END
         ), 0) AS estimated_cost,
         COALESCE(SUM(
-          CASE WHEN p.cost_price IS NOT NULL
-            THEN (si.quantity - si.returned_qty) * (si.unit_price - p.cost_price)
+          CASE WHEN COALESCE(si.cost_price, p.cost_price) IS NOT NULL
+            THEN (si.quantity - si.returned_qty) * (si.unit_price - COALESCE(si.cost_price, p.cost_price))
             ELSE 0
           END
         ), 0) AS estimated_margin

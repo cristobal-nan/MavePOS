@@ -224,6 +224,49 @@ describe('Fase 11: Reportes, Métricas, Gráficos y Exportación Excel', () => {
       expect(data.kpi.unitsSold).toBe(3)
       expect(data.kpi.salesCount).toBe(1)
     })
+
+    it('congela el costo histórico al vender (snapshot) protegiendo el margen ante alzas de proveedor posteriores', () => {
+      // Venta con costo original: LANA-01 costaba $3.000, vendemos 2 a $5.000
+      salesService.completeSale({
+        cashSessionId: sessionId,
+        items: [{ product_code: 'LANA-01', name: 'Lana Merino Extrafina', unit_price: 5000, quantity: 2 }],
+        payments: [{ method: 'cash', amount: 10000 }]
+      })
+
+      // El proveedor sube los precios de LANA-01: costo pasa a $4.500 y precio a $7.000
+      productService.upsertProduct({
+        code: 'LANA-01',
+        name: 'Lana Merino Extrafina',
+        sale_price: 7000,
+        cost_price: 4500,
+        stock: 98,
+        min_stock: 10,
+        category_id: catLanasId
+      })
+
+      // El reporte del período anterior o actual debe seguir usando el costo congelado ($3.000)
+      const data = reportService.getReportData({ periodType: 'today' })
+      expect(data.kpi.totalSales).toBe(10000)
+      expect(data.kpi.estimatedCost).toBe(6000) // 2 * 3000, NO 2 * 4500 (que daría 9000)
+      expect(data.kpi.estimatedMargin).toBe(4000) // 10000 - 6000, NO 10000 - 9000
+    })
+
+    it('utiliza el costo del catálogo como fallback si sale_items.cost_price es null (ventas heredadas)', () => {
+      // Simular venta antigua donde cost_price quedó null en sale_items
+      const res = salesService.completeSale({
+        cashSessionId: sessionId,
+        items: [{ product_code: 'LANA-01', name: 'Lana Merino Extrafina', unit_price: 5000, quantity: 1 }],
+        payments: [{ method: 'cash', amount: 5000 }]
+      })
+
+      // Forzar cost_price = NULL en sale_items
+      db.prepare('UPDATE sale_items SET cost_price = NULL WHERE sale_id = ?').run(res.sale.id)
+
+      const data = reportService.getReportData({ periodType: 'today' })
+      // Debe resolver con COALESCE(si.cost_price, p.cost_price) -> costo de LANA-01 = 3000
+      expect(data.kpi.estimatedCost).toBe(3000)
+      expect(data.kpi.estimatedMargin).toBe(2000)
+    })
   })
 
   describe('Desglose por Métodos de Pago', () => {

@@ -8,7 +8,8 @@ import {
   SaleItem,
   SalePayment,
   SaleDetail,
-  SalesHistoryFilter
+  SalesHistoryFilter,
+  PaymentMethod
 } from '../../shared/types'
 import { calculateCartTotal } from '../../shared/finance'
 
@@ -124,14 +125,17 @@ export class SalesService {
         saleId = Number(res.lastInsertRowid)
       }
 
-      // Insert new items
+      // Insert new items with cost_price snapshot
+      const getProductCost = this.db.prepare('SELECT cost_price FROM products WHERE code = ?')
       const insertItem = this.db.prepare(`
-        INSERT INTO sale_items (sale_id, product_code, name, unit_price, quantity, returned_qty)
-        VALUES (?, ?, ?, ?, ?, 0)
+        INSERT INTO sale_items (sale_id, product_code, name, unit_price, cost_price, quantity, returned_qty)
+        VALUES (?, ?, ?, ?, ?, ?, 0)
       `)
 
       for (const item of data.items) {
-        insertItem.run(saleId, item.product_code, item.name, item.unit_price, item.quantity)
+        const prodRow = getProductCost.get(item.product_code) as { cost_price: number | null } | undefined
+        const costPrice = prodRow && prodRow.cost_price !== undefined ? prodRow.cost_price : null
+        insertItem.run(saleId, item.product_code, item.name, item.unit_price, costPrice, item.quantity)
       }
 
       return {
@@ -267,9 +271,10 @@ export class SalesService {
       }
 
       // 4. Insert sale items, decrement stock, and record inventory movements
+      const getProductCost = this.db.prepare('SELECT cost_price FROM products WHERE code = ?')
       const insertItem = this.db.prepare(`
-        INSERT INTO sale_items (sale_id, product_code, name, unit_price, quantity, returned_qty)
-        VALUES (?, ?, ?, ?, ?, 0)
+        INSERT INTO sale_items (sale_id, product_code, name, unit_price, cost_price, quantity, returned_qty)
+        VALUES (?, ?, ?, ?, ?, ?, 0)
       `)
       const updateStock = this.db.prepare(`
         UPDATE products SET stock = stock - ?, updated_at = ? WHERE code = ?
@@ -285,13 +290,16 @@ export class SalesService {
         : `Venta Folio #${folio}`
 
       for (const it of input.items) {
-        const itemRes = insertItem.run(saleId, it.product_code, it.name, it.unit_price, it.quantity)
+        const prodRow = getProductCost.get(it.product_code) as { cost_price: number | null } | undefined
+        const costPrice = prodRow && prodRow.cost_price !== undefined ? prodRow.cost_price : null
+        const itemRes = insertItem.run(saleId, it.product_code, it.name, it.unit_price, costPrice, it.quantity)
         savedItems.push({
           id: Number(itemRes.lastInsertRowid),
           sale_id: saleId,
           product_code: it.product_code,
           name: it.name,
           unit_price: it.unit_price,
+          cost_price: costPrice,
           quantity: it.quantity,
           returned_qty: 0
         })
@@ -434,6 +442,7 @@ export class SalesService {
           si.product_code,
           si.name,
           si.unit_price,
+          si.cost_price,
           si.quantity,
           si.returned_qty,
           COALESCE(p.stock, 0) AS current_stock
@@ -588,5 +597,49 @@ export class SalesService {
 
     return tx()
   }
+
+  updatePaymentMethod(saleId: number, newMethod: PaymentMethod): SaleDetail {
+    if (!['cash', 'card', 'transfer'].includes(newMethod)) {
+      throw new Error(`Método de pago '${newMethod}' no válido`)
+    }
+
+    const tx = this.db.transaction(() => {
+      const sale = this.db.prepare(`
+        SELECT *,
+               (date(created_at, 'localtime') = date('now', 'localtime')) AS is_today
+        FROM sales
+        WHERE id = ?
+      `).get(saleId) as (Sale & { is_today: number }) | undefined
+
+      if (!sale) {
+        throw new Error('Venta no encontrada')
+      }
+      if (sale.status !== 'completed') {
+        throw new Error('Solo se puede modificar el método de pago en ventas completadas')
+      }
+      if (!sale.is_today) {
+        throw new Error('Solo se puede modificar el método de pago para ventas realizadas en el día de hoy')
+      }
+
+      const existingPayments = this.db
+        .prepare('SELECT * FROM sale_payments WHERE sale_id = ?')
+        .all(saleId) as SalePayment[]
+
+      const totalPaid = existingPayments.reduce((acc, p) => acc + p.amount, 0)
+      if (totalPaid <= 0) {
+        throw new Error('La venta no registra montos monetarios pagados para modificar')
+      }
+
+      this.db.prepare('DELETE FROM sale_payments WHERE sale_id = ?').run(saleId)
+      this.db
+        .prepare('INSERT INTO sale_payments (sale_id, method, amount) VALUES (?, ?, ?)')
+        .run(saleId, newMethod, totalPaid)
+
+      return this.getSaleDetail(saleId)!
+    })
+
+    return tx()
+  }
 }
+
 
