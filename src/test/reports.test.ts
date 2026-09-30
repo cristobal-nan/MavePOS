@@ -8,6 +8,7 @@ import { runMigrations } from '../main/db/migrations'
 import { CashService } from '../main/services/cashService'
 import { SalesService } from '../main/services/salesService'
 import { ProductService } from '../main/services/productService'
+import { SupplierService } from '../main/services/supplierService'
 import { ReportService, resolveDateRange } from '../main/services/reportService'
 
 describe('Fase 11: Reportes, Métricas, Gráficos y Exportación Excel', () => {
@@ -15,6 +16,7 @@ describe('Fase 11: Reportes, Métricas, Gráficos y Exportación Excel', () => {
   let cashService: CashService
   let salesService: SalesService
   let productService: ProductService
+  let supplierService: SupplierService
   let reportService: ReportService
   let sessionId: number
   let catLanasId: number
@@ -28,6 +30,7 @@ describe('Fase 11: Reportes, Métricas, Gráficos y Exportación Excel', () => {
     cashService = new CashService(db)
     salesService = new SalesService(db)
     productService = new ProductService(db)
+    supplierService = new SupplierService(db)
     reportService = new ReportService(db)
 
     const session = cashService.openSession(50000)
@@ -125,6 +128,7 @@ describe('Fase 11: Reportes, Métricas, Gráficos y Exportación Excel', () => {
       expect(data.kpi.marginPercentage).toBe(0)
       expect(data.topProducts).toHaveLength(0)
       expect(data.categorySales).toHaveLength(0)
+      expect(data.supplierSales).toHaveLength(0)
       expect(data.paymentMethods).toHaveLength(3)
       expect(data.paymentMethods.every((p) => p.total === 0)).toBe(true)
     })
@@ -363,6 +367,93 @@ describe('Fase 11: Reportes, Métricas, Gráficos y Exportación Excel', () => {
     })
   })
 
+  describe('Desglose de Ventas por Proveedor y Actualización Dinámica', () => {
+    it('desglosa ventas por proveedor y actualiza dinámicamente si se modifican proveedores en el catálogo', () => {
+      const s1 = supplierService.saveSupplier('Revesderecho')
+      const s2 = supplierService.saveSupplier('Ukryl')
+
+      // Asociar LANA-01 a Revesderecho
+      productService.upsertProduct({
+        code: 'LANA-01',
+        name: 'Lana Merino Extrafina',
+        sale_price: 5000,
+        cost_price: 3000,
+        stock: 100,
+        min_stock: 10,
+        category_id: catLanasId,
+        supplier_ids: [s1.id]
+      })
+
+      // Asociar HILO-01 a Ukryl
+      productService.upsertProduct({
+        code: 'HILO-01',
+        name: 'Hilo de Algodón Mercerizado',
+        sale_price: 2000,
+        cost_price: 1200,
+        stock: 80,
+        min_stock: 10,
+        category_id: catHilosId,
+        supplier_ids: [s2.id]
+      })
+
+      // Realizar ventas
+      salesService.completeSale({
+        cashSessionId: sessionId,
+        items: [{ product_code: 'LANA-01', name: 'Lana Merino Extrafina', unit_price: 5000, quantity: 2 }],
+        payments: [{ method: 'cash', amount: 10000 }]
+      })
+
+      salesService.completeSale({
+        cashSessionId: sessionId,
+        items: [{ product_code: 'HILO-01', name: 'Hilo de Algodón Mercerizado', unit_price: 2000, quantity: 3 }],
+        payments: [{ method: 'card', amount: 6000 }]
+      })
+
+      // Venta de producto sin proveedor (ACC-01)
+      salesService.completeSale({
+        cashSessionId: sessionId,
+        items: [{ product_code: 'ACC-01', name: 'Crochet de Aluminio 4mm', unit_price: 1500, quantity: 1 }],
+        payments: [{ method: 'cash', amount: 1500 }]
+      })
+
+      let data = reportService.getReportData({ periodType: 'today' })
+
+      // Verificar desglose de proveedores
+      expect(data.supplierSales).toHaveLength(3)
+      const suppReves = data.supplierSales.find((s) => s.supplierName === 'Revesderecho')!
+      const suppUkryl = data.supplierSales.find((s) => s.supplierName === 'Ukryl')!
+      const suppNone = data.supplierSales.find((s) => s.supplierName === 'Sin Proveedor')!
+
+      expect(suppReves.totalRevenue).toBe(10000)
+      expect(suppReves.unitsSold).toBe(2)
+      expect(suppUkryl.totalRevenue).toBe(6000)
+      expect(suppUkryl.unitsSold).toBe(3)
+      expect(suppNone.totalRevenue).toBe(1500)
+      expect(suppNone.unitsSold).toBe(1)
+
+      // Verificar sintaxis "Categoría - Proveedor" en Top Productos
+      const topLana = data.topProducts.find((p) => p.code === 'LANA-01')!
+      expect(topLana.categoryName).toBe('Lanas - Revesderecho')
+
+      // CAMBIO DE PROVEEDOR EN CATÁLOGO: ahora LANA-01 también lo provee Ukryl (N:M)
+      productService.upsertProduct({
+        code: 'LANA-01',
+        name: 'Lana Merino Extrafina',
+        sale_price: 5000,
+        cost_price: 3000,
+        stock: 98,
+        min_stock: 10,
+        category_id: catLanasId,
+        supplier_ids: [s1.id, s2.id]
+      })
+
+      // El reporte debe reflejar INMEDIATAMENTE el nuevo proveedor en ventas históricas
+      data = reportService.getReportData({ periodType: 'today' })
+      const updatedTopLana = data.topProducts.find((p) => p.code === 'LANA-01')!
+      expect(updatedTopLana.categoryName).toBe('Lanas - Revesderecho / Ukryl')
+    })
+  })
+
   describe('Generación y Exportación a Excel (.xlsx)', () => {
     it('crea un libro de trabajo XLSX estructurado con todas las hojas requeridas', () => {
       salesService.completeSale({
@@ -379,6 +470,7 @@ describe('Fase 11: Reportes, Métricas, Gráficos y Exportación Excel', () => {
       expect(wb.SheetNames).toContain('Top Productos')
       expect(wb.SheetNames).toContain('Métodos de Pago')
       expect(wb.SheetNames).toContain('Por Categoría')
+      expect(wb.SheetNames).toContain('Por Proveedor')
     })
 
     it('exporta y guarda el archivo Excel en disco exitosamente', async () => {

@@ -15,7 +15,8 @@ import {
   PieChart as PieIcon,
   Layers,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Truck
 } from 'lucide-react'
 import {
   ResponsiveContainer,
@@ -51,6 +52,17 @@ const CATEGORY_COLORS = [
   '#F97316',
   '#84CC16',
   '#06B6D4'
+]
+
+const SUPPLIER_COLORS = [
+  '#6366F1',
+  '#06B6D4',
+  '#F59E0B',
+  '#10B981',
+  '#EC4899',
+  '#8B5CF6',
+  '#3B82F6',
+  '#F97316'
 ]
 
 export const ReportsView: React.FC = () => {
@@ -716,7 +728,105 @@ export const ReportsView: React.FC = () => {
         </div>
       )}
 
-      {/* 5. Detailed Ranking Table */}
+      {/* 5. Ventas por Proveedor */}
+      {reportData && (
+        <div className="bg-white p-5 rounded-2xl border border-lilac-100 shadow-sm flex flex-col">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Truck className="w-4 h-4 text-lilac-600" />
+              <h2 className="text-sm font-bold text-slate-800">Ventas por Proveedor</h2>
+            </div>
+            <span className="text-xs text-slate-400 font-medium">Por recaudación ($) y unidades</span>
+          </div>
+
+          {reportData.supplierSales && reportData.supplierSales.length > 0 ? (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Gráfico de Barras por Proveedor */}
+              <div className="h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={reportData.supplierSales} margin={{ top: 10, right: 10, left: 10, bottom: 25 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                    <XAxis
+                      dataKey="supplierName"
+                      tick={{ fill: '#64748B', fontSize: 11 }}
+                      angle={-20}
+                      textAnchor="end"
+                      height={40}
+                    />
+                    <YAxis
+                      tick={{ fill: '#64748B', fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(val) => `$ ${(val / 1000).toFixed(0)}k`}
+                    />
+                    <Tooltip
+                      formatter={(value: any, _name: any, item: any) => [
+                        `${formatCLP(Number(value))} (${item.payload.percentage}% del total)`,
+                        'Recaudado'
+                      ]}
+                      labelFormatter={(label) => `Proveedor: ${label}`}
+                      contentStyle={{
+                        backgroundColor: '#0F172A',
+                        borderRadius: '0.75rem',
+                        border: '1px solid #334155',
+                        color: '#F8FAFC',
+                        fontSize: '12px'
+                      }}
+                    />
+                    <Bar dataKey="totalRevenue" radius={[6, 6, 0, 0]}>
+                      {reportData.supplierSales.map((_entry, index) => (
+                        <Cell key={`cell-supp-${index}`} fill={SUPPLIER_COLORS[index % SUPPLIER_COLORS.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Tabla Resumen de Proveedores */}
+              <div className="overflow-x-auto rounded-xl border border-slate-100 flex flex-col justify-center">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200/70">
+                    <tr>
+                      <th className="py-2.5 px-3">Proveedor</th>
+                      <th className="py-2.5 px-3 text-center">Unidades</th>
+                      <th className="py-2.5 px-3 text-right">Recaudación</th>
+                      <th className="py-2.5 px-3 text-right">Participación</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                    {reportData.supplierSales.map((s, idx) => (
+                      <tr key={idx} className="hover:bg-lilac-50/40 transition-colors">
+                        <td className="py-2.5 px-3 flex items-center gap-2">
+                          <span
+                            className="w-2.5 h-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: SUPPLIER_COLORS[idx % SUPPLIER_COLORS.length] }}
+                          />
+                          <span className="font-bold text-slate-800">{s.supplierName}</span>
+                        </td>
+                        <td className="py-2.5 px-3 text-center font-bold text-slate-700">{s.unitsSold}</td>
+                        <td className="py-2.5 px-3 text-right font-extrabold text-lilac-700">
+                          {formatCLP(s.totalRevenue)}
+                        </td>
+                        <td className="py-2.5 px-3 text-right">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
+                            {s.percentage}%
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="h-40 flex items-center justify-center text-slate-400 text-xs">
+              No hay ventas por proveedor para el período seleccionado.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 6. Detailed Ranking Table */}
       {reportData && reportData.topProducts.length > 0 && (
         <div className="bg-white rounded-2xl border border-lilac-100 shadow-sm p-5 space-y-4">
           <div className="flex items-center justify-between">

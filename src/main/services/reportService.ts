@@ -4,6 +4,7 @@ import Database from 'better-sqlite3'
 import * as XLSX from 'xlsx'
 import {
   CategorySalesStat,
+  SupplierSalesStat,
   FullReportData,
   PaymentMethod,
   PaymentMethodStat,
@@ -159,6 +160,9 @@ export class ReportService {
     // 6. Category breakdown
     const categorySales = this.queryCategorySales(dateRange.start, dateRange.end, currentKPI.totalSales)
 
+    // 7. Supplier breakdown
+    const supplierSales = this.querySupplierSales(dateRange.start, dateRange.end, currentKPI.totalSales)
+
     return {
       filter,
       dateRange,
@@ -166,7 +170,8 @@ export class ReportService {
       salesOverTime,
       paymentMethods,
       topProducts,
-      categorySales
+      categorySales,
+      supplierSales
     }
   }
 
@@ -345,30 +350,57 @@ export class ReportService {
         si.product_code AS code,
         si.name,
         si.unit_price,
-        COALESCE(c.name, 'Sin Categoría') AS category_name,
+        c.name AS cat_name,
+        parent_c.name AS parent_cat_name,
+        (
+          SELECT GROUP_CONCAT(s.name, ';;')
+          FROM product_suppliers ps
+          JOIN suppliers s ON s.id = ps.supplier_id
+          WHERE ps.product_id = p.id OR (p.parent_id IS NOT NULL AND ps.product_id = p.parent_id)
+        ) AS supplier_names,
         SUM(si.quantity - si.returned_qty) AS units_sold,
         SUM((si.quantity - si.returned_qty) * si.unit_price) AS total_revenue
       FROM sale_items si
       JOIN sales s ON si.sale_id = s.id
       LEFT JOIN products p ON si.product_code = p.code
       LEFT JOIN categories c ON p.category_id = c.id
+      LEFT JOIN products parent ON p.parent_id = parent.id
+      LEFT JOIN categories parent_c ON parent.category_id = parent_c.id
       WHERE s.status = 'completed'
         AND date(s.created_at, 'localtime') BETWEEN ? AND ?
-      GROUP BY si.product_code, si.name, si.unit_price, category_name
+      GROUP BY si.product_code, si.name, si.unit_price, cat_name, parent_cat_name, supplier_names
       HAVING units_sold > 0
       ORDER BY units_sold DESC, total_revenue DESC
       LIMIT ?
     `
     const rows = this.db.prepare(sql).all(startDate, endDate, limit) as any[]
 
-    return rows.map((r) => ({
-      code: String(r.code),
-      name: String(r.name),
-      categoryName: String(r.category_name),
-      unitsSold: Number(r.units_sold) || 0,
-      totalRevenue: Number(r.total_revenue) || 0,
-      unitPrice: Number(r.unit_price) || 0
-    }))
+    return rows.map((r) => {
+      const catName = r.cat_name || r.parent_cat_name || ''
+      let suppNames = ''
+      if (r.supplier_names) {
+        const uniqueSupps = Array.from(new Set(String(r.supplier_names).split(';;').filter(Boolean)))
+        suppNames = uniqueSupps.join(' / ')
+      }
+
+      let categoryDisplay = 'Sin Categoría'
+      if (catName && suppNames) {
+        categoryDisplay = `${catName} - ${suppNames}`
+      } else if (catName) {
+        categoryDisplay = catName
+      } else if (suppNames) {
+        categoryDisplay = suppNames
+      }
+
+      return {
+        code: String(r.code),
+        name: String(r.name),
+        categoryName: categoryDisplay,
+        unitsSold: Number(r.units_sold) || 0,
+        totalRevenue: Number(r.total_revenue) || 0,
+        unitPrice: Number(r.unit_price) || 0
+      }
+    })
   }
 
   private queryCategorySales(startDate: string, endDate: string, totalSales: number): CategorySalesStat[] {
@@ -396,6 +428,48 @@ export class ReportService {
       return {
         categoryId: r.category_id !== null ? Number(r.category_id) : null,
         categoryName: String(r.category_name),
+        unitsSold: Number(r.units_sold) || 0,
+        totalRevenue: revenue,
+        percentage
+      }
+    })
+  }
+
+  private querySupplierSales(startDate: string, endDate: string, totalSales: number): SupplierSalesStat[] {
+    const sql = `
+      WITH item_suppliers AS (
+        SELECT DISTINCT
+          si.id AS sale_item_id,
+          si.quantity - si.returned_qty AS net_qty,
+          (si.quantity - si.returned_qty) * si.unit_price AS net_revenue,
+          s.id AS supplier_id,
+          s.name AS supplier_name
+        FROM sale_items si
+        JOIN sales sa ON si.sale_id = sa.id
+        LEFT JOIN products p ON si.product_code = p.code
+        LEFT JOIN product_suppliers ps ON (ps.product_id = p.id OR (p.parent_id IS NOT NULL AND ps.product_id = p.parent_id))
+        LEFT JOIN suppliers s ON ps.supplier_id = s.id
+        WHERE sa.status = 'completed'
+          AND date(sa.created_at, 'localtime') BETWEEN ? AND ?
+      )
+      SELECT
+        supplier_id,
+        COALESCE(supplier_name, 'Sin Proveedor') AS supplier_name,
+        SUM(net_qty) AS units_sold,
+        SUM(net_revenue) AS total_revenue
+      FROM item_suppliers
+      GROUP BY supplier_id, supplier_name
+      HAVING total_revenue > 0
+      ORDER BY total_revenue DESC
+    `
+    const rows = this.db.prepare(sql).all(startDate, endDate) as any[]
+
+    return rows.map((r) => {
+      const revenue = Number(r.total_revenue) || 0
+      const percentage = totalSales > 0 ? Number(((revenue / totalSales) * 100).toFixed(1)) : 0
+      return {
+        supplierId: r.supplier_id !== null ? Number(r.supplier_id) : null,
+        supplierName: String(r.supplier_name),
         unitsSold: Number(r.units_sold) || 0,
         totalRevenue: revenue,
         percentage
@@ -459,6 +533,14 @@ export class ReportService {
     ]
     const wsCat = XLSX.utils.aoa_to_sheet(catRows)
     XLSX.utils.book_append_sheet(wb, wsCat, 'Por Categoría')
+
+    // 6. Proveedores Sheet
+    const suppRows = [
+      ['Proveedor', 'Unidades Vendidas', 'Total Recaudado ($ CLP)', 'Participación (%)'],
+      ...data.supplierSales.map((s) => [s.supplierName, s.unitsSold, s.totalRevenue, `${s.percentage}%`])
+    ]
+    const wsSupp = XLSX.utils.aoa_to_sheet(suppRows)
+    XLSX.utils.book_append_sheet(wb, wsSupp, 'Por Proveedor')
 
     return wb
   }
