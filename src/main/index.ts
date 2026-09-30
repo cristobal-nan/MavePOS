@@ -43,7 +43,9 @@ function createWindow(): void {
 
   // Register all database & system IPC handlers
   const services = registerIpcHandlers(mainWindow)
-  services.productService.seedSampleData()
+  if (is.dev) {
+    services.productService.seedSampleData()
+  }
 
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
