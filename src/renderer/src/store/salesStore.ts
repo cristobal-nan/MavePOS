@@ -323,9 +323,15 @@ export const useSalesStore = create<SalesState>((set, get) => ({
     }
 
     if (tickets.length <= 1) {
-      // Just clear items if it's the only ticket, keep its assigned index
+      // Just clear items if it's the only ticket, reset to standard ticket (clearing exchangeInfo and custom label)
       set({
-        tickets: [{ ticketIndex: ticketToDelete.ticketIndex, label: ticketToDelete.label, items: [] }],
+        tickets: [
+          {
+            ticketIndex: ticketToDelete.ticketIndex,
+            label: `Ticket #${ticketToDelete.ticketIndex}`,
+            items: []
+          }
+        ],
         activeTicketIndex: 0
       })
       return

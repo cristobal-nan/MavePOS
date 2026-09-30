@@ -12,7 +12,8 @@ import {
   History,
   ArrowUpRight,
   ArrowLeftRight,
-  CheckCircle2
+  CheckCircle2,
+  X
 } from 'lucide-react'
 import { ProductSearchResult } from '@shared/types'
 import { formatCLP, formatDateTime } from '../utils/formatters'
@@ -45,6 +46,8 @@ export const SalesView: React.FC = () => {
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false)
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
   const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false)
+  const [isConfirmExactModalOpen, setIsConfirmExactModalOpen] = useState(false)
+  const [isFinalizingExact, setIsFinalizingExact] = useState(false)
 
   const barcodeInputRef = useRef<HTMLInputElement>(null)
 
@@ -60,7 +63,13 @@ export const SalesView: React.FC = () => {
   // Maintain focus on barcode input for wedge scanner
   useEffect(() => {
     const focusBarcode = (): void => {
-      if (!isSearchModalOpen && !isCheckoutModalOpen && !isHistoryModalOpen && !isWithdrawalModalOpen) {
+      if (
+        !isSearchModalOpen &&
+        !isCheckoutModalOpen &&
+        !isHistoryModalOpen &&
+        !isWithdrawalModalOpen &&
+        !isConfirmExactModalOpen
+      ) {
         barcodeInputRef.current?.focus()
       }
     }
@@ -69,7 +78,7 @@ export const SalesView: React.FC = () => {
 
     window.addEventListener('focus', focusBarcode)
     return () => window.removeEventListener('focus', focusBarcode)
-  }, [isSearchModalOpen, isCheckoutModalOpen, isHistoryModalOpen, isWithdrawalModalOpen, activeTicketIndex])
+  }, [isSearchModalOpen, isCheckoutModalOpen, isHistoryModalOpen, isWithdrawalModalOpen, isConfirmExactModalOpen, activeTicketIndex])
 
   const activeTicket = tickets[activeTicketIndex] || { items: [] }
   const { totalAmount, totalItems: totalItemsCount } = calculateCartTotal(activeTicket.items)
@@ -85,21 +94,58 @@ export const SalesView: React.FC = () => {
 
   const handleFinalizeExactExchange = async (): Promise<void> => {
     if (!currentSession) return
+    setIsFinalizingExact(true)
     try {
       await finalizeSale({
         cashSessionId: currentSession.id,
         payments: []
       })
+      setIsConfirmExactModalOpen(false)
       barcodeInputRef.current?.focus()
     } catch (err: any) {
       console.error('Error finalizando cambio exacto:', err)
       alert(err.message || 'Error al completar el cambio')
+    } finally {
+      setIsFinalizingExact(false)
     }
+  }
+
+  const handleCobrarClick = (): void => {
+    if (activeTicket.items.length === 0) return
+
+    if (isExchange && exchangeBalance && exchangeInfo) {
+      if (exchangeBalance.status === 'insufficient') {
+        alert(
+          `No es posible cobrar: El monto de los nuevos productos (${formatCLP(totalAmount)}) debe ser igual o superior al crédito devuelto (${formatCLP(exchangeInfo.exchangeCredit)}).\n\nFaltan ${formatCLP(exchangeBalance.remainingCredit)} por cubrir (no se entrega dinero en efectivo por saldo sobrante).`
+        )
+        return
+      }
+      if (exchangeBalance.status === 'exact') {
+        setIsConfirmExactModalOpen(true)
+        return
+      }
+    }
+
+    setIsCheckoutModalOpen(true)
   }
 
   // Keyboard shortcut listener for Sales screen
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent): void => {
+      // Escape: close confirm exact modal if open
+      if (e.key === 'Escape' && isConfirmExactModalOpen) {
+        e.preventDefault()
+        setIsConfirmExactModalOpen(false)
+        return
+      }
+
+      // Enter: confirm exact modal if open
+      if (e.key === 'Enter' && isConfirmExactModalOpen && !isFinalizingExact) {
+        e.preventDefault()
+        handleFinalizeExactExchange()
+        return
+      }
+
       // F10: open search modal
       if (e.key === 'F10') {
         e.preventDefault()
@@ -108,16 +154,7 @@ export const SalesView: React.FC = () => {
       // F12: checkout
       if (e.key === 'F12') {
         e.preventDefault()
-        if (activeTicket.items.length > 0) {
-          if (isExchange && exchangeBalance && !exchangeBalance.canComplete) {
-            return
-          }
-          if (isExchange && exchangeBalance && exchangeBalance.status === 'exact') {
-            handleFinalizeExactExchange()
-            return
-          }
-          setIsCheckoutModalOpen(true)
-        }
+        handleCobrarClick()
       }
       // Ctrl+T: New Ticket
       if (e.ctrlKey && e.key.toLowerCase() === 't') {
@@ -131,13 +168,41 @@ export const SalesView: React.FC = () => {
       // Ctrl+W: Close / Discard current ticket
       if (e.ctrlKey && e.key.toLowerCase() === 'w') {
         e.preventDefault()
-        deleteTicket(activeTicketIndex)
+        const currentTicket = tickets[activeTicketIndex]
+        if (currentTicket) {
+          if (currentTicket.exchangeInfo) {
+            if (
+              !confirm(
+                `¿Deseas cancelar la operación de cambio de producto (Venta original Folio #${currentTicket.exchangeInfo.originalFolio})? Se cerrará este ticket y se cancelará la operación.`
+              )
+            ) {
+              return
+            }
+          } else if (currentTicket.items.length > 0) {
+            if (!confirm(`¿Deseas descartar el "${currentTicket.label}" y sus productos?`)) {
+              return
+            }
+          }
+          deleteTicket(activeTicketIndex)
+        }
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [activeTicket.items.length, activeTicketIndex, currentSession?.id, createTicket, deleteTicket])
+  }, [
+    activeTicket.items.length,
+    activeTicketIndex,
+    currentSession?.id,
+    createTicket,
+    deleteTicket,
+    isExchange,
+    exchangeBalance,
+    exchangeInfo,
+    totalAmount,
+    isConfirmExactModalOpen,
+    isFinalizingExact
+  ])
 
   const handleBarcodeSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault()
@@ -182,7 +247,16 @@ export const SalesView: React.FC = () => {
     e.stopPropagation()
     const ticket = tickets[index]
     if (!ticket) return
-    if (ticket.items.length > 0) {
+
+    if (ticket.exchangeInfo) {
+      if (
+        !confirm(
+          `¿Deseas cancelar la operación de cambio de producto (Venta original Folio #${ticket.exchangeInfo.originalFolio})? Se cerrará este ticket y se cancelará la operación.`
+        )
+      ) {
+        return
+      }
+    } else if (ticket.items.length > 0) {
       if (!confirm(`¿Deseas descartar el "${ticket.label}" y sus productos?`)) {
         return
       }
@@ -343,13 +417,19 @@ export const SalesView: React.FC = () => {
                   <ArrowLeftRight className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-sm font-bold text-slate-900">
                       CAMBIO DE PRODUCTO — Venta original Folio #{exchangeInfo.originalFolio}
                     </h3>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900 border border-amber-300">
                       Ticket de Cambio
                     </span>
+                    {exchangeBalance && exchangeBalance.status === 'insufficient' && activeTicket.items.length > 0 && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                        <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                        <span>Faltan {formatCLP(exchangeBalance.remainingCredit)} por cubrir</span>
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">
                     Fecha de compra: {formatDateTime(exchangeInfo.originalDate)}
@@ -357,13 +437,33 @@ export const SalesView: React.FC = () => {
                 </div>
               </div>
 
-              <div className="text-right">
-                <span className="text-xs font-semibold text-slate-500 block">
-                  Crédito a Favor
-                </span>
-                <span className="text-xl font-black text-amber-700">
-                  {formatCLP(exchangeInfo.exchangeCredit)}
-                </span>
+              <div className="flex items-center gap-4">
+                <div className="text-right">
+                  <span className="text-xs font-semibold text-slate-500 block">
+                    Crédito a Favor
+                  </span>
+                  <span className="text-xl font-black text-amber-700">
+                    {formatCLP(exchangeInfo.exchangeCredit)}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (
+                      confirm(
+                        `¿Deseas cancelar la operación de cambio de producto (Venta original Folio #${exchangeInfo.originalFolio})? Se cerrará este ticket y se cancelará la operación.`
+                      )
+                    ) {
+                      deleteTicket(activeTicketIndex)
+                    }
+                  }}
+                  className="px-3 py-2 rounded-xl bg-white hover:bg-rose-50 text-rose-700 hover:text-rose-800 border border-rose-200 hover:border-rose-300 text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
+                  title="Cancelar cambio de producto y cerrar este ticket"
+                >
+                  <X className="w-4 h-4 text-rose-500" />
+                  <span>Cancelar Cambio</span>
+                </button>
               </div>
             </div>
 
@@ -579,33 +679,36 @@ export const SalesView: React.FC = () => {
               </div>
             )}
 
-            {exchangeBalance.status === 'exact' ? (
+            {exchangeBalance.status === 'insufficient' ? (
               <button
                 type="button"
-                onClick={handleFinalizeExactExchange}
+                onClick={handleCobrarClick}
+                disabled={activeTicket.items.length === 0}
+                className="px-8 py-3.5 rounded-2xl font-black text-base transition-all shadow-md bg-slate-200 text-slate-500 cursor-not-allowed flex items-center gap-2 active:scale-[0.99] disabled:opacity-50"
+                title={`No es posible cobrar: Faltan ${formatCLP(exchangeBalance.remainingCredit)} por cubrir.`}
+              >
+                <AlertTriangle className="w-5 h-5 text-amber-600" />
+                <span>Cobrar (Faltan {formatCLP(exchangeBalance.remainingCredit)})</span>
+              </button>
+            ) : exchangeBalance.status === 'exact' ? (
+              <button
+                type="button"
+                onClick={() => setIsConfirmExactModalOpen(true)}
                 disabled={activeTicket.items.length === 0}
                 className="px-8 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-base transition-all shadow-lg shadow-emerald-500/30 flex items-center gap-2 active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none hover:shadow-emerald-500/40 cursor-pointer"
               >
                 <CheckCircle2 className="w-5 h-5" />
-                <span>Finalizar Cambio ($ 0)</span>
+                <span>Cobrar ($ 0) (F12)</span>
               </button>
             ) : (
               <button
                 type="button"
                 onClick={() => setIsCheckoutModalOpen(true)}
-                disabled={activeTicket.items.length === 0 || !exchangeBalance.canComplete}
-                className={`px-8 py-3.5 rounded-2xl font-black text-base transition-all shadow-lg flex items-center gap-2 active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none cursor-pointer disabled:cursor-not-allowed ${
-                  exchangeBalance.canComplete
-                    ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-amber-500/30'
-                    : 'bg-slate-300 text-slate-500'
-                }`}
+                disabled={activeTicket.items.length === 0}
+                className="px-8 py-3.5 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl font-black text-base transition-all shadow-lg shadow-amber-500/30 flex items-center gap-2 active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
               >
                 <CheckCircle className="w-5 h-5" />
-                <span>
-                  {exchangeBalance.canComplete
-                    ? `Cobrar Diferencia (${formatCLP(exchangeBalance.differenceToPay)}) (F12)`
-                    : `Faltan ${formatCLP(exchangeBalance.remainingCredit)}`}
-                </span>
+                <span>Cobrar Diferencia ({formatCLP(exchangeBalance.differenceToPay)}) (F12)</span>
               </button>
             )}
           </div>
@@ -668,6 +771,87 @@ export const SalesView: React.FC = () => {
           barcodeInputRef.current?.focus()
         }}
       />
+
+      {/* Modal de Confirmación para Cambio Exacto ($ 0) */}
+      {isConfirmExactModalOpen && isExchange && exchangeInfo && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150 select-none">
+          <div className="bg-white rounded-3xl shadow-2xl border border-lilac-200 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="px-6 py-5 bg-gradient-to-r from-emerald-50 via-teal-50 to-white border-b border-emerald-100 flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shadow-xs shrink-0">
+                <ArrowLeftRight className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900">
+                  ¿Confirmar Cambio de Productos?
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Cambio exacto sin saldo restante ni diferencia a pagar
+                </p>
+              </div>
+            </div>
+
+            {/* Contenido / Resumen */}
+            <div className="p-6 flex flex-col gap-4">
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-2.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">Venta original:</span>
+                  <span className="font-bold font-mono text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200">
+                    Folio #{exchangeInfo.originalFolio}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">Total crédito devuelto:</span>
+                  <span className="font-bold text-amber-700">{formatCLP(exchangeInfo.exchangeCredit)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">Total nuevos artículos ({totalItemsCount} un.):</span>
+                  <span className="font-bold text-slate-800">{formatCLP(totalAmount)}</span>
+                </div>
+                <div className="pt-2 border-t border-slate-200 flex items-center justify-between font-black text-sm">
+                  <span className="text-emerald-800">Diferencia a Pagar:</span>
+                  <span className="text-emerald-700 text-lg">$ 0</span>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 text-emerald-900 text-xs flex items-start gap-2.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                <p className="leading-relaxed">
+                  El valor de los nuevos productos es exactamente igual al saldo del cambio.
+                  Se repondrá el stock de los productos devueltos y se descontará el nuevo stock sin registrar movimientos de dinero en caja.
+                </p>
+              </div>
+            </div>
+
+            {/* Footer / Botones */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setIsConfirmExactModalOpen(false)}
+                disabled={isFinalizingExact}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+              >
+                Volver a la Venta
+              </button>
+              <button
+                type="button"
+                onClick={handleFinalizeExactExchange}
+                disabled={isFinalizingExact}
+                className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-md shadow-emerald-600/25 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isFinalizingExact ? (
+                  <span>Procesando cambio...</span>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Confirmar y Cobrar ($ 0)</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -190,8 +190,7 @@ export const SalesHistoryTab: React.FC<SalesHistoryTabProps> = () => {
                   return (
                     <tr
                       key={s.id}
-                      className="hover:bg-slate-50/80 transition-colors cursor-pointer"
-                      onClick={() => openSaleDetail(s.id)}
+                      className="hover:bg-slate-50/80 transition-colors"
                     >
                       {/* Folio */}
                       <td className="py-2.5 px-4 whitespace-nowrap">
@@ -208,33 +207,56 @@ export const SalesHistoryTab: React.FC<SalesHistoryTabProps> = () => {
                       {/* Métodos de Pago */}
                       <td className="py-2.5 px-4 whitespace-nowrap">
                         <div className="flex items-center gap-1.5">
-                          {s.payments && s.payments.length > 0 ? (
-                            s.payments.map((p) => {
-                              const label =
-                                p.method === 'cash'
-                                  ? 'Efectivo'
-                                  : p.method === 'card'
-                                  ? 'Tarjeta'
-                                  : 'Transferencia'
-                              const color =
-                                p.method === 'cash'
-                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                  : p.method === 'card'
-                                  ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                  : 'bg-purple-50 text-purple-700 border-purple-200'
+                          {(() => {
+                            const isExchangeSale = Boolean(s.exchange_parent_id)
+                            const paymentsSum = s.payments?.reduce((acc, p) => acc + p.amount, 0) ?? 0
+                            const devolutionAmount = isExchangeSale ? s.total - paymentsSum : 0
 
-                              return (
+                            const badges: React.ReactNode[] = []
+
+                            if (devolutionAmount > 0) {
+                              badges.push(
                                 <span
-                                  key={p.id}
-                                  className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${color}`}
+                                  key="devolution"
+                                  className="px-2 py-0.5 rounded text-[11px] font-semibold border bg-amber-50 text-amber-800 border-amber-300"
                                 >
-                                  {label} {formatCLP(p.amount)}
+                                  Devolución {formatCLP(devolutionAmount)}
                                 </span>
                               )
-                            })
-                          ) : (
-                            <span className="text-slate-400 italic">Sin registro</span>
-                          )}
+                            }
+
+                            if (s.payments && s.payments.length > 0) {
+                              s.payments.forEach((p) => {
+                                const label =
+                                  p.method === 'cash'
+                                    ? 'Efectivo'
+                                    : p.method === 'card'
+                                    ? 'Tarjeta'
+                                    : 'Transferencia'
+                                const color =
+                                  p.method === 'cash'
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : p.method === 'card'
+                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                    : 'bg-purple-50 text-purple-700 border-purple-200'
+
+                                badges.push(
+                                  <span
+                                    key={p.id}
+                                    className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${color}`}
+                                  >
+                                    {label} {formatCLP(p.amount)}
+                                  </span>
+                                )
+                              })
+                            }
+
+                            if (badges.length === 0) {
+                              return <span className="text-slate-400 italic">Sin registro</span>
+                            }
+
+                            return badges
+                          })()}
                         </div>
                       </td>
 
@@ -277,12 +299,12 @@ export const SalesHistoryTab: React.FC<SalesHistoryTabProps> = () => {
                       </td>
 
                       {/* Acciones */}
-                      <td className="py-2.5 px-4 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      <td className="py-2.5 px-4 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center">
                           <button
                             type="button"
                             onClick={() => openSaleDetail(s.id)}
-                            className="px-2.5 py-1 rounded-lg bg-lilac-50 text-lilac-700 hover:bg-lilac-100 border border-lilac-200 font-semibold text-[11px] inline-flex items-center gap-1 transition-colors"
+                            className="px-2.5 py-1 rounded-lg bg-lilac-50 text-lilac-700 hover:bg-lilac-100 border border-lilac-200 font-semibold text-[11px] inline-flex items-center gap-1 transition-colors cursor-pointer"
                             title="Ver detalle completo de la venta"
                           >
                             <Eye className="w-3.5 h-3.5" />

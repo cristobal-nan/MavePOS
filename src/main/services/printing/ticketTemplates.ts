@@ -100,16 +100,25 @@ export function buildThermalReceipt(options: BuildThermalReceiptOptions): void {
   printer.bold(false)
 
   printer.alignLeft()
-  if (saleDetail.payments && saleDetail.payments.length > 0) {
+  const isExchangeSale = Boolean(saleDetail.exchange_parent_id)
+  const paymentsSum = saleDetail.payments?.reduce((acc, p) => acc + p.amount, 0) ?? 0
+  const devolutionAmount = isExchangeSale ? saleDetail.total - paymentsSum : 0
+
+  if ((saleDetail.payments && saleDetail.payments.length > 0) || devolutionAmount > 0) {
     printer.println('FORMAS DE PAGO:')
+    if (devolutionAmount > 0) {
+      printer.leftRight('  Devolución:', formatCLP(devolutionAmount))
+    }
     const methodLabels: Record<string, string> = {
       cash: 'Efectivo',
       card: 'Tarjeta',
       transfer: 'Transferencia'
     }
-    for (const p of saleDetail.payments) {
-      const mLabel = methodLabels[p.method] || p.method
-      printer.leftRight(`  ${mLabel}:`, formatCLP(p.amount))
+    if (saleDetail.payments) {
+      for (const p of saleDetail.payments) {
+        const mLabel = methodLabels[p.method] || p.method
+        printer.leftRight(`  ${mLabel}:`, formatCLP(p.amount))
+      }
     }
   }
 
