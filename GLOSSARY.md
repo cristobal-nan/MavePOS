@@ -22,7 +22,13 @@ Este documento define el vocabulario canónico del sistema de Punto de Venta (PO
 ### Caja y Arqueo
 
 - **Sesión de Caja (`cash_sessions`)**: Período operativo de un cajero entre la apertura con fondo inicial y el cierre con arqueo físico.
-- **Fondo Inicial (`opening_fund`)**: Dinero en efectivo con el que se inicia la sesión de caja.
+- **Fondo Inicial (`opening_fund`)**: Dinero en efectivo total con el que se inicia la sesión de caja.
+- **Desglose de Denominaciones (`denomination_counts`)**: Cantidades físicas de cada billete chileno ($20.000, $10.000, $5.000, $2.000, $1.000) y moneda ($500, $100, $50, $10).
+- **Arqueo Físico Inicial (`opening_denominations`)**: Desglose de billetes y monedas registrado en la apertura de caja. Se muestra de solo lectura en el cuadro izquierdo de la calculadora de arqueo en el corte de turno.
+- **Arqueo Físico de Cierre (`closing_denominations`)**: Desglose de billetes y monedas contado físicamente en la gaveta al finalizar el turno. Se ingresa en el cuadro derecho de la calculadora de arqueo para cuadrar la caja.
+- **Retiro de Cierre (`withdrawal_amount` / `retiro`)**: Monto total en efectivo retirado de la gaveta al finalizar el turno tras aplicar las reglas de retención de fondo. Se registra en la sesión y se visualiza en el historial de cortes.
+- **Fondo del Siguiente Turno (`next_opening_fund` / `next_opening_denominations`)**: Efectivo y desglose de billetes/monedas que permanece físicamente en la gaveta para iniciar el próximo turno.
+- **Reglas de Retiro por Denominación (`withdrawal_rules`)**: Configuración que determina cuántas unidades de cada denominación se conservan como fondo para el siguiente turno (por defecto: 0 billetes de $20.000, 2 billetes de $10.000 y el 100% de los billetes menores y monedas).
 - **Corte de Turno / Arqueo Físico**: Proceso de conteo de billetes y monedas chilenas al cerrar el turno para contrastar el efectivo contado con el efectivo esperado del sistema.
 - **Efectivo Esperado (`expected_cash`)**: `Fondo Inicial + Ventas en Efectivo - Devoluciones en Efectivo - Salidas de Dinero`.
 - **Diferencia de Arqueo (`difference`)**: `Efectivo Contado - Efectivo Esperado`. Puede ser cuadrada (`balanced`), sobrante (`surplus`) o faltante (`shortage`).

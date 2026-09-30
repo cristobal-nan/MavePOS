@@ -3,17 +3,19 @@ import {
   Settings,
   Store,
   Printer,
+  Wallet,
   HardDrive,
   Keyboard,
   AlertTriangle
 } from 'lucide-react'
 import { BusinessSettingsTab } from './settings/BusinessSettingsTab'
 import { PrinterSettingsTab } from './settings/PrinterSettingsTab'
+import { CashSettingsTab } from './settings/CashSettingsTab'
 import { BackupSettingsTab } from './settings/BackupSettingsTab'
 import { ShortcutsTab } from './settings/ShortcutsTab'
 import { DangerZoneTab } from './settings/DangerZoneTab'
 
-type SettingsSubTab = 'business' | 'printers' | 'backups' | 'shortcuts' | 'danger'
+type SettingsSubTab = 'business' | 'printers' | 'cash' | 'backups' | 'shortcuts' | 'danger'
 
 export const SettingsView: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<SettingsSubTab>('business')
@@ -29,7 +31,7 @@ export const SettingsView: React.FC = () => {
           <div>
             <h1 className="text-lg font-bold text-slate-800">Configuración del Sistema</h1>
             <p className="text-xs text-slate-500">
-              Datos comerciales, copias de seguridad automáticas, atajos de teclado y mantenimiento.
+              Datos comerciales, reglas de retiro de caja, impresoras, copias de seguridad automáticas y mantenimiento.
             </p>
           </div>
         </div>
@@ -57,6 +59,17 @@ export const SettingsView: React.FC = () => {
           >
             <Printer className="w-3.5 h-3.5" />
             <span>Impresoras y Periféricos</span>
+          </button>
+          <button
+            onClick={() => setActiveSubTab('cash')}
+            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+              activeSubTab === 'cash'
+                ? 'bg-lilac-600 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+            }`}
+          >
+            <Wallet className="w-3.5 h-3.5" />
+            <span>Fondo y Retiro</span>
           </button>
           <button
             onClick={() => setActiveSubTab('backups')}
@@ -97,6 +110,7 @@ export const SettingsView: React.FC = () => {
       {/* 2. Sub-tab Content Modules */}
       {activeSubTab === 'business' && <BusinessSettingsTab />}
       {activeSubTab === 'printers' && <PrinterSettingsTab />}
+      {activeSubTab === 'cash' && <CashSettingsTab />}
       {activeSubTab === 'backups' && <BackupSettingsTab />}
       {activeSubTab === 'shortcuts' && <ShortcutsTab />}
       {activeSubTab === 'danger' && <DangerZoneTab />}

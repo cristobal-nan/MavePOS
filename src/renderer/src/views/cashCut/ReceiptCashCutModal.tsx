@@ -68,20 +68,34 @@ export const ReceiptCashCutModal: React.FC<ReceiptCashCutModalProps> = ({
             <span>Efectivo Esperado:</span>
             <span>{formatCLP(data.expectedCash)}</span>
           </div>
-          <div className="flex justify-between font-bold text-sm pt-1 border-t border-slate-200">
-            <span>Diferencia:</span>
-            <span
-              className={
-                data.difference === 0
-                  ? 'text-emerald-700'
-                  : data.difference > 0
-                  ? 'text-blue-700'
-                  : 'text-rose-700'
-              }
-            >
-              {data.difference > 0 ? `+${formatCLP(data.difference)}` : formatCLP(data.difference)}
-            </span>
-          </div>
+          {data.difference !== null && data.difference !== undefined && (
+            <div className="flex justify-between font-bold text-sm pt-1 border-t border-slate-200">
+              <span>Diferencia:</span>
+              <span
+                className={
+                  data.difference === 0
+                    ? 'text-emerald-700'
+                    : data.difference > 0
+                    ? 'text-blue-700'
+                    : 'text-rose-700'
+                }
+              >
+                {data.difference > 0 ? `+${formatCLP(data.difference)}` : formatCLP(data.difference)}
+              </span>
+            </div>
+          )}
+          {data.withdrawalAmount !== undefined && data.withdrawalAmount !== null && (
+            <div className="flex justify-between font-bold text-amber-800 border-t border-slate-200 pt-1">
+              <span>Monto Retirado:</span>
+              <span>{formatCLP(data.withdrawalAmount)}</span>
+            </div>
+          )}
+          {data.nextOpeningFund !== undefined && data.nextOpeningFund !== null && (
+            <div className="flex justify-between font-bold text-lilac-800">
+              <span>Fondo Siguiente Turno:</span>
+              <span>{formatCLP(data.nextOpeningFund)}</span>
+            </div>
+          )}
           {data.notes && (
             <div className="mt-2 text-[11px] font-sans text-slate-500 bg-white p-2 rounded-lg border border-slate-200">
               <strong>Notas:</strong> {data.notes}

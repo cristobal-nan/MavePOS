@@ -1,30 +1,55 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { Banknote, CheckCircle, AlertCircle, ArrowRight } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Banknote, CheckCircle, AlertCircle, ArrowRight, Sparkles } from 'lucide-react'
 import { useCashStore } from '../store/cashStore'
-import { formatCLP, parseCLP } from '../utils/formatters'
+import { formatCLP } from '../utils/formatters'
+import { calculateCountedCash } from '@shared/finance'
+import { DenominationsCalculator } from '../views/cashCut/DenominationsCalculator'
 
 export const CashOpeningScreen: React.FC = () => {
-  const [inputValue, setInputValue] = useState('')
+  const { openSession, getLastClosedSession, error, clearError } = useCashStore()
+
+  const [denominationCounts, setDenominationCounts] = useState<Record<number, number>>({
+    20000: 0,
+    10000: 0,
+    5000: 0,
+    2000: 0,
+    1000: 0,
+    500: 0,
+    100: 0,
+    50: 0,
+    10: 0
+  })
+
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const { openSession, error, clearError } = useCashStore()
+  const [inheritedFromSessionId, setInheritedFromSessionId] = useState<number | null>(null)
 
+  // Cargar desglose heredado de la última sesión cerrada
   useEffect(() => {
-    // Automatically focus the input field on mount
-    inputRef.current?.focus()
-  }, [])
-
-  const currentAmount = parseCLP(inputValue)
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    clearError()
-    const raw = e.target.value
-    const parsed = parseCLP(raw)
-    if (parsed === 0 && !raw.trim()) {
-      setInputValue('')
-    } else {
-      setInputValue(parsed.toLocaleString('es-CL'))
+    const loadInherited = async (): Promise<void> => {
+      try {
+        const lastSession = await getLastClosedSession()
+        if (lastSession?.next_opening_denominations) {
+          const raw = lastSession.next_opening_denominations
+          const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+          setDenominationCounts(parsed)
+          setInheritedFromSessionId(lastSession.id)
+        }
+      } catch (err) {
+        console.error('Error cargando denominaciones previas:', err)
+      }
     }
+
+    loadInherited()
+  }, [getLastClosedSession])
+
+  const currentAmount = calculateCountedCash(denominationCounts)
+
+  const handleDenominationChange = (value: number, count: number): void => {
+    clearError()
+    setDenominationCounts((prev) => ({
+      ...prev,
+      [value]: Math.max(0, isNaN(count) ? 0 : count)
+    }))
   }
 
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
@@ -32,68 +57,72 @@ export const CashOpeningScreen: React.FC = () => {
     if (currentAmount < 0) return
 
     setIsSubmitting(true)
-    const success = await openSession(currentAmount)
+    await openSession(currentAmount, denominationCounts)
     setIsSubmitting(false)
-
-    if (!success) {
-      inputRef.current?.focus()
-    }
   }
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-6 bg-gradient-to-b from-lilac-50 via-slate-50 to-white select-none">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl shadow-lilac-500/5 border border-lilac-100 p-8 flex flex-col items-center animate-in fade-in zoom-in-95 duration-200">
+    <div className="flex-1 flex flex-col items-center justify-center p-6 bg-gradient-to-b from-lilac-50 via-slate-50 to-white select-none overflow-y-auto">
+      <div className="w-full max-w-xl bg-white rounded-3xl shadow-xl shadow-lilac-500/5 border border-lilac-100 p-7 flex flex-col items-center animate-in fade-in zoom-in-95 duration-200 my-auto">
         {/* Header Icon */}
-        <div className="w-16 h-16 rounded-2xl bg-lilac-100 text-lilac-600 flex items-center justify-center mb-5 shadow-inner">
-          <Banknote className="w-8 h-8" />
+        <div className="w-14 h-14 rounded-2xl bg-lilac-100 text-lilac-600 flex items-center justify-center mb-3 shadow-inner">
+          <Banknote className="w-7 h-7" />
         </div>
 
-        <h1 className="text-2xl font-bold text-slate-800 mb-2 text-center">
+        <h1 className="text-xl font-bold text-slate-800 mb-1 text-center">
           Apertura de Caja
         </h1>
-        <p className="text-sm text-slate-500 text-center mb-8 max-w-sm">
-          Ingresa el monto de fondo inicial en efectivo para iniciar el turno de ventas.
+        <p className="text-xs text-slate-500 text-center mb-4 max-w-md">
+          {inheritedFromSessionId
+            ? `Fondo de caja sugerido del corte anterior (Turno #${inheritedFromSessionId}). Verifica las cantidades en gaveta y confirma para iniciar.`
+            : 'Ingresa las cantidades de billetes y monedas en gaveta para abrir el turno de ventas.'}
         </p>
+
+        {/* Inherited info badge */}
+        {inheritedFromSessionId && (
+          <div className="w-full mb-3.5 px-3.5 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
+            <Sparkles className="w-4 h-4 shrink-0 text-emerald-600" />
+            <span className="leading-snug">
+              Billetes y monedas prellenados automáticamente desde el corte del <strong>Turno #{inheritedFromSessionId}</strong>.
+            </span>
+          </div>
+        )}
 
         {/* Error message */}
         {error && (
-          <div className="w-full mb-6 p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center gap-2">
+          <div className="w-full mb-4 p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
             <span>{error}</span>
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="w-full flex flex-col items-center">
-          {/* Main Input Display */}
-          <div className="w-full relative mb-6">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl font-bold text-slate-400">
-              $
-            </span>
-            <input
-              ref={inputRef}
-              type="text"
-              inputMode="numeric"
-              value={inputValue}
-              onChange={handleInputChange}
-              placeholder="0"
-              className="w-full pl-10 pr-16 py-4 text-3xl font-extrabold text-slate-800 text-center bg-slate-50 border-2 border-lilac-200 rounded-2xl focus:outline-none focus:border-lilac-500 focus:bg-white transition-all shadow-inner tracking-wide"
+        <form onSubmit={handleSubmit} className="w-full flex flex-col gap-4">
+          {/* Calculadora de denominaciones de apertura */}
+          <div className="w-full">
+            <DenominationsCalculator
+              title="Fondo Inicial por Denominación"
+              subtitle="Conteo físico de billetes y monedas al abrir"
+              denominationCounts={denominationCounts}
+              onDenominationChange={handleDenominationChange}
+              countedCash={currentAmount}
+              readOnly={false}
+              badgeLabel={inheritedFromSessionId ? 'Heredado de corte' : 'Nuevo turno'}
+              badgeVariant={inheritedFromSessionId ? 'emerald' : 'lilac'}
+              footerLabel="Fondo Inicial Total"
             />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-semibold text-lilac-600 bg-lilac-100 px-2 py-1 rounded-md">
-              CLP
-            </span>
           </div>
 
           {/* Submit Button */}
           <button
             type="submit"
             disabled={isSubmitting || currentAmount < 0}
-            className="w-full py-4 bg-lilac-600 hover:bg-lilac-700 text-white rounded-2xl font-bold text-base transition-all shadow-lg shadow-lilac-500/25 flex items-center justify-center gap-2 hover:shadow-lilac-500/35 active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none"
+            className="w-full py-3.5 bg-lilac-600 hover:bg-lilac-700 text-white rounded-2xl font-bold text-sm transition-all shadow-lg shadow-lilac-500/25 flex items-center justify-center gap-2 hover:shadow-lilac-500/35 active:scale-[0.99] disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
           >
             {isSubmitting ? (
               <span>Iniciando sesión de caja...</span>
             ) : (
               <>
-                <CheckCircle className="w-5 h-5" />
+                <CheckCircle className="w-4 h-4" />
                 <span>Abrir Caja con {formatCLP(currentAmount)}</span>
                 <ArrowRight className="w-4 h-4 ml-1 opacity-80" />
               </>
@@ -101,8 +130,8 @@ export const CashOpeningScreen: React.FC = () => {
           </button>
         </form>
 
-        <p className="text-xs text-slate-400 mt-5 text-center">
-          Presiona <kbd className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded border border-slate-200 text-[11px] font-mono">Enter</kbd> para confirmar y entrar al punto de venta.
+        <p className="text-[11px] text-slate-400 mt-4 text-center">
+          Presiona <kbd className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded border border-slate-200 font-mono">Enter</kbd> para confirmar y entrar al punto de venta.
         </p>
       </div>
     </div>

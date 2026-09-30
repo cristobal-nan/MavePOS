@@ -194,6 +194,55 @@ const MIGRATIONS: Migration[] = [
         `)
       }
     }
+  },
+  {
+    version: 9,
+    up: (db) => {
+      const cols = db.pragma('table_info(cash_sessions)') as { name: string }[]
+      const colNames = new Set(cols.map((c) => c.name))
+
+      if (!colNames.has('opening_denominations')) {
+        db.exec('ALTER TABLE cash_sessions ADD COLUMN opening_denominations TEXT NULL;')
+      }
+      if (!colNames.has('closing_denominations')) {
+        db.exec('ALTER TABLE cash_sessions ADD COLUMN closing_denominations TEXT NULL;')
+      }
+      if (!colNames.has('next_opening_denominations')) {
+        db.exec('ALTER TABLE cash_sessions ADD COLUMN next_opening_denominations TEXT NULL;')
+      }
+      if (!colNames.has('withdrawal_amount')) {
+        db.exec('ALTER TABLE cash_sessions ADD COLUMN withdrawal_amount INTEGER NULL;')
+      }
+      if (!colNames.has('sales_cash')) {
+        db.exec('ALTER TABLE cash_sessions ADD COLUMN sales_cash INTEGER NULL;')
+      }
+      if (!colNames.has('sales_card')) {
+        db.exec('ALTER TABLE cash_sessions ADD COLUMN sales_card INTEGER NULL;')
+      }
+      if (!colNames.has('sales_transfer')) {
+        db.exec('ALTER TABLE cash_sessions ADD COLUMN sales_transfer INTEGER NULL;')
+      }
+      if (!colNames.has('card_difference')) {
+        db.exec('ALTER TABLE cash_sessions ADD COLUMN card_difference INTEGER NULL DEFAULT 0;')
+      }
+    }
+  },
+  {
+    version: 10,
+    up: (db) => {
+      const cols = db.pragma('table_info(cash_sessions)') as { name: string }[]
+      const colNames = new Set(cols.map((c) => c.name))
+
+      if (!colNames.has('card_machine_amount')) {
+        db.exec('ALTER TABLE cash_sessions ADD COLUMN card_machine_amount INTEGER NULL;')
+      }
+      if (!colNames.has('transfer_verified_amount')) {
+        db.exec('ALTER TABLE cash_sessions ADD COLUMN transfer_verified_amount INTEGER NULL;')
+      }
+      if (!colNames.has('transfer_difference')) {
+        db.exec('ALTER TABLE cash_sessions ADD COLUMN transfer_difference INTEGER NULL DEFAULT 0;')
+      }
+    }
   }
 ]
 

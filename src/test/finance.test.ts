@@ -9,7 +9,9 @@ import {
   calculatePaymentChange,
   calculateExpectedCash,
   calculateCashDifference,
-  calculateNetSales
+  calculateNetSales,
+  calculateNextOpeningFundAndWithdrawal,
+  DEFAULT_WITHDRAWAL_RULES
 } from '../shared/finance'
 
 describe('Domain Financial Logic (CLP)', () => {
@@ -181,6 +183,72 @@ describe('Domain Financial Logic (CLP)', () => {
     it('calcula ventas netas descontando devoluciones brutas', () => {
       expect(calculateNetSales(250000, 25000)).toBe(225000)
       expect(calculateNetSales(100000, 0)).toBe(100000)
+    })
+  })
+
+  describe('Cálculo de Retiro y Fondo de Caja Siguiente Turno', () => {
+    it('aplica las reglas por defecto (retirar todos los de $20.000, dejar máx 2 de $10.000, conservar demás)', () => {
+      const closingCounts = {
+        20000: 4, // $80.000 -> retira 4 ($80.000), deja 0 ($0)
+        10000: 5, // $50.000 -> retira 3 ($30.000), deja 2 ($20.000)
+        5000: 2,  // $10.000 -> retira 0 ($0), deja 2 ($10.000)
+        2000: 3,  // $6.000 -> retira 0 ($0), deja 3 ($6.000)
+        1000: 5,  // $5.000 -> retira 0 ($0), deja 5 ($5.000)
+        500: 10,  // $5.000 -> retira 0 ($0), deja 10 ($5.000)
+        100: 20   // $2.000 -> retira 0 ($0), deja 20 ($2.000)
+      }
+      // Total contado: 80.000 + 50.000 + 10.000 + 6.000 + 5.000 + 5.000 + 2.000 = 158.000
+      // Retiro: 80.000 + 30.000 = 110.000
+      // Fondo siguiente: 0 + 20.000 + 10.000 + 6.000 + 5.000 + 5.000 + 2.000 = 48.000
+
+      const result = calculateNextOpeningFundAndWithdrawal(closingCounts)
+
+      expect(result.withdrawalAmount).toBe(110000)
+      expect(result.nextOpeningFund).toBe(48000)
+      expect(result.withdrawalAmount + result.nextOpeningFund).toBe(158000)
+
+      expect(result.nextOpeningCounts[20000]).toBe(0)
+      expect(result.withdrawalCounts[20000]).toBe(4)
+
+      expect(result.nextOpeningCounts[10000]).toBe(2)
+      expect(result.withdrawalCounts[10000]).toBe(3)
+
+      expect(result.nextOpeningCounts[5000]).toBe(2)
+      expect(result.withdrawalCounts[5000]).toBe(0)
+    })
+
+    it('si hay menos de 2 billetes de $10.000, deja los que hay y no retira de $10.000', () => {
+      const closingCounts = {
+        20000: 1, // $20.000 -> retira 1
+        10000: 1, // $10.000 -> deja 1, retira 0
+        1000: 5   // $5.000 -> deja 5, retira 0
+      }
+      const result = calculateNextOpeningFundAndWithdrawal(closingCounts)
+
+      expect(result.withdrawalAmount).toBe(20000)
+      expect(result.nextOpeningFund).toBe(15000)
+      expect(result.nextOpeningCounts[10000]).toBe(1)
+      expect(result.withdrawalCounts[10000]).toBe(0)
+    })
+
+    it('permite reglas personalizadas por denominación', () => {
+      const customRules = {
+        20000: 1, // dejar 1
+        10000: 0, // retirar todos
+        5000: 3   // dejar máx 3
+      }
+      const closingCounts = {
+        20000: 2, // deja 1, retira 1 ($20.000)
+        10000: 3, // deja 0, retira 3 ($30.000)
+        5000: 5   // deja 3 ($15.000), retira 2 ($10.000)
+      }
+      const result = calculateNextOpeningFundAndWithdrawal(closingCounts, customRules)
+
+      expect(result.withdrawalAmount).toBe(60000)
+      expect(result.nextOpeningFund).toBe(35000)
+      expect(result.nextOpeningCounts[20000]).toBe(1)
+      expect(result.nextOpeningCounts[10000]).toBe(0)
+      expect(result.nextOpeningCounts[5000]).toBe(3)
     })
   })
 })

@@ -6,8 +6,12 @@ export function registerCashIpc(cashService: CashService): void {
     return cashService.getCurrentOpenSession()
   })
 
-  ipcMain.handle('cash:openSession', (_event, openingFund: number) => {
-    return cashService.openSession(openingFund)
+  ipcMain.handle('cash:openSession', (_event, openingFund: number, openingDenominations?: Record<number, number>) => {
+    return cashService.openSession(openingFund, openingDenominations)
+  })
+
+  ipcMain.handle('cash:getLastClosedSession', () => {
+    return cashService.getLastClosedSession()
   })
 
   ipcMain.handle('cash:closeSession', (_event, sessionId: number, closingData?: any) => {

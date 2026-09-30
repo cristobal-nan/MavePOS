@@ -17,7 +17,7 @@ export class CashService {
     return session || null
   }
 
-  openSession(openingFund: number): CashSession {
+  openSession(openingFund: number, openingDenominations?: Record<number, number>): CashSession {
     if (!Number.isInteger(openingFund) || openingFund < 0) {
       throw new Error('El fondo de caja debe ser un entero mayor o igual a cero')
     }
@@ -28,15 +28,18 @@ export class CashService {
     }
 
     const now = new Date().toISOString()
+    const openingDenomsStr = openingDenominations ? JSON.stringify(openingDenominations) : null
+
     const result = this.db
-      .prepare('INSERT INTO cash_sessions (opening_fund, opened_at, closed_at) VALUES (?, ?, NULL)')
-      .run(openingFund, now)
+      .prepare('INSERT INTO cash_sessions (opening_fund, opened_at, closed_at, opening_denominations) VALUES (?, ?, NULL, ?)')
+      .run(openingFund, now, openingDenomsStr)
 
     return {
       id: Number(result.lastInsertRowid),
       opening_fund: openingFund,
       opened_at: now,
-      closed_at: null
+      closed_at: null,
+      opening_denominations: openingDenomsStr
     }
   }
 
@@ -61,13 +64,75 @@ export class CashService {
     const difference = closingData?.difference ?? null
     const notes = closingData?.notes ? closingData.notes.trim() : null
 
+    // Denominaciones y desglose de retiro
+    const openingDenomsStr = closingData?.openingDenominations
+      ? JSON.stringify(closingData.openingDenominations)
+      : session.opening_denominations ?? null
+    const closingDenomsStr = closingData?.closingDenominations
+      ? JSON.stringify(closingData.closingDenominations)
+      : null
+    const nextOpeningDenomsStr = closingData?.nextOpeningDenominations
+      ? JSON.stringify(closingData.nextOpeningDenominations)
+      : null
+    const withdrawalAmount = closingData?.withdrawalAmount ?? null
+    const cardMachineAmount = closingData?.cardMachineAmount ?? null
+    const cardDiff = closingData?.cardDifference ?? 0
+    const transferVerifiedAmount = closingData?.transferVerifiedAmount ?? null
+    const transferDiff = closingData?.transferDifference ?? 0
+
+    // Si no se pasaron las ventas por método, calcularlas directamente
+    let salesCash = closingData?.salesCash ?? null
+    let salesCard = closingData?.salesCard ?? null
+    let salesTransfer = closingData?.salesTransfer ?? null
+
+    if (salesCash === null || salesCard === null || salesTransfer === null) {
+      const salesQuery = this.db
+        .prepare(`
+          SELECT
+            COALESCE(SUM(CASE WHEN sp.method = 'cash' THEN sp.amount ELSE 0 END), 0) AS sales_cash,
+            COALESCE(SUM(CASE WHEN sp.method = 'card' THEN sp.amount ELSE 0 END), 0) AS sales_card,
+            COALESCE(SUM(CASE WHEN sp.method = 'transfer' THEN sp.amount ELSE 0 END), 0) AS sales_transfer
+          FROM sales s
+          JOIN sale_payments sp ON s.id = sp.sale_id
+          WHERE s.cash_session_id = ?
+        `)
+        .get(sessionId) as { sales_cash: number; sales_card: number; sales_transfer: number } | undefined
+
+      if (salesQuery) {
+        salesCash = salesCash ?? salesQuery.sales_cash
+        salesCard = salesCard ?? salesQuery.sales_card
+        salesTransfer = salesTransfer ?? salesQuery.sales_transfer
+      }
+    }
+
     this.db
       .prepare(`
         UPDATE cash_sessions
-        SET closed_at = ?, closing_cash = ?, expected_cash = ?, difference = ?, notes = ?
+        SET closed_at = ?, closing_cash = ?, expected_cash = ?, difference = ?, notes = ?,
+            opening_denominations = ?, closing_denominations = ?, next_opening_denominations = ?,
+            withdrawal_amount = ?, sales_cash = ?, sales_card = ?, sales_transfer = ?,
+            card_machine_amount = ?, card_difference = ?, transfer_verified_amount = ?, transfer_difference = ?
         WHERE id = ?
       `)
-      .run(now, closingCash, expectedCash, difference, notes, sessionId)
+      .run(
+        now,
+        closingCash,
+        expectedCash,
+        difference,
+        notes,
+        openingDenomsStr,
+        closingDenomsStr,
+        nextOpeningDenomsStr,
+        withdrawalAmount,
+        salesCash,
+        salesCard,
+        salesTransfer,
+        cardMachineAmount,
+        cardDiff,
+        transferVerifiedAmount,
+        transferDiff,
+        sessionId
+      )
 
     return {
       ...session,
@@ -75,7 +140,18 @@ export class CashService {
       closing_cash: closingCash,
       expected_cash: expectedCash,
       difference,
-      notes
+      notes,
+      opening_denominations: closingData?.openingDenominations ?? (session.opening_denominations ? (typeof session.opening_denominations === 'string' ? JSON.parse(session.opening_denominations) : session.opening_denominations) : null),
+      closing_denominations: closingData?.closingDenominations ?? null,
+      next_opening_denominations: closingData?.nextOpeningDenominations ?? null,
+      withdrawal_amount: withdrawalAmount,
+      sales_cash: salesCash,
+      sales_card: salesCard,
+      sales_transfer: salesTransfer,
+      card_machine_amount: cardMachineAmount,
+      card_difference: cardDiff,
+      transfer_verified_amount: transferVerifiedAmount,
+      transfer_difference: transferDiff
     }
   }
 
@@ -223,26 +299,79 @@ export class CashService {
       expectedCash,
       closingCash: session.closing_cash ?? null,
       difference: session.difference ?? null,
-      notes: session.notes ?? null
+      notes: session.notes ?? null,
+      withdrawalAmount: session.withdrawal_amount ?? null,
+      cardMachineAmount: session.card_machine_amount ?? null,
+      cardDifference: session.card_difference ?? 0,
+      transferVerifiedAmount: session.transfer_verified_amount ?? null,
+      transferDifference: session.transfer_difference ?? 0,
+      openingDenominations: session.opening_denominations
+        ? typeof session.opening_denominations === 'string'
+          ? JSON.parse(session.opening_denominations)
+          : session.opening_denominations
+        : null,
+      closingDenominations: session.closing_denominations
+        ? typeof session.closing_denominations === 'string'
+          ? JSON.parse(session.closing_denominations)
+          : session.closing_denominations
+        : null,
+      nextOpeningDenominations: session.next_opening_denominations
+        ? typeof session.next_opening_denominations === 'string'
+          ? JSON.parse(session.next_opening_denominations)
+          : session.next_opening_denominations
+        : null
     }
   }
 
-  getPastSessions(limit = 50, offset = 0): CashSession[] {
-    return this.db
+  getPastSessions(limit = 100, offset = 0): CashSession[] {
+    const rows = this.db
       .prepare(`
-        SELECT * FROM cash_sessions
-        WHERE closed_at IS NOT NULL
-        ORDER BY id DESC
+        SELECT
+          cs.*,
+          COALESCE(cs.sales_cash, (
+            SELECT COALESCE(SUM(sp.amount), 0)
+            FROM sales s
+            JOIN sale_payments sp ON s.id = sp.sale_id
+            WHERE s.cash_session_id = cs.id AND sp.method = 'cash'
+          )) AS sales_cash,
+          COALESCE(cs.sales_card, (
+            SELECT COALESCE(SUM(sp.amount), 0)
+            FROM sales s
+            JOIN sale_payments sp ON s.id = sp.sale_id
+            WHERE s.cash_session_id = cs.id AND sp.method = 'card'
+          )) AS sales_card,
+          COALESCE(cs.sales_transfer, (
+            SELECT COALESCE(SUM(sp.amount), 0)
+            FROM sales s
+            JOIN sale_payments sp ON s.id = sp.sale_id
+            WHERE s.cash_session_id = cs.id AND sp.method = 'transfer'
+          )) AS sales_transfer
+        FROM cash_sessions cs
+        WHERE cs.closed_at IS NOT NULL
+        ORDER BY cs.id DESC
         LIMIT ? OFFSET ?
       `)
-      .all(limit, offset) as CashSession[]
+      .all(limit, offset) as any[]
+
+    return rows.map((cs) => ({
+      ...cs,
+      opening_denominations: cs.opening_denominations ? (typeof cs.opening_denominations === 'string' ? JSON.parse(cs.opening_denominations) : cs.opening_denominations) : null,
+      closing_denominations: cs.closing_denominations ? (typeof cs.closing_denominations === 'string' ? JSON.parse(cs.closing_denominations) : cs.closing_denominations) : null,
+      next_opening_denominations: cs.next_opening_denominations ? (typeof cs.next_opening_denominations === 'string' ? JSON.parse(cs.next_opening_denominations) : cs.next_opening_denominations) : null
+    }))
   }
 
   getLastClosedSession(): CashSession | null {
     const session = this.db
       .prepare('SELECT * FROM cash_sessions WHERE closed_at IS NOT NULL ORDER BY id DESC LIMIT 1')
-      .get() as CashSession | undefined
-    return session || null
+      .get() as any
+    if (!session) return null
+    return {
+      ...session,
+      opening_denominations: session.opening_denominations ? (typeof session.opening_denominations === 'string' ? JSON.parse(session.opening_denominations) : session.opening_denominations) : null,
+      closing_denominations: session.closing_denominations ? (typeof session.closing_denominations === 'string' ? JSON.parse(session.closing_denominations) : session.closing_denominations) : null,
+      next_opening_denominations: session.next_opening_denominations ? (typeof session.next_opening_denominations === 'string' ? JSON.parse(session.next_opening_denominations) : session.next_opening_denominations) : null
+    }
   }
 
   addMovement(sessionId: number, amount: number, reason: string): CashMovement {

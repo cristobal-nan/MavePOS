@@ -8,6 +8,10 @@ interface ConfirmCashCutModalProps {
   countedCash: number
   expectedCash: number
   difference: number
+  cardDifference?: number
+  transferDifference?: number
+  withdrawalAmount?: number
+  nextOpeningFund?: number
   isClosing: boolean
   onClose: () => void
   onConfirm: () => void
@@ -19,6 +23,10 @@ export const ConfirmCashCutModal: React.FC<ConfirmCashCutModalProps> = ({
   countedCash,
   expectedCash,
   difference,
+  cardDifference,
+  transferDifference,
+  withdrawalAmount,
+  nextOpeningFund,
   isClosing,
   onClose,
   onConfirm
@@ -42,15 +50,15 @@ export const ConfirmCashCutModal: React.FC<ConfirmCashCutModalProps> = ({
 
         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs flex flex-col gap-2">
           <div className="flex justify-between">
-            <span className="text-slate-500 font-medium">Efectivo Contado:</span>
+            <span className="text-slate-500 font-medium">Efectivo Físico Contado:</span>
             <span className="font-black text-slate-900">{formatCLP(countedCash)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-500 font-medium">Efectivo Esperado:</span>
             <span className="font-bold text-slate-700">{formatCLP(expectedCash)}</span>
           </div>
-          <div className="flex justify-between border-t border-slate-200 pt-2 font-bold">
-            <span className="text-slate-700">Diferencia:</span>
+          <div className="flex justify-between border-t border-slate-200 pt-1.5 font-bold">
+            <span className="text-slate-700">Diferencia Efectivo:</span>
             <span
               className={
                 difference === 0
@@ -60,9 +68,56 @@ export const ConfirmCashCutModal: React.FC<ConfirmCashCutModalProps> = ({
                   : 'text-rose-600'
               }
             >
-              {difference > 0 ? `+${formatCLP(difference)}` : formatCLP(difference)}
+              {difference === 0 ? 'Cuadrada ($0)' : difference > 0 ? `+${formatCLP(difference)}` : formatCLP(difference)}
             </span>
           </div>
+
+          {cardDifference !== undefined && (
+            <div className="flex justify-between pt-1 border-t border-slate-200">
+              <span className="text-slate-600 font-medium">Diferencia Tarjeta:</span>
+              <span
+                className={`font-bold ${
+                  cardDifference === 0
+                    ? 'text-emerald-600'
+                    : cardDifference > 0
+                    ? 'text-blue-600'
+                    : 'text-rose-600'
+                }`}
+              >
+                {cardDifference === 0 ? 'Cuadrada ($0)' : cardDifference > 0 ? `+${formatCLP(cardDifference)}` : formatCLP(cardDifference)}
+              </span>
+            </div>
+          )}
+
+          {transferDifference !== undefined && transferDifference !== 0 && (
+            <div className="flex justify-between pt-1 border-t border-slate-200">
+              <span className="text-slate-600 font-medium">Diferencia Transferencia:</span>
+              <span
+                className={`font-bold ${
+                  transferDifference > 0 ? 'text-blue-600' : 'text-rose-600'
+                }`}
+              >
+                {transferDifference > 0 ? `+${formatCLP(transferDifference)}` : formatCLP(transferDifference)}
+              </span>
+            </div>
+          )}
+
+          {(withdrawalAmount !== undefined || nextOpeningFund !== undefined) && (
+            <div className="border-t border-slate-200 pt-2 mt-1 flex flex-col gap-1.5 bg-lilac-50/50 -mx-4 -mb-4 p-3 rounded-b-2xl">
+              {withdrawalAmount !== undefined && (
+                <div className="flex justify-between font-bold text-slate-900">
+                  <span className="text-amber-800">Retiro de Efectivo:</span>
+                  <span className="text-amber-700 font-black">{formatCLP(withdrawalAmount)}</span>
+                </div>
+              )}
+              {nextOpeningFund !== undefined && (
+                <div className="flex justify-between text-slate-700">
+                  <span className="text-slate-600 font-medium">Fondo Siguiente Turno:</span>
+                  <span className="font-bold text-lilac-800">{formatCLP(nextOpeningFund)}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <p className="text-xs text-slate-500 leading-relaxed">

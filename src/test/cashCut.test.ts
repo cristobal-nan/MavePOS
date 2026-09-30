@@ -203,5 +203,122 @@ describe('Fase 8: Corte de Caja (Arqueo, Cuadre de Turno y Cierre de Sesión)', 
       expect(past[0].id).toBe(session2.id)
       expect(past[1].id).toBe(sessionId)
     })
+
+    it('registra y persiste desglose de billetes, monto de retiro y fondos para el siguiente turno', () => {
+      // Registrar venta con efectivo y tarjeta
+      salesService.completeSale({
+        cashSessionId: sessionId,
+        items: [{ product_code: 'ITEM-1', name: 'Ovillo Algodón Soft', unit_price: 4000, quantity: 2 }],
+        payments: [{ method: 'cash', amount: 8000 }]
+      })
+
+      salesService.completeSale({
+        cashSessionId: sessionId,
+        items: [{ product_code: 'ITEM-2', name: 'Palillos Circulares Bambú', unit_price: 7000, quantity: 1 }],
+        payments: [{ method: 'card', amount: 7000 }]
+      })
+
+      const openingDenominations = { 20000: 2, 10000: 1 } // 50.000
+      const closingDenominations = { 20000: 2, 10000: 1, 5000: 1, 2000: 1, 1000: 1 } // 58.000
+      const nextOpeningDenominations = { 10000: 1, 5000: 1, 2000: 1, 1000: 1 } // 18.000 (se retiran los 2 de 20.000)
+      const withdrawalAmount = 40000
+
+      const closed = cashService.closeSession(sessionId, {
+        closingCash: 58000,
+        expectedCash: 58000,
+        difference: 0,
+        openingDenominations,
+        closingDenominations,
+        nextOpeningDenominations,
+        withdrawalAmount,
+        cardDifference: 0
+      })
+
+      expect(closed.withdrawal_amount).toBe(40000)
+      expect(closed.sales_cash).toBe(8000)
+      expect(closed.sales_card).toBe(7000)
+      expect(closed.sales_transfer).toBe(0)
+      expect(closed.card_difference).toBe(0)
+
+      // Verificar getLastClosedSession
+      const lastClosed = cashService.getLastClosedSession()
+      expect(lastClosed).not.toBeNull()
+      expect(lastClosed?.id).toBe(sessionId)
+      expect(lastClosed?.next_opening_denominations).toEqual(nextOpeningDenominations)
+      expect(lastClosed?.withdrawal_amount).toBe(40000)
+
+      // Verificar getPastSessions
+      const pastSessions = cashService.getPastSessions()
+      expect(pastSessions.length).toBe(1)
+      expect(pastSessions[0].sales_cash).toBe(8000)
+      expect(pastSessions[0].sales_card).toBe(7000)
+      expect(pastSessions[0].withdrawal_amount).toBe(40000)
+      expect(pastSessions[0].closing_denominations).toEqual(closingDenominations)
+    })
+
+    it('permite abrir una nueva sesión heredando las denominaciones del turno anterior', () => {
+      // Cerrar sesión actual con denominaciones para el siguiente
+      cashService.closeSession(sessionId, {
+        closingCash: 50000,
+        nextOpeningDenominations: { 10000: 2, 5000: 2 } // 30.000
+      })
+
+      // Abrir nueva sesión pasando las denominaciones heredadas
+      const newSession = cashService.openSession(30000, { 10000: 2, 5000: 2 })
+      expect(newSession.id).toBeGreaterThan(sessionId)
+      expect(newSession.opening_fund).toBe(30000)
+
+      const active = cashService.getCurrentOpenSession()
+      expect(active?.id).toBe(newSession.id)
+      const parsedOpening = typeof active?.opening_denominations === 'string'
+        ? JSON.parse(active.opening_denominations)
+        : active?.opening_denominations
+      expect(parsedOpening).toEqual({ 10000: 2, 5000: 2 })
+    })
+
+    it('registra y persiste cuadre de pagos con tarjeta y transferencias con sus diferencias', () => {
+      // Venta con tarjeta $14.000 y transferencia $4.000
+      salesService.completeSale({
+        cashSessionId: sessionId,
+        items: [{ product_code: 'ITEM-2', name: 'Palillos Circulares Bambú', unit_price: 7000, quantity: 2 }],
+        payments: [{ method: 'card', amount: 14000 }]
+      })
+
+      salesService.completeSale({
+        cashSessionId: sessionId,
+        items: [{ product_code: 'ITEM-1', name: 'Ovillo Algodón Soft', unit_price: 4000, quantity: 1 }],
+        payments: [{ method: 'transfer', amount: 4000 }]
+      })
+
+      // El cajero ingresa $14.500 en máquina POS (sobrante +500) y $4.000 en banco (cuadrada 0)
+      const closed = cashService.closeSession(sessionId, {
+        closingCash: 50000,
+        expectedCash: 50000,
+        difference: 0,
+        cardMachineAmount: 14500,
+        cardDifference: 500,
+        transferVerifiedAmount: 4000,
+        transferDifference: 0
+      })
+
+      expect(closed.card_machine_amount).toBe(14500)
+      expect(closed.card_difference).toBe(500)
+      expect(closed.transfer_verified_amount).toBe(4000)
+      expect(closed.transfer_difference).toBe(0)
+
+      // Verificar en getSessionSummary
+      const summary = cashService.getSessionSummary(sessionId)
+      expect(summary.cardMachineAmount).toBe(14500)
+      expect(summary.cardDifference).toBe(500)
+      expect(summary.transferVerifiedAmount).toBe(4000)
+      expect(summary.transferDifference).toBe(0)
+
+      // Verificar en getPastSessions
+      const past = cashService.getPastSessions()
+      expect(past[0].card_machine_amount).toBe(14500)
+      expect(past[0].card_difference).toBe(500)
+      expect(past[0].transfer_verified_amount).toBe(4000)
+      expect(past[0].transfer_difference).toBe(0)
+    })
   })
 })

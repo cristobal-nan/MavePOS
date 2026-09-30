@@ -13,12 +13,13 @@ interface CashState {
   checkCurrentSession: () => Promise<void>
   fetchSummary: (sessionId: number) => Promise<void>
   fetchPastSessions: () => Promise<void>
-  openSession: (openingFund: number) => Promise<boolean>
+  openSession: (openingFund: number, openingDenominations?: Record<number, number>) => Promise<boolean>
   closeSession: (
     sessionId: number,
     closingData?: Omit<CloseCashSessionInput, 'sessionId'>
   ) => Promise<boolean>
   clearError: () => void
+  getLastClosedSession: () => Promise<CashSession | null>
 }
 
 export const useCashStore = create<CashState>((set, get) => ({
@@ -73,13 +74,13 @@ export const useCashStore = create<CashState>((set, get) => ({
     }
   },
 
-  openSession: async (openingFund: number) => {
+  openSession: async (openingFund: number, openingDenominations?: Record<number, number>) => {
     set({ error: null })
     try {
       if (!window.api?.cash?.openSession) {
         throw new Error('API no disponible')
       }
-      const session = await window.api.cash.openSession(openingFund)
+      const session = await window.api.cash.openSession(openingFund, openingDenominations)
       set({ currentSession: session })
       await get().fetchSummary(session.id)
       return true
@@ -87,6 +88,16 @@ export const useCashStore = create<CashState>((set, get) => ({
       console.error('Error abriendo sesión de caja:', err)
       set({ error: err.message || 'Error al abrir caja' })
       return false
+    }
+  },
+
+  getLastClosedSession: async () => {
+    try {
+      if (!window.api?.cash?.getLastClosedSession) return null
+      return await window.api.cash.getLastClosedSession()
+    } catch (err: any) {
+      console.error('Error al obtener última sesión cerrada:', err)
+      return null
     }
   },
 

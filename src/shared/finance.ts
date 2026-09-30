@@ -95,6 +95,74 @@ export function calculateDenominationBreakdown(
   })
 }
 
+export type WithdrawalRules = Record<number, number | null>
+
+/**
+ * Reglas por defecto acordadas:
+ * - $20.000: 0 unidades (se retiran todos los billetes de 20.000)
+ * - $10.000: 2 unidades (se dejan máximo 2 billetes de 10.000, excedente se retira)
+ * - Demás denominaciones: null (sin límite, se dejan todas en el fondo)
+ */
+export const DEFAULT_WITHDRAWAL_RULES: WithdrawalRules = {
+  20000: 0,
+  10000: 2,
+  5000: null,
+  2000: null,
+  1000: null,
+  500: null,
+  100: null,
+  50: null,
+  10: null
+}
+
+export interface NextOpeningFundAndWithdrawalResult {
+  nextOpeningFund: number
+  withdrawalAmount: number
+  nextOpeningCounts: Record<number, number>
+  withdrawalCounts: Record<number, number>
+}
+
+/**
+ * Calcula cuánto efectivo queda como fondo de caja para el siguiente turno y cuánto se retira.
+ * Si el límite de la regla es null, se conserva todo (0 retirado).
+ * Si es un número >= 0, se conservan como máximo 'límite' unidades y se retira el excedente.
+ */
+export function calculateNextOpeningFundAndWithdrawal(
+  closingCounts: Record<number, number>,
+  rules: WithdrawalRules = DEFAULT_WITHDRAWAL_RULES
+): NextOpeningFundAndWithdrawalResult {
+  const nextOpeningCounts: Record<number, number> = {}
+  const withdrawalCounts: Record<number, number> = {}
+  let nextOpeningFund = 0
+  let withdrawalAmount = 0
+
+  for (const denom of CHILEAN_DENOMINATIONS) {
+    const totalCount = Math.max(0, closingCounts?.[denom.value] || 0)
+    const limit = rules?.[denom.value]
+
+    let keepCount = totalCount
+    let withdrawCount = 0
+
+    if (limit !== null && limit !== undefined && limit >= 0) {
+      keepCount = Math.min(totalCount, limit)
+      withdrawCount = Math.max(0, totalCount - keepCount)
+    }
+
+    nextOpeningCounts[denom.value] = keepCount
+    withdrawalCounts[denom.value] = withdrawCount
+
+    nextOpeningFund += denom.value * keepCount
+    withdrawalAmount += denom.value * withdrawCount
+  }
+
+  return {
+    nextOpeningFund: Math.round(nextOpeningFund),
+    withdrawalAmount: Math.round(withdrawalAmount),
+    nextOpeningCounts,
+    withdrawalCounts
+  }
+}
+
 export interface CartItemLike {
   unit_price: number
   quantity: number

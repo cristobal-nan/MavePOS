@@ -66,7 +66,18 @@ export const INITIAL_SCHEMA = `
     closing_cash INTEGER NULL,
     expected_cash INTEGER NULL,
     difference INTEGER NULL,
-    notes TEXT NULL
+    notes TEXT NULL,
+    opening_denominations TEXT NULL,
+    closing_denominations TEXT NULL,
+    next_opening_denominations TEXT NULL,
+    withdrawal_amount INTEGER NULL,
+    sales_cash INTEGER NULL,
+    sales_card INTEGER NULL,
+    sales_transfer INTEGER NULL,
+    card_machine_amount INTEGER NULL,
+    card_difference INTEGER NULL DEFAULT 0,
+    transfer_verified_amount INTEGER NULL,
+    transfer_difference INTEGER NULL DEFAULT 0
   );
 
   CREATE TABLE IF NOT EXISTS sales (

@@ -76,10 +76,11 @@ export interface SalesAPI {
 
 export interface CashAPI {
   getCurrentSession: () => Promise<CashSession | null>
-  openSession: (openingFund: number) => Promise<CashSession>
+  openSession: (openingFund: number, openingDenominations?: Record<number, number>) => Promise<CashSession>
   closeSession: (sessionId: number, closingData?: Omit<CloseCashSessionInput, 'sessionId'>) => Promise<CashSession>
   getSessionSummary: (sessionId: number) => Promise<CashCutSummary>
   getPastSessions: (limit?: number, offset?: number) => Promise<CashSession[]>
+  getLastClosedSession: () => Promise<CashSession | null>
   addMovement: (sessionId: number, amount: number, reason: string) => Promise<CashMovement>
   getSessionMovements: (sessionId: number) => Promise<CashMovement[]>
 }
@@ -269,10 +270,12 @@ const sales: SalesAPI = {
 
 const cash: CashAPI = {
   getCurrentSession: () => ipcRenderer.invoke('cash:getCurrentSession'),
-  openSession: (openingFund) => ipcRenderer.invoke('cash:openSession', openingFund),
+  openSession: (openingFund, openingDenominations) =>
+    ipcRenderer.invoke('cash:openSession', openingFund, openingDenominations),
   closeSession: (sessionId, closingData) => ipcRenderer.invoke('cash:closeSession', sessionId, closingData),
   getSessionSummary: (sessionId) => ipcRenderer.invoke('cash:getSessionSummary', sessionId),
   getPastSessions: (limit, offset) => ipcRenderer.invoke('cash:getPastSessions', limit, offset),
+  getLastClosedSession: () => ipcRenderer.invoke('cash:getLastClosedSession'),
   addMovement: (sessionId, amount, reason) => ipcRenderer.invoke('cash:addMovement', sessionId, amount, reason),
   getSessionMovements: (sessionId) => ipcRenderer.invoke('cash:getSessionMovements', sessionId)
 }

@@ -241,6 +241,10 @@ export interface AdjustStockInput {
   reason: string
 }
 
+export type DenominationCounts = Record<number, number>
+
+export type WithdrawalRules = Record<number, number | null>
+
 export interface CashSession {
   id: number
   opening_fund: number
@@ -250,6 +254,17 @@ export interface CashSession {
   expected_cash?: number | null
   difference?: number | null
   notes?: string | null
+  opening_denominations?: string | DenominationCounts | null
+  closing_denominations?: string | DenominationCounts | null
+  next_opening_denominations?: string | DenominationCounts | null
+  withdrawal_amount?: number | null
+  sales_cash?: number | null
+  sales_card?: number | null
+  sales_transfer?: number | null
+  card_machine_amount?: number | null
+  card_difference?: number | null
+  transfer_verified_amount?: number | null
+  transfer_difference?: number | null
 }
 
 export interface CashCutSummary {
@@ -272,6 +287,15 @@ export interface CashCutSummary {
   closingCash: number | null
   difference: number | null
   notes: string | null
+  withdrawalAmount?: number | null
+  nextOpeningFund?: number | null
+  openingDenominations?: Record<number, number> | null
+  closingDenominations?: Record<number, number> | null
+  nextOpeningDenominations?: Record<number, number> | null
+  cardMachineAmount?: number | null
+  cardDifference?: number | null
+  transferVerifiedAmount?: number | null
+  transferDifference?: number | null
 }
 
 export interface CloseCashSessionInput {
@@ -280,6 +304,22 @@ export interface CloseCashSessionInput {
   expectedCash?: number
   difference?: number
   notes?: string
+  openingDenominations?: Record<number, number>
+  closingDenominations?: Record<number, number>
+  nextOpeningDenominations?: Record<number, number>
+  withdrawalAmount?: number
+  salesCash?: number
+  salesCard?: number
+  salesTransfer?: number
+  cardMachineAmount?: number
+  cardDifference?: number
+  transferVerifiedAmount?: number
+  transferDifference?: number
+}
+
+export interface OpenCashSessionInput {
+  openingFund: number
+  openingDenominations?: Record<number, number>
 }
 
 export interface CashMovement {
@@ -413,6 +453,14 @@ export interface CategorySalesStat {
   percentage: number
 }
 
+export interface SupplierSalesStat {
+  supplierId: number | null
+  supplierName: string
+  totalRevenue: number
+  unitsSold: number
+  percentage: number
+}
+
 export interface FullReportData {
   filter: ReportFilter
   dateRange: {
@@ -426,6 +474,7 @@ export interface FullReportData {
   paymentMethods: PaymentMethodStat[]
   topProducts: TopProductStat[]
   categorySales: CategorySalesStat[]
+  supplierSales: SupplierSalesStat[]
 }
 
 // ----------------------------------------------------
