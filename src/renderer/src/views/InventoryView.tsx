@@ -340,12 +340,12 @@ export const InventoryView: React.FC = () => {
                   ref={codeInputRef}
                   type="text"
                   value={codeInput}
-                  onChange={(e) => setCodeInput(e.target.value)}
+                  onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleCodeSearch('adjust')
                   }}
                   placeholder="Escanear código de barras o escribir código..."
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-lilac-500 focus:bg-white rounded-xl text-sm font-mono outline-none transition-all"
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-lilac-500 focus:bg-white rounded-xl text-sm font-mono outline-none transition-all uppercase"
                 />
                 <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               </div>
@@ -976,12 +976,12 @@ export const InventoryView: React.FC = () => {
                 <input
                   type="text"
                   value={kardexCodeInput}
-                  onChange={(e) => setKardexCodeInput(e.target.value)}
+                  onChange={(e) => setKardexCodeInput(e.target.value.toUpperCase())}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleCodeSearch('kardex')
                   }}
                   placeholder="Escanear o escribir código de producto para ver su Kardex..."
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-lilac-500 focus:bg-white rounded-xl text-sm font-mono outline-none transition-all"
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-lilac-500 focus:bg-white rounded-xl text-sm font-mono outline-none transition-all uppercase"
                 />
                 <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
               </div>

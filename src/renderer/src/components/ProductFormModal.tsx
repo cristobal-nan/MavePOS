@@ -263,7 +263,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
   const handleVariationChange = (index: number, field: keyof VariationRow, value: string): void => {
     const updated = [...variations]
-    updated[index] = { ...updated[index], [field]: value }
+    const finalValue = field === 'code' ? value.toUpperCase() : value
+    updated[index] = { ...updated[index], [field]: finalValue }
     setVariations(updated)
   }
 
@@ -890,9 +891,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     <input
                       type="text"
                       value={code}
-                      onChange={(e) => setCode(e.target.value)}
+                      onChange={(e) => setCode(e.target.value.toUpperCase())}
                       placeholder="Ej: 780123456"
-                      className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-xl font-mono text-slate-900 font-bold focus:outline-none focus:border-lilac-500"
+                      className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-xl font-mono text-slate-900 font-bold focus:outline-none focus:border-lilac-500 uppercase"
                     />
                     <span className="text-[10px] text-slate-400 mt-1 block">
                       Se actualizará conservando todo el historial en el kardex.
@@ -1104,9 +1105,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     <input
                       type="text"
                       value={code}
-                      onChange={(e) => setCode(e.target.value)}
+                      onChange={(e) => setCode(e.target.value.toUpperCase())}
                       placeholder="Ej: 780123456"
-                      className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl font-mono focus:outline-none focus:border-lilac-500"
+                      className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl font-mono focus:outline-none focus:border-lilac-500 uppercase"
                     />
                     {product && (
                       <span className="text-[10px] text-slate-400 mt-1 block">
@@ -1304,7 +1305,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                                 value={v.code}
                                 onChange={(e) => handleVariationChange(idx, 'code', e.target.value)}
                                 placeholder="Ej: 7801001"
-                                className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-lilac-500"
+                                className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none focus:border-lilac-500 uppercase"
                               />
                             </td>
                             <td className="p-2">

@@ -49,6 +49,47 @@ export const SalesView: React.FC = () => {
   const [isConfirmExactModalOpen, setIsConfirmExactModalOpen] = useState(false)
   const [isFinalizingExact, setIsFinalizingExact] = useState(false)
 
+  // Mensaje flotante central de "producto sin stock disponible"
+  const [outOfStockAlert, setOutOfStockAlert] = useState<{ visible: boolean; productName?: string } | null>(null)
+  const outOfStockTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Modal de confirmación para eliminar producto del ticket al reducir a 0
+  const [itemToDelete, setItemToDelete] = useState<{
+    code: string
+    name: string
+    variant_label?: string | null
+  } | null>(null)
+
+  const showOutOfStockAlert = (productName?: string): void => {
+    if (outOfStockTimeoutRef.current) {
+      clearTimeout(outOfStockTimeoutRef.current)
+    }
+    setOutOfStockAlert({ visible: true, productName })
+    outOfStockTimeoutRef.current = setTimeout(() => {
+      setOutOfStockAlert(null)
+    }, 2000)
+  }
+
+  const handleDecreaseQuantity = (it: { product_code: string; name: string; quantity: number; variant_label?: string | null }): void => {
+    if (it.quantity <= 1) {
+      setItemToDelete({
+        code: it.product_code,
+        name: it.name,
+        variant_label: it.variant_label
+      })
+    } else {
+      updateQuantity(it.product_code, it.quantity - 1)
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      if (outOfStockTimeoutRef.current) {
+        clearTimeout(outOfStockTimeoutRef.current)
+      }
+    }
+  }, [])
+
   const barcodeInputRef = useRef<HTMLInputElement>(null)
 
   // Load pending tickets on mount
@@ -68,7 +109,8 @@ export const SalesView: React.FC = () => {
         !isCheckoutModalOpen &&
         !isHistoryModalOpen &&
         !isWithdrawalModalOpen &&
-        !isConfirmExactModalOpen
+        !isConfirmExactModalOpen &&
+        !itemToDelete
       ) {
         barcodeInputRef.current?.focus()
       }
@@ -78,7 +120,7 @@ export const SalesView: React.FC = () => {
 
     window.addEventListener('focus', focusBarcode)
     return () => window.removeEventListener('focus', focusBarcode)
-  }, [isSearchModalOpen, isCheckoutModalOpen, isHistoryModalOpen, isWithdrawalModalOpen, isConfirmExactModalOpen, activeTicketIndex])
+  }, [isSearchModalOpen, isCheckoutModalOpen, isHistoryModalOpen, isWithdrawalModalOpen, isConfirmExactModalOpen, itemToDelete, activeTicketIndex])
 
   const activeTicket = tickets[activeTicketIndex] || { items: [] }
   const { totalAmount, totalItems: totalItemsCount } = calculateCartTotal(activeTicket.items)
@@ -132,6 +174,22 @@ export const SalesView: React.FC = () => {
   // Keyboard shortcut listener for Sales screen
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent): void => {
+      // Escape / Enter for item removal modal
+      if (e.key === 'Escape' && itemToDelete) {
+        e.preventDefault()
+        setItemToDelete(null)
+        barcodeInputRef.current?.focus()
+        return
+      }
+
+      if (e.key === 'Enter' && itemToDelete) {
+        e.preventDefault()
+        removeItem(itemToDelete.code)
+        setItemToDelete(null)
+        barcodeInputRef.current?.focus()
+        return
+      }
+
       // Escape: close confirm exact modal if open
       if (e.key === 'Escape' && isConfirmExactModalOpen) {
         e.preventDefault()
@@ -201,7 +259,8 @@ export const SalesView: React.FC = () => {
     exchangeInfo,
     totalAmount,
     isConfirmExactModalOpen,
-    isFinalizingExact
+    isFinalizingExact,
+    itemToDelete
   ])
 
   const handleBarcodeSubmit = async (e: React.FormEvent): Promise<void> => {
@@ -214,6 +273,11 @@ export const SalesView: React.FC = () => {
     try {
       const product = await window.api.getProductByCode(rawCode)
       if (product && product.code) {
+        if ((Number(product.stock) || 0) <= 0) {
+          showOutOfStockAlert(product.name)
+          setBarcodeInput('')
+          return
+        }
         addItem({
           code: product.code,
           name: product.name,
@@ -233,6 +297,11 @@ export const SalesView: React.FC = () => {
 
   const handleSelectFromSearch = (product: ProductSearchResult): void => {
     if (!product.code) return
+    if ((Number(product.stock) || 0) <= 0) {
+      showOutOfStockAlert(product.name)
+      barcodeInputRef.current?.focus()
+      return
+    }
     addItem({
       code: product.code,
       name: product.name,
@@ -270,7 +339,14 @@ export const SalesView: React.FC = () => {
     if (!target) return
     const isInteractive = target.closest('button, input, select, textarea, [role="button"], a')
     if (!isInteractive) {
-      if (!isSearchModalOpen && !isCheckoutModalOpen && !isHistoryModalOpen && !isWithdrawalModalOpen) {
+      if (
+        !isSearchModalOpen &&
+        !isCheckoutModalOpen &&
+        !isHistoryModalOpen &&
+        !isWithdrawalModalOpen &&
+        !isConfirmExactModalOpen &&
+        !itemToDelete
+      ) {
         barcodeInputRef.current?.focus()
       }
     }
@@ -374,10 +450,10 @@ export const SalesView: React.FC = () => {
               value={barcodeInput}
               onChange={(e) => {
                 setBarcodeError(null)
-                setBarcodeInput(e.target.value)
+                setBarcodeInput(e.target.value.toUpperCase())
               }}
               placeholder="Escanear código de barras o escribir código y presionar Enter..."
-              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-300 focus:border-lilac-500 focus:bg-white rounded-xl text-sm font-mono text-slate-800 placeholder:font-sans placeholder:text-slate-400 focus:outline-none transition-all shadow-inner"
+              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-300 focus:border-lilac-500 focus:bg-white rounded-xl text-sm font-mono text-slate-800 placeholder:font-sans placeholder:text-slate-400 focus:outline-none transition-all shadow-inner uppercase"
             />
           </div>
 
@@ -554,7 +630,7 @@ export const SalesView: React.FC = () => {
                         <div className="inline-flex items-center border border-slate-200 rounded-lg overflow-hidden bg-slate-50">
                           <button
                             type="button"
-                            onClick={() => updateQuantity(it.product_code, it.quantity - 1)}
+                            onClick={() => handleDecreaseQuantity(it)}
                             className="px-2 py-1 text-slate-600 hover:bg-lilac-100 hover:text-lilac-900 transition-colors"
                           >
                             <Minus className="w-3 h-3" />
@@ -565,15 +641,31 @@ export const SalesView: React.FC = () => {
                             value={it.quantity}
                             onChange={(e) => {
                               const v = parseInt(e.target.value, 10)
-                              if (!isNaN(v) && v > 0) {
-                                updateQuantity(it.product_code, v)
+                              if (isNaN(v) || v <= 0) {
+                                setItemToDelete({
+                                  code: it.product_code,
+                                  name: it.name,
+                                  variant_label: it.variant_label
+                                })
+                                return
                               }
+                              if ((Number(it.stock) || 0) <= 0) {
+                                showOutOfStockAlert(it.name)
+                                return
+                              }
+                              updateQuantity(it.product_code, v)
                             }}
-                            className="w-12 text-center text-xs font-bold bg-white py-1 focus:outline-none"
+                            className="w-12 text-center text-xs font-bold bg-white py-1 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                           <button
                             type="button"
-                            onClick={() => updateQuantity(it.product_code, it.quantity + 1)}
+                            onClick={() => {
+                              if ((Number(it.stock) || 0) <= 0) {
+                                showOutOfStockAlert(it.name)
+                                return
+                              }
+                              updateQuantity(it.product_code, it.quantity + 1)
+                            }}
                             className="px-2 py-1 text-slate-600 hover:bg-lilac-100 hover:text-lilac-900 transition-colors"
                           >
                             <Plus className="w-3 h-3" />
@@ -605,7 +697,13 @@ export const SalesView: React.FC = () => {
                       <td className="py-3 px-3 text-center">
                         <button
                           type="button"
-                          onClick={() => removeItem(it.product_code)}
+                          onClick={() => {
+                            setItemToDelete({
+                              code: it.product_code,
+                              name: it.name,
+                              variant_label: it.variant_label
+                            })
+                          }}
                           className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
                           title="Eliminar producto"
                         >
@@ -848,6 +946,103 @@ export const SalesView: React.FC = () => {
                   </>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmación para Eliminar Producto del Ticket */}
+      {itemToDelete && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150 select-none">
+          <div className="bg-white rounded-3xl shadow-2xl border border-rose-200 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="px-6 py-5 bg-gradient-to-r from-rose-50 via-rose-50/50 to-white border-b border-rose-100 flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shadow-xs shrink-0">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900">
+                  ¿Quitar producto del ticket?
+                </h3>
+                <p className="text-xs text-slate-500">
+                  La cantidad a vender llegó a 0
+                </p>
+              </div>
+            </div>
+
+            {/* Contenido / Detalle del Producto */}
+            <div className="p-6 flex flex-col gap-4">
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex flex-col gap-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-500 font-medium">Código:</span>
+                  <span className="font-bold font-mono text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200">
+                    {itemToDelete.code}
+                  </span>
+                </div>
+                <div className="flex items-start justify-between gap-2 pt-1 border-t border-slate-200/60">
+                  <span className="text-slate-500 font-medium shrink-0">Producto:</span>
+                  <span className="font-bold text-slate-900 text-right">
+                    {itemToDelete.name}
+                    {itemToDelete.variant_label && (
+                      <span className="ml-1.5 text-[10px] text-lilac-700 bg-lilac-50 border border-lilac-200 px-1.5 py-0.5 rounded font-medium">
+                        {itemToDelete.variant_label}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-600 leading-relaxed">
+                ¿Confirmas que deseas eliminar este producto del ticket de venta?
+              </p>
+            </div>
+
+            {/* Footer / Botones */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setItemToDelete(null)
+                  barcodeInputRef.current?.focus()
+                }}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+              >
+                Cancelar (Esc)
+              </button>
+              <button
+                type="button"
+                autoFocus
+                onClick={() => {
+                  removeItem(itemToDelete.code)
+                  setItemToDelete(null)
+                  barcodeInputRef.current?.focus()
+                }}
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-md shadow-rose-600/25 flex items-center gap-2 transition-all cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Sí, Quitar (Enter)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mensaje de Producto sin stock disponible (duración 2 segundos al medio de la pantalla) */}
+      {outOfStockAlert && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none p-4 select-none animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white/95 backdrop-blur-md border-2 border-rose-500 rounded-3xl shadow-2xl px-8 py-6 flex items-center gap-5 max-w-lg mx-auto ring-8 ring-rose-500/10">
+            <div className="w-14 h-14 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 shadow-inner">
+              <AlertTriangle className="w-8 h-8" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xl font-black text-rose-600 tracking-tight">
+                Producto sin stock disponible
+              </span>
+              {outOfStockAlert.productName && (
+                <span className="text-xs font-semibold text-slate-600 mt-1 line-clamp-1">
+                  {outOfStockAlert.productName}
+                </span>
+              )}
             </div>
           </div>
         </div>

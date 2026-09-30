@@ -498,7 +498,7 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
                                         setReturnQuantity(Math.min(availableToReturn, Math.max(1, v)))
                                       }
                                     }}
-                                    className="w-8 text-center text-xs font-bold py-0.5 focus:outline-none"
+                                    className="w-8 text-center text-xs font-bold py-0.5 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                   />
                                   <button
                                     type="button"
