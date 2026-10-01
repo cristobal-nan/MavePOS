@@ -126,7 +126,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl shadow-2xl border border-lilac-100 max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
         <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">

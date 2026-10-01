@@ -22,8 +22,8 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
   footerText = 'Haz clic en cualquier fila para seleccionar el producto.'
 }) => {
   const [modalSize, setModalSize] = useState<{ width: number; height: number }>({
-    width: Math.min(typeof window !== 'undefined' ? window.innerWidth * 0.85 : 920, 960),
-    height: Math.min(typeof window !== 'undefined' ? window.innerHeight * 0.82 : 680, 750)
+    width: Math.min(typeof window !== 'undefined' ? Math.max(960, Math.round(window.innerWidth * 0.82)) : 980, 1150),
+    height: Math.min(typeof window !== 'undefined' ? Math.round(window.innerHeight * 0.82) : 680, 780)
   })
 
   const isResizing = useRef(false)
@@ -86,7 +86,7 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
       <div
         style={{
           width: `${modalSize.width}px`,
@@ -121,6 +121,7 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
             showActions={false}
             autoFocus={true}
             placeholder={placeholder}
+            context="modal"
           />
         </div>
 

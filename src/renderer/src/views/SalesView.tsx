@@ -60,6 +60,20 @@ export const SalesView: React.FC = () => {
     variant_label?: string | null
   } | null>(null)
 
+  // Modal de confirmación para descartar ticket o cancelar cambio
+  const [ticketToDiscard, setTicketToDiscard] = useState<{
+    index: number
+    label: string
+    itemsCount: number
+    exchangeInfo?: {
+      originalFolio: number
+      exchangeCredit: number
+    } | null
+  } | null>(null)
+
+  // Mensaje modal informativo de reglas de cambio
+  const [exchangeAlert, setExchangeAlert] = useState<string | null>(null)
+
   const showOutOfStockAlert = (productName?: string): void => {
     if (outOfStockTimeoutRef.current) {
       clearTimeout(outOfStockTimeoutRef.current)
@@ -110,7 +124,9 @@ export const SalesView: React.FC = () => {
         !isHistoryModalOpen &&
         !isWithdrawalModalOpen &&
         !isConfirmExactModalOpen &&
-        !itemToDelete
+        !itemToDelete &&
+        !ticketToDiscard &&
+        !exchangeAlert
       ) {
         barcodeInputRef.current?.focus()
       }
@@ -120,7 +136,17 @@ export const SalesView: React.FC = () => {
 
     window.addEventListener('focus', focusBarcode)
     return () => window.removeEventListener('focus', focusBarcode)
-  }, [isSearchModalOpen, isCheckoutModalOpen, isHistoryModalOpen, isWithdrawalModalOpen, isConfirmExactModalOpen, itemToDelete, activeTicketIndex])
+  }, [
+    isSearchModalOpen,
+    isCheckoutModalOpen,
+    isHistoryModalOpen,
+    isWithdrawalModalOpen,
+    isConfirmExactModalOpen,
+    itemToDelete,
+    ticketToDiscard,
+    exchangeAlert,
+    activeTicketIndex
+  ])
 
   const activeTicket = tickets[activeTicketIndex] || { items: [] }
   const { totalAmount, totalItems: totalItemsCount } = calculateCartTotal(activeTicket.items)
@@ -146,7 +172,7 @@ export const SalesView: React.FC = () => {
       barcodeInputRef.current?.focus()
     } catch (err: any) {
       console.error('Error finalizando cambio exacto:', err)
-      alert(err.message || 'Error al completar el cambio')
+      setExchangeAlert(err.message || 'Error al completar el cambio')
     } finally {
       setIsFinalizingExact(false)
     }
@@ -157,7 +183,7 @@ export const SalesView: React.FC = () => {
 
     if (isExchange && exchangeBalance && exchangeInfo) {
       if (exchangeBalance.status === 'insufficient') {
-        alert(
+        setExchangeAlert(
           `No es posible cobrar: El monto de los nuevos productos (${formatCLP(totalAmount)}) debe ser igual o superior al crédito devuelto (${formatCLP(exchangeInfo.exchangeCredit)}).\n\nFaltan ${formatCLP(exchangeBalance.remainingCredit)} por cubrir (no se entrega dinero en efectivo por saldo sobrante).`
         )
         return
@@ -174,6 +200,14 @@ export const SalesView: React.FC = () => {
   // Keyboard shortcut listener for Sales screen
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent): void => {
+      // Escape / Enter for exchange alert modal
+      if ((e.key === 'Escape' || e.key === 'Enter') && exchangeAlert) {
+        e.preventDefault()
+        setExchangeAlert(null)
+        barcodeInputRef.current?.focus()
+        return
+      }
+
       // Escape / Enter for item removal modal
       if (e.key === 'Escape' && itemToDelete) {
         e.preventDefault()
@@ -186,6 +220,23 @@ export const SalesView: React.FC = () => {
         e.preventDefault()
         removeItem(itemToDelete.code)
         setItemToDelete(null)
+        barcodeInputRef.current?.focus()
+        return
+      }
+
+      // Escape / Enter for ticket discard / cancel exchange modal
+      if (e.key === 'Escape' && ticketToDiscard) {
+        e.preventDefault()
+        setTicketToDiscard(null)
+        barcodeInputRef.current?.focus()
+        return
+      }
+
+      if (e.key === 'Enter' && ticketToDiscard) {
+        e.preventDefault()
+        const idx = ticketToDiscard.index
+        setTicketToDiscard(null)
+        deleteTicket(idx)
         barcodeInputRef.current?.focus()
         return
       }
@@ -228,20 +279,17 @@ export const SalesView: React.FC = () => {
         e.preventDefault()
         const currentTicket = tickets[activeTicketIndex]
         if (currentTicket) {
-          if (currentTicket.exchangeInfo) {
-            if (
-              !confirm(
-                `¿Deseas cancelar la operación de cambio de producto (Venta original Folio #${currentTicket.exchangeInfo.originalFolio})? Se cerrará este ticket y se cancelará la operación.`
-              )
-            ) {
-              return
-            }
-          } else if (currentTicket.items.length > 0) {
-            if (!confirm(`¿Deseas descartar el "${currentTicket.label}" y sus productos?`)) {
-              return
-            }
+          if (currentTicket.exchangeInfo || currentTicket.items.length > 0) {
+            setTicketToDiscard({
+              index: activeTicketIndex,
+              label: currentTicket.label,
+              itemsCount: currentTicket.items.length,
+              exchangeInfo: currentTicket.exchangeInfo || null
+            })
+            return
           }
           deleteTicket(activeTicketIndex)
+          barcodeInputRef.current?.focus()
         }
       }
     }
@@ -260,7 +308,9 @@ export const SalesView: React.FC = () => {
     totalAmount,
     isConfirmExactModalOpen,
     isFinalizingExact,
-    itemToDelete
+    itemToDelete,
+    ticketToDiscard,
+    exchangeAlert
   ])
 
   const handleBarcodeSubmit = async (e: React.FormEvent): Promise<void> => {
@@ -317,18 +367,14 @@ export const SalesView: React.FC = () => {
     const ticket = tickets[index]
     if (!ticket) return
 
-    if (ticket.exchangeInfo) {
-      if (
-        !confirm(
-          `¿Deseas cancelar la operación de cambio de producto (Venta original Folio #${ticket.exchangeInfo.originalFolio})? Se cerrará este ticket y se cancelará la operación.`
-        )
-      ) {
-        return
-      }
-    } else if (ticket.items.length > 0) {
-      if (!confirm(`¿Deseas descartar el "${ticket.label}" y sus productos?`)) {
-        return
-      }
+    if (ticket.exchangeInfo || ticket.items.length > 0) {
+      setTicketToDiscard({
+        index,
+        label: ticket.label,
+        itemsCount: ticket.items.length,
+        exchangeInfo: ticket.exchangeInfo || null
+      })
+      return
     }
     await deleteTicket(index)
     barcodeInputRef.current?.focus()
@@ -526,13 +572,12 @@ export const SalesView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    if (
-                      confirm(
-                        `¿Deseas cancelar la operación de cambio de producto (Venta original Folio #${exchangeInfo.originalFolio})? Se cerrará este ticket y se cancelará la operación.`
-                      )
-                    ) {
-                      deleteTicket(activeTicketIndex)
-                    }
+                    setTicketToDiscard({
+                      index: activeTicketIndex,
+                      label: activeTicket.label,
+                      itemsCount: activeTicket.items.length,
+                      exchangeInfo: exchangeInfo || null
+                    })
                   }}
                   className="px-3 py-2 rounded-xl bg-white hover:bg-rose-50 text-rose-700 hover:text-rose-800 border border-rose-200 hover:border-rose-300 text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
                   title="Cancelar cambio de producto y cerrar este ticket"
@@ -574,7 +619,7 @@ export const SalesView: React.FC = () => {
 
         <div className="flex-1 bg-white rounded-2xl border border-lilac-100 shadow-sm overflow-auto">
           <table className="w-full text-left border-collapse">
-            <thead className="bg-slate-100/90 sticky top-0 z-10 text-xs font-semibold text-slate-600 border-b border-slate-200 backdrop-blur-sm">
+            <thead className="bg-slate-100 sticky top-0 z-10 text-xs font-semibold text-slate-600 border-b border-slate-200">
               <tr>
                 <th className="py-2.5 px-3 w-32">Código</th>
                 <th className="py-2.5 px-3">Producto / Descripción</th>
@@ -872,7 +917,7 @@ export const SalesView: React.FC = () => {
 
       {/* Modal de Confirmación para Cambio Exacto ($ 0) */}
       {isConfirmExactModalOpen && isExchange && exchangeInfo && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150 select-none">
+        <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 animate-in fade-in duration-150 select-none">
           <div className="bg-white rounded-3xl shadow-2xl border border-lilac-200 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
             {/* Header */}
             <div className="px-6 py-5 bg-gradient-to-r from-emerald-50 via-teal-50 to-white border-b border-emerald-100 flex items-center gap-3">
@@ -953,7 +998,7 @@ export const SalesView: React.FC = () => {
 
       {/* Modal de Confirmación para Eliminar Producto del Ticket */}
       {itemToDelete && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150 select-none">
+        <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 animate-in fade-in duration-150 select-none">
           <div className="bg-white rounded-3xl shadow-2xl border border-rose-200 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
             {/* Header */}
             <div className="px-6 py-5 bg-gradient-to-r from-rose-50 via-rose-50/50 to-white border-b border-rose-100 flex items-center gap-3">
@@ -1027,10 +1072,188 @@ export const SalesView: React.FC = () => {
         </div>
       )}
 
+      {/* Modal de confirmación para descartar ticket / cancelar cambio */}
+      {ticketToDiscard && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 select-none animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                    ticketToDiscard.exchangeInfo
+                      ? 'bg-amber-100 text-amber-600'
+                      : 'bg-rose-100 text-rose-600'
+                  }`}
+                >
+                  {ticketToDiscard.exchangeInfo ? (
+                    <ArrowLeftRight className="w-5 h-5" />
+                  ) : (
+                    <Trash2 className="w-5 h-5" />
+                  )}
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">
+                    {ticketToDiscard.exchangeInfo
+                      ? 'Cancelar Operación de Cambio'
+                      : `Descartar ${ticketToDiscard.label}`}
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    {ticketToDiscard.exchangeInfo
+                      ? `Venta original Folio #${ticketToDiscard.exchangeInfo.originalFolio}`
+                      : `${ticketToDiscard.itemsCount} producto(s) en este ticket`}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setTicketToDiscard(null)
+                  barcodeInputRef.current?.focus()
+                }}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Contenido */}
+            <div className="p-6 flex flex-col gap-3">
+              {ticketToDiscard.exchangeInfo ? (
+                <>
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex flex-col gap-1 text-xs">
+                    <span className="font-bold text-amber-900">
+                      ¿Deseas cancelar la operación de cambio de producto?
+                    </span>
+                    <span className="text-amber-700 text-[11px]">
+                      Crédito a favor:{' '}
+                      <strong className="font-bold">
+                        {formatCLP(ticketToDiscard.exchangeInfo.exchangeCredit)}
+                      </strong>
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Al cerrar este ticket se cancelará la operación de cambio y no se procesará la reposición ni salida de inventario.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="bg-rose-50 border border-rose-200 rounded-xl p-3.5 flex flex-col gap-1 text-xs">
+                    <span className="font-bold text-rose-900">
+                      ¿Deseas descartar el ticket y sus productos?
+                    </span>
+                    <span className="text-rose-700 text-[11px]">
+                      Se perderán los {ticketToDiscard.itemsCount} producto(s) agregados.
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Esta acción descartará el ticket actual y sus productos ingresados.
+                  </p>
+                </>
+              )}
+            </div>
+
+            {/* Footer / Botones */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setTicketToDiscard(null)
+                  barcodeInputRef.current?.focus()
+                }}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+              >
+                {ticketToDiscard.exchangeInfo ? 'Continuar con el cambio (Esc)' : 'Mantener ticket (Esc)'}
+              </button>
+              <button
+                type="button"
+                autoFocus
+                onClick={() => {
+                  const idx = ticketToDiscard.index
+                  setTicketToDiscard(null)
+                  deleteTicket(idx)
+                  barcodeInputRef.current?.focus()
+                }}
+                className={`px-5 py-2.5 rounded-xl text-white text-xs font-black shadow-md flex items-center gap-2 transition-all cursor-pointer ${
+                  ticketToDiscard.exchangeInfo
+                    ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/25'
+                    : 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/25'
+                }`}
+              >
+                {ticketToDiscard.exchangeInfo ? (
+                  <>
+                    <X className="w-4 h-4" />
+                    <span>Sí, Cancelar Cambio (Enter)</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Sí, Descartar (Enter)</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal informativo de Reglas de Cambio (reemplaza alert nativo) */}
+      {exchangeAlert && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 select-none animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
+            <div className="px-6 py-4 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">
+                    Cambio no completado
+                  </h4>
+                  <p className="text-[11px] text-amber-800">
+                    Regla de cambio de producto
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setExchangeAlert(null)
+                  barcodeInputRef.current?.focus()
+                }}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 flex flex-col gap-3">
+              <p className="text-xs text-slate-700 leading-relaxed font-medium whitespace-pre-line">
+                {exchangeAlert}
+              </p>
+            </div>
+
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end">
+              <button
+                type="button"
+                autoFocus
+                onClick={() => {
+                  setExchangeAlert(null)
+                  barcodeInputRef.current?.focus()
+                }}
+                className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-black shadow-md shadow-amber-600/25 transition-all cursor-pointer"
+              >
+                Entendido (Enter)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Mensaje de Producto sin stock disponible (duración 2 segundos al medio de la pantalla) */}
       {outOfStockAlert && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none p-4 select-none animate-in fade-in zoom-in-95 duration-150">
-          <div className="bg-white/95 backdrop-blur-md border-2 border-rose-500 rounded-3xl shadow-2xl px-8 py-6 flex items-center gap-5 max-w-lg mx-auto ring-8 ring-rose-500/10">
+          <div className="bg-white border-2 border-rose-500 rounded-3xl shadow-2xl px-8 py-6 flex items-center gap-5 max-w-lg mx-auto ring-8 ring-rose-500/10">
             <div className="w-14 h-14 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 shadow-inner">
               <AlertTriangle className="w-8 h-8" />
             </div>

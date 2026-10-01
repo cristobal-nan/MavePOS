@@ -12,12 +12,19 @@ import { ReportsView } from './views/ReportsView'
 import { SettingsView } from './views/SettingsView'
 import { CloseConfirmModal } from './components/CloseConfirmModal'
 import { CashOpeningScreen } from './components/CashOpeningScreen'
+import { ReceiptCashCutModal } from './views/cashCut/ReceiptCashCutModal'
 import { formatCLP } from './utils/formatters'
 import { WifiOff, Database, Store, Loader2, DollarSign } from 'lucide-react'
 
 export const App: React.FC = () => {
-  const { activeTab, setActiveTab } = useUIStore()
-  const { currentSession, isLoading, checkCurrentSession } = useCashStore()
+  const { activeTab, setActiveTab, openCloseModal } = useUIStore()
+  const {
+    currentSession,
+    isLoading,
+    checkCurrentSession,
+    completedCutReceipt,
+    setCompletedCutReceipt
+  } = useCashStore()
 
   // Limpiar búsqueda de productos al cambiar de pestaña
   useEffect(() => {
@@ -80,6 +87,17 @@ export const App: React.FC = () => {
       {/* Close and Backup Confirmation Modal */}
       <CloseConfirmModal />
 
+      {/* Receipt Cash Cut Modal (shows after closing a shift) */}
+      <ReceiptCashCutModal
+        isOpen={!!completedCutReceipt}
+        data={completedCutReceipt}
+        onClose={() => setCompletedCutReceipt(null)}
+        onExitApp={() => {
+          setCompletedCutReceipt(null)
+          openCloseModal('countdown_backup')
+        }}
+      />
+
       {/* Main Content Area */}
       {isLoading ? (
         <div className="flex-1 flex flex-col items-center justify-center bg-slate-50">
@@ -135,7 +153,7 @@ export const App: React.FC = () => {
         <div className="flex items-center gap-3 text-slate-400">
           {currentSession && (
             <span className="text-[11px]">
-              Atajos: <span className="font-semibold text-slate-600">F1</span> Ventas &bull; <span className="font-semibold text-slate-600">F2</span> Catálogo &bull; <span className="font-semibold text-slate-600">F3</span> Inventario &bull; <span className="font-semibold text-slate-600">F5</span> Corte
+              Atajos: <span className="font-semibold text-slate-600">F1</span> Ventas &bull; <span className="font-semibold text-slate-600">F2</span> Productos &bull; <span className="font-semibold text-slate-600">F3</span> Inventario &bull; <span className="font-semibold text-slate-600">F5</span> Corte
             </span>
           )}
           <span>v1.0.0</span>

@@ -604,7 +604,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl border border-lilac-100 max-w-3xl w-full overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150 select-text">
         {/* Modal Header */}
         <div className="px-6 py-4 bg-slate-50 border-b border-lilac-100 flex items-center justify-between shrink-0">
@@ -1401,7 +1401,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
       {/* Modal de Confirmación para Cambios en Producto Padre */}
       {isConfirmParentModalOpen && (
-        <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-60 bg-black/60 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-amber-50">
               <div className="flex items-center gap-2.5">

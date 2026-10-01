@@ -254,7 +254,7 @@ export const BackupSettingsTab: React.FC = () => {
 
       {/* Restore Confirmation Modal */}
       {restoreModalFile && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl border border-amber-200 max-w-md w-full overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
             <div className="px-6 py-4 bg-amber-50 border-b border-amber-100 flex items-center justify-between">
               <div className="flex items-center gap-2 text-amber-900 font-bold text-base">

@@ -16,6 +16,7 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({ isOpen, onClose })
   const [editingName, setEditingName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [supplierToDelete, setSupplierToDelete] = useState<{ id: number; name: string } | null>(null)
 
   if (!isOpen) return null
 
@@ -64,21 +65,26 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({ isOpen, onClose })
     }
   }
 
-  const handleDelete = async (id: number, name: string): Promise<void> => {
-    if (confirm(`¿Estás seguro de eliminar el proveedor "${name}"?`)) {
-      try {
-        await deleteSupplier(id)
-        if (editingId === id) {
-          setEditingId(null)
-        }
-      } catch (err: any) {
-        setError(err.message || 'Error al eliminar proveedor.')
+  const handleDelete = (id: number, name: string): void => {
+    setSupplierToDelete({ id, name })
+  }
+
+  const handleConfirmDelete = async (): Promise<void> => {
+    if (!supplierToDelete) return
+    const { id } = supplierToDelete
+    setSupplierToDelete(null)
+    try {
+      await deleteSupplier(id)
+      if (editingId === id) {
+        setEditingId(null)
       }
+    } catch (err: any) {
+      setError(err.message || 'Error al eliminar proveedor.')
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl border border-lilac-100 max-w-md w-full overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-150">
         {/* Modal Header */}
         <div className="px-6 py-4 bg-slate-50 border-b border-lilac-100 flex items-center justify-between">
@@ -200,12 +206,49 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({ isOpen, onClose })
           <span>{suppliers.length} proveedor(es) en total</span>
           <button
             onClick={onClose}
-            className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg transition-colors"
+            className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold rounded-lg transition-colors cursor-pointer"
           >
             Cerrar
           </button>
         </div>
       </div>
+
+      {/* Submodal de confirmación para eliminar proveedor */}
+      {supplierToDelete && (
+        <div className="fixed inset-0 z-[60] bg-slate-900/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-sm w-full p-5 flex flex-col gap-3 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-slate-900">¿Eliminar proveedor?</h4>
+                <p className="text-xs text-slate-500 font-medium line-clamp-1">"{supplierToDelete.name}"</p>
+              </div>
+            </div>
+            <p className="text-xs text-slate-600">
+              ¿Estás seguro de que deseas eliminar este proveedor? Los productos asociados se desvincularán de él.
+            </p>
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setSupplierToDelete(null)}
+                className="px-3 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                autoFocus
+                onClick={handleConfirmDelete}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-sm shadow-rose-600/20 transition-colors cursor-pointer"
+              >
+                Sí, Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

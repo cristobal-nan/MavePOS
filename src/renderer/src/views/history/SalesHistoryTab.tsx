@@ -157,7 +157,7 @@ export const SalesHistoryTab: React.FC<SalesHistoryTabProps> = () => {
       <div className="flex-1 bg-white border border-lilac-100 rounded-xl shadow-sm overflow-hidden flex flex-col">
         <div className="flex-1 overflow-auto">
           <table className="w-full text-left border-collapse">
-            <thead className="bg-slate-100/90 sticky top-0 z-10 text-xs font-semibold text-slate-600 border-b border-slate-200 backdrop-blur-sm">
+            <thead className="bg-slate-100 sticky top-0 z-10 text-xs font-semibold text-slate-600 border-b border-slate-200">
               <tr>
                 <th className="py-2.5 px-4 w-28">Folio</th>
                 <th className="py-2.5 px-4 w-44">Fecha / Hora</th>

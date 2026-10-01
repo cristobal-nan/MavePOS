@@ -55,7 +55,7 @@ export const SalesHistoryModal: React.FC<SalesHistoryModalProps> = ({ isOpen, on
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-150 select-none">
+    <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-150 select-none">
       <div className="bg-white rounded-3xl shadow-2xl border border-lilac-200 w-full max-w-6xl h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
         {/* Header del Modal */}
         <div className="px-6 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">

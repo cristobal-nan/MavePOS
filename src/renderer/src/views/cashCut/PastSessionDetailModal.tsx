@@ -49,7 +49,7 @@ export const PastSessionDetailModal: React.FC<PastSessionDetailModalProps> = ({
   const nextOpeningTotal = nextOpeningCounts ? calculateCountedCash(nextOpeningCounts) : null
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl shadow-2xl border border-lilac-200 w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-50/50">

@@ -170,7 +170,7 @@ export const BulkGroupVariableModal: React.FC<BulkGroupVariableModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl border border-lilac-100 max-w-3xl w-full overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150 select-text">
         {/* Header */}
         <div className="px-6 py-4 bg-slate-50 border-b border-lilac-100 flex items-center justify-between">
