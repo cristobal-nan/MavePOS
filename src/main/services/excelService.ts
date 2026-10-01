@@ -5,7 +5,8 @@ import {
   ExcelColumnMapping,
   ExcelParsePreview,
   ImportReportResult,
-  ImportErrorDetail
+  ImportErrorDetail,
+  ExportExcelResult
 } from '../../shared/types'
 import { normalizeSearchName } from '../db/utils'
 
@@ -100,7 +101,12 @@ export class ExcelService {
       sale_price: ['P. VENTA', 'P.VENTA', 'P VENTA', 'VENTA', 'PRECIO VENTA', 'PRECIO', 'SALE PRICE', 'PRICE'],
       min_stock: ['INV. MINIMO', 'INV. MÍNIMO', 'INV.MINIMO', 'INV MINIMO', 'MINIMO', 'MÍNIMO', 'STOCK MINIMO', 'STOCK MÍNIMO', 'MIN STOCK', 'STOCK_MINIMO'],
       stock: ['EXISTENCIA', 'STOCK', 'CANTIDAD', 'CANT', 'QTY', 'INVENTARIO', 'ACTUAL'],
-      department: ['DEPARTAMENTO', 'DEPTO', 'CATEGORIA', 'CATEGORÍA', 'RUBRO', 'FAMILIA', 'SECCION', 'SECCIÓN', 'CATEGORY']
+      department: ['DEPARTAMENTO', 'DEPTO', 'CATEGORIA', 'CATEGORÍA', 'RUBRO', 'FAMILIA', 'SECCION', 'SECCIÓN', 'CATEGORY'],
+      product_type: ['TIPO', 'TIPO PRODUCTO', 'PRODUCT TYPE', 'TYPE'],
+      parent_name: ['PRODUCTO PADRE', 'PADRE', 'PARENT', 'PRODUCTO_PADRE', 'PARENT PRODUCT'],
+      attribute_name: ['ATRIBUTO', 'TIPO ATRIBUTO', 'ATTRIBUTE', 'NOMBRE ATRIBUTO'],
+      attribute_value: ['VALOR ATRIBUTO', 'VALOR_ATRIBUTO', 'VALOR', 'ATTRIBUTE VALUE'],
+      suppliers: ['PROVEEDORES', 'PROVEEDOR', 'SUPPLIERS', 'SUPPLIER']
     }
 
     const cleanHeader = (s: string): string =>
@@ -204,6 +210,11 @@ export class ExcelService {
     const stockIdx = mapping.stock ? headers.indexOf(mapping.stock) : -1
     const minStockIdx = mapping.min_stock ? headers.indexOf(mapping.min_stock) : -1
     const deptIdx = mapping.department ? headers.indexOf(mapping.department) : -1
+    const parentNameIdx = mapping.parent_name ? headers.indexOf(mapping.parent_name) : -1
+    const attrNameIdx = mapping.attribute_name ? headers.indexOf(mapping.attribute_name) : -1
+    const attrValIdx = mapping.attribute_value ? headers.indexOf(mapping.attribute_value) : -1
+    const prodTypeIdx = mapping.product_type ? headers.indexOf(mapping.product_type) : -1
+    const suppliersIdx = mapping.suppliers ? headers.indexOf(mapping.suppliers) : -1
 
     let createdCount = 0
     let updatedCount = 0
@@ -225,6 +236,24 @@ export class ExcelService {
         categoriesMap.set(normalizeSearchName(cat.name), cat.id)
       }
 
+      // Cache of variable products (normalized name -> id)
+      const variablesMap = new Map<string, number>()
+      const existingVariables = this.db
+        .prepare("SELECT id, name FROM products WHERE product_type = 'variable' AND active = 1")
+        .all() as { id: number; name: string }[]
+      for (const v of existingVariables) {
+        variablesMap.set(normalizeSearchName(v.name), v.id)
+      }
+
+      // Cache of suppliers (normalized name -> id)
+      const suppliersMap = new Map<string, number>()
+      const existingSuppliers = this.db
+        .prepare('SELECT id, name FROM suppliers WHERE active = 1')
+        .all() as { id: number; name: string }[]
+      for (const s of existingSuppliers) {
+        suppliersMap.set(normalizeSearchName(s.name), s.id)
+      }
+
       // 2. Prepared statements
       const insertCategoryStmt = this.db.prepare(`
         INSERT INTO categories (name, parent_id)
@@ -232,9 +261,19 @@ export class ExcelService {
       `)
 
       const findProductStmt = this.db.prepare(`
-        SELECT id, stock, sale_price, cost_price, min_stock, category_id
+        SELECT id, stock, sale_price, cost_price, min_stock, category_id, product_type, parent_id
         FROM products
         WHERE code = ?
+      `)
+
+      const insertVariableStmt = this.db.prepare(`
+        INSERT INTO products (
+          name, search_name, product_type, parent_id, attribute_name, attribute_value,
+          sale_price, cost_price, category_id, stock, min_stock, active, created_at, updated_at
+        ) VALUES (
+          ?, ?, 'variable', NULL, ?, NULL,
+          0, 0, ?, 0, 0, 1, ?, ?
+        )
       `)
 
       const insertProductStmt = this.db.prepare(`
@@ -242,7 +281,7 @@ export class ExcelService {
           code, name, search_name, product_type, parent_id, attribute_name, attribute_value,
           sale_price, cost_price, category_id, stock, min_stock, active, created_at, updated_at
         ) VALUES (
-          ?, ?, ?, 'simple', NULL, NULL, NULL,
+          ?, ?, ?, ?, ?, ?, ?,
           ?, ?, ?, ?, ?, 1, ?, ?
         )
       `)
@@ -251,6 +290,10 @@ export class ExcelService {
         UPDATE products SET
           name = ?,
           search_name = ?,
+          product_type = ?,
+          parent_id = ?,
+          attribute_name = ?,
+          attribute_value = ?,
           sale_price = ?,
           cost_price = ?,
           category_id = ?,
@@ -259,6 +302,16 @@ export class ExcelService {
           active = 1,
           updated_at = ?
         WHERE id = ?
+      `)
+
+      const insertSupplierStmt = this.db.prepare(`
+        INSERT INTO suppliers (name, search_name, active, created_at, updated_at)
+        VALUES (?, ?, 1, ?, ?)
+      `)
+
+      const linkProductSupplierStmt = this.db.prepare(`
+        INSERT OR IGNORE INTO product_suppliers (product_id, supplier_id)
+        VALUES (?, ?)
       `)
 
       const insertMovementStmt = this.db.prepare(`
@@ -334,14 +387,49 @@ export class ExcelService {
           }
         }
 
+        // Check if row is a variation or simple
+        const rawParentName = parentNameIdx >= 0 ? row[parentNameIdx] : undefined
+        const parentName = rawParentName !== undefined && rawParentName !== null ? String(rawParentName).trim() : ''
+        const rawAttrName = attrNameIdx >= 0 ? row[attrNameIdx] : undefined
+        const attrName = rawAttrName !== undefined && rawAttrName !== null ? String(rawAttrName).trim() : ''
+        const rawAttrVal = attrValIdx >= 0 ? row[attrValIdx] : undefined
+        const attrVal = rawAttrVal !== undefined && rawAttrVal !== null ? String(rawAttrVal).trim() : ''
+        const rawProdType = prodTypeIdx >= 0 ? String(row[prodTypeIdx] || '').trim().toLowerCase() : ''
+        const isVariation = parentName !== '' || rawProdType === 'variacion' || rawProdType === 'variation'
+
+        let actualProductType: 'simple' | 'variation' = 'simple'
+        let actualParentId: number | null = null
+        let actualAttrName: string | null = null
+        let actualAttrVal: string | null = null
+
+        if (isVariation && parentName !== '') {
+          actualProductType = 'variation'
+          const normParent = normalizeSearchName(parentName)
+          if (variablesMap.has(normParent)) {
+            actualParentId = variablesMap.get(normParent)!
+          } else {
+            const varRes = insertVariableStmt.run(parentName, normParent, attrName || 'Variante', categoryId, now, now)
+            actualParentId = Number(varRes.lastInsertRowid)
+            variablesMap.set(normParent, actualParentId)
+          }
+          actualAttrName = attrName || 'Variante'
+          actualAttrVal = attrVal || name
+        }
+
         const searchName = normalizeSearchName(name)
-        const existing = findProductStmt.get(code) as { id: number; stock: number } | undefined
+        const existing = findProductStmt.get(code) as { id: number; stock: number; parent_id: number | null } | undefined
+        let targetProductId: number
 
         if (existing) {
+          targetProductId = existing.id
           // Update existing product
           updateProductStmt.run(
             name,
             searchName,
+            actualProductType,
+            actualParentId ?? existing.parent_id,
+            actualAttrName,
+            actualAttrVal,
             salePrice,
             costPrice,
             categoryId,
@@ -360,10 +448,14 @@ export class ExcelService {
           updatedCount++
         } else {
           // Insert new product
-          insertProductStmt.run(
+          const insertRes = insertProductStmt.run(
             code,
             name,
             searchName,
+            actualProductType,
+            actualParentId,
+            actualAttrName,
+            actualAttrVal,
             salePrice,
             costPrice,
             categoryId,
@@ -372,6 +464,7 @@ export class ExcelService {
             now,
             now
           )
+          targetProductId = Number(insertRes.lastInsertRowid)
 
           // Record initial inventory movement
           if (stock !== 0) {
@@ -379,6 +472,31 @@ export class ExcelService {
           }
 
           createdCount++
+        }
+
+        // Process suppliers if present
+        const rawSuppliers = suppliersIdx >= 0 ? row[suppliersIdx] : undefined
+        if (rawSuppliers) {
+          const supplierNames = String(rawSuppliers)
+            .split(/[\/,]/)
+            .map((s) => s.trim())
+            .filter((s) => s !== '')
+
+          for (const sName of supplierNames) {
+            const normSup = normalizeSearchName(sName)
+            let sId: number
+            if (suppliersMap.has(normSup)) {
+              sId = suppliersMap.get(normSup)!
+            } else {
+              const sRes = insertSupplierStmt.run(sName, normSup, now, now)
+              sId = Number(sRes.lastInsertRowid)
+              suppliersMap.set(normSup, sId)
+            }
+            linkProductSupplierStmt.run(targetProductId, sId)
+            if (actualParentId) {
+              linkProductSupplierStmt.run(actualParentId, sId)
+            }
+          }
         }
       }
     })
@@ -394,6 +512,78 @@ export class ExcelService {
       skippedCount,
       departmentsCreated,
       errors
+    }
+  }
+
+  /**
+   * Exports all active sellable products (simple and variation) to an Excel (.xlsx) file,
+   * preserving internal structure (Tipo, Producto Padre, Atributo, Valor Atributo, Proveedores).
+   */
+  exportProducts(targetFilePath: string): ExportExcelResult {
+    const products = this.db
+      .prepare(`
+        SELECT 
+          p.id,
+          p.code,
+          p.name,
+          p.product_type,
+          p.parent_id,
+          p.attribute_name,
+          p.attribute_value,
+          p.sale_price,
+          p.cost_price,
+          p.stock,
+          p.min_stock,
+          c.name AS category_name,
+          parent_cat.name AS parent_category_name,
+          parent.name AS parent_product_name,
+          (
+            SELECT GROUP_CONCAT(s.name, ' / ')
+            FROM product_suppliers ps
+            JOIN suppliers s ON s.id = ps.supplier_id
+            WHERE ps.product_id = p.id OR (p.parent_id IS NOT NULL AND ps.product_id = p.parent_id)
+          ) AS suppliers_list
+        FROM products p
+        LEFT JOIN categories c ON c.id = p.category_id
+        LEFT JOIN categories parent_cat ON parent_cat.id = c.parent_id
+        LEFT JOIN products parent ON parent.id = p.parent_id
+        WHERE p.active = 1 AND p.product_type IN ('simple', 'variation')
+        ORDER BY COALESCE(parent.search_name, p.search_name) ASC, p.search_name ASC
+      `)
+      .all() as any[]
+
+    const rows = products.map((p) => {
+      let categoryStr = ''
+      if (p.parent_category_name && p.category_name) {
+        categoryStr = `${p.parent_category_name} > ${p.category_name}`
+      } else if (p.category_name) {
+        categoryStr = p.category_name
+      }
+
+      return {
+        Código: p.code || '',
+        Producto: p.name || '',
+        Tipo: p.product_type === 'variation' ? 'variacion' : 'simple',
+        'Producto Padre': p.parent_product_name || '',
+        Atributo: p.attribute_name || '',
+        'Valor Atributo': p.attribute_value || '',
+        'P. Costo': p.cost_price ?? 0,
+        'P. Venta': p.sale_price,
+        Existencia: p.stock,
+        'Inv. Mínimo': p.min_stock,
+        Categoría: categoryStr,
+        Proveedores: p.suppliers_list || ''
+      }
+    })
+
+    const worksheet = XLSX.utils.json_to_sheet(rows)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Productos')
+    XLSX.writeFile(workbook, targetFilePath)
+
+    return {
+      filePath: targetFilePath,
+      totalExported: rows.length
     }
   }
 }

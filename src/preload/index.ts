@@ -58,6 +58,8 @@ export interface CatalogAPI {
   selectExcelFile: () => Promise<string | null>
   parseExcelFile: (filePath: string) => Promise<ExcelParsePreview>
   importExcelFile: (filePath: string, customMapping?: Partial<ExcelColumnMapping>) => Promise<ImportReportResult>
+  exportExcel: (defaultPrefix?: string) => Promise<{ filePath: string; totalExported: number } | null>
+  openContainingFolder: (filePath: string) => Promise<boolean>
 }
 
 export interface SalesAPI {
@@ -209,6 +211,8 @@ export interface WindowAPI {
   selectExcelFile: () => Promise<string | null>
   parseExcelFile: (filePath: string) => Promise<ExcelParsePreview>
   importExcelFile: (filePath: string, customMapping?: Partial<ExcelColumnMapping>) => Promise<ImportReportResult>
+  exportExcel: (defaultPrefix?: string) => Promise<{ filePath: string; totalExported: number } | null>
+  openContainingFolder: (filePath: string) => Promise<boolean>
 
   getReportData: (filter: ReportFilter) => Promise<FullReportData>
   exportReportToExcel: (filter: ReportFilter) => Promise<{ success: boolean; filePath?: string }>
@@ -248,7 +252,9 @@ const catalog: CatalogAPI = {
 
   selectExcelFile: () => ipcRenderer.invoke('excel:selectFile'),
   parseExcelFile: (filePath) => ipcRenderer.invoke('excel:parseFile', filePath),
-  importExcelFile: (filePath, customMapping) => ipcRenderer.invoke('excel:importFile', filePath, customMapping)
+  importExcelFile: (filePath, customMapping) => ipcRenderer.invoke('excel:importFile', filePath, customMapping),
+  exportExcel: (defaultPrefix) => ipcRenderer.invoke('excel:exportProducts', defaultPrefix),
+  openContainingFolder: (filePath) => ipcRenderer.invoke('excel:openContainingFolder', filePath)
 }
 
 const sales: SalesAPI = {
@@ -418,6 +424,8 @@ const api: WindowAPI = {
   selectExcelFile: catalog.selectExcelFile,
   parseExcelFile: catalog.parseExcelFile,
   importExcelFile: catalog.importExcelFile,
+  exportExcel: catalog.exportExcel,
+  openContainingFolder: catalog.openContainingFolder,
 
   getReportData: reports.getData,
   exportReportToExcel: reports.exportExcel,

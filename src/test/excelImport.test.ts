@@ -231,4 +231,101 @@ describe('Fase 10: Importación de Catálogo desde Excel (.xlsx)', () => {
       expect(prod?.name).toBe('Código de Barra Numérico')
     })
   })
+
+  describe('Exportación y Soporte de Variaciones y Proveedores en Excel', () => {
+    it('exporta el catálogo completo a Excel preservando la estructura interna', () => {
+      const cat = productService.saveCategory('Lanas')
+
+      // 1. Producto simple
+      productService.upsertProduct({
+        code: 'SIMP-1',
+        name: 'Palillo de Tejer 5mm',
+        product_type: 'simple',
+        sale_price: 2500,
+        cost_price: 1200,
+        stock: 30,
+        min_stock: 5,
+        category_id: cat.id
+      })
+
+      // 2. Producto variable con variaciones
+      productService.saveVariableProduct(
+        {
+          name: 'Algodón Rústico',
+          category_id: cat.id,
+          attribute_name: 'Color'
+        },
+        [
+          {
+            code: 'VAR-ROJO',
+            name: 'Algodón Rústico Rojo',
+            attribute_value: 'Rojo',
+            sale_price: 3500,
+            cost_price: 2000,
+            stock: 15,
+            min_stock: 3
+          }
+        ]
+      )
+
+      const exportResult = excelService.exportProducts(tempFilePath)
+      expect(exportResult.totalExported).toBe(2) // 1 simple + 1 variation (excluye padre variable del total vendible)
+
+      // Leer el archivo generado para validar columnas y contenido
+      const wb = XLSX.readFile(tempFilePath)
+      expect(wb.SheetNames).toContain('Productos')
+      const ws = wb.Sheets['Productos']
+      const rows = XLSX.utils.sheet_to_json<any>(ws)
+
+      expect(rows).toHaveLength(2)
+
+      const simpleRow = rows.find((r) => r.Código === 'SIMP-1')
+      expect(simpleRow).toBeDefined()
+      expect(simpleRow.Tipo).toBe('simple')
+      expect(simpleRow['P. Venta']).toBe(2500)
+      expect(simpleRow.Existencia).toBe(30)
+      expect(simpleRow.Categoría).toBe('Lanas')
+
+      const varRow = rows.find((r) => r.Código === 'VAR-ROJO')
+      expect(varRow).toBeDefined()
+      expect(varRow.Tipo).toBe('variacion')
+      expect(varRow['Producto Padre']).toBe('Algodón Rústico')
+      expect(varRow.Atributo).toBe('Color')
+      expect(varRow['Valor Atributo']).toBe('Rojo')
+      expect(varRow['P. Venta']).toBe(3500)
+      expect(varRow.Existencia).toBe(15)
+    })
+
+    it('importa archivo con columnas de variaciones y crea automáticamente el producto variable padre', () => {
+      createTestWorkbook([
+        ['Código', 'Producto', 'Tipo', 'Producto Padre', 'Atributo', 'Valor Atributo', 'P. Costo', 'P. Venta', 'Existencia', 'Inv. Mínimo', 'Categoría', 'Proveedores'],
+        ['HIL-AZUL', 'Hilo Seda Azul', 'variacion', 'Hilo de Seda', 'Color', 'Azul', '1000', '2800', '20', '4', 'Costura', 'Proveedor Central'],
+        ['HIL-VERDE', 'Hilo Seda Verde', 'variacion', 'Hilo de Seda', 'Color', 'Verde', '1000', '2800', '15', '4', 'Costura', 'Proveedor Central / Distribuidora Sur']
+      ])
+
+      const report = excelService.importExcel(tempFilePath)
+      expect(report.createdCount).toBe(2)
+
+      // Comprobar que se creó el padre variable 'Hilo de Seda'
+      const parentVar = db.prepare("SELECT * FROM products WHERE product_type = 'variable' AND search_name = 'HILO DE SEDA'").get() as any
+      expect(parentVar).toBeDefined()
+      expect(parentVar.name).toBe('Hilo de Seda')
+
+      // Comprobar que las variaciones están asociadas al padre
+      const varAzul = productService.getProductByCode('HIL-AZUL')
+      expect(varAzul).not.toBeNull()
+      expect(varAzul?.parent_id).toBe(parentVar.id)
+      expect(varAzul?.product_type).toBe('variation')
+      expect(varAzul?.attribute_value).toBe('Azul')
+
+      // Comprobar proveedores asociados
+      const suppliers = db.prepare(`
+        SELECT s.name FROM product_suppliers ps
+        JOIN suppliers s ON s.id = ps.supplier_id
+        WHERE ps.product_id = ?
+      `).all(varAzul?.id) as { name: string }[]
+
+      expect(suppliers.map((s) => s.name)).toContain('Proveedor Central')
+    })
+  })
 })

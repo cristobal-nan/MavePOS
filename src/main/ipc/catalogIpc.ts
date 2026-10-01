@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow, dialog } from 'electron'
+import { ipcMain, BrowserWindow, dialog, shell } from 'electron'
 import { ProductService } from '../services/productService'
 import { SupplierService } from '../services/supplierService'
 import { ExcelService } from '../services/excelService'
@@ -111,5 +111,30 @@ export function registerCatalogIpc(
 
   ipcMain.handle('excel:importFile', (_event, filePath: string, customMapping?: Partial<ExcelColumnMapping>) => {
     return excelService.importExcel(filePath, customMapping)
+  })
+
+  ipcMain.handle('excel:exportProducts', async (_event, defaultPrefix?: string) => {
+    const today = new Date().toISOString().slice(0, 10)
+    const prefix = (defaultPrefix || 'Productos').trim() || 'Productos'
+    const defaultFilename = `${prefix}_${today}.xlsx`
+
+    const res = await dialog.showSaveDialog(mainWindow, {
+      title: 'Guardar catálogo de productos en Excel',
+      defaultPath: defaultFilename,
+      filters: [{ name: 'Hojas de Cálculo Excel (*.xlsx)', extensions: ['xlsx'] }]
+    })
+
+    if (res.canceled || !res.filePath) return null
+
+    const result = excelService.exportProducts(res.filePath)
+    return {
+      filePath: res.filePath,
+      totalExported: result.totalExported
+    }
+  })
+
+  ipcMain.handle('excel:openContainingFolder', (_event, filePath: string) => {
+    shell.showItemInFolder(filePath)
+    return true
   })
 }

@@ -26,7 +26,7 @@ interface TabItem {
 
 const TABS: TabItem[] = [
   { id: 'ventas', label: 'Ventas', icon: ShoppingCart },
-  { id: 'catalogo', label: 'Catálogo', icon: Layers },
+  { id: 'catalogo', label: 'Productos', icon: Layers },
   { id: 'inventario', label: 'Inventario', icon: Boxes },
   { id: 'corte', label: 'Corte', icon: Calculator },
   { id: 'reportes', label: 'Reportes', icon: BarChart3 },

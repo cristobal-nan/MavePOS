@@ -36,8 +36,10 @@ Este documento define el vocabulario canónico del sistema de Punto de Venta (PO
 
 ---
 
-### Catálogo e Inventario
+### Productos e Inventario (anteriormente Catálogo)
 
+- **Pestaña Productos (F2)**: Vista principal de administración del catálogo de productos, categorías, proveedores e importación/exportación masiva en formato Excel.
+- **Exportación a Excel**: Proceso que genera una planilla `.xlsx` con la totalidad de productos del sistema, preservando estructura de variaciones (`Tipo`, `Producto Padre`, `Atributo`, `Valor Atributo`) y proveedores.
 - **Producto Simple (`simple`)**: Producto vendible directo con código propio, stock propio y precio propio.
 - **Producto Variable (`variable`)**: Contenedor padre de una familia de productos. No es vendible directamente en caja ni posee stock físico directo.
 - **Variación (`variation`)**: Unidad vendible hija asociada a un producto variable padre mediante `parent_id`. Posee código, precio, costo y atributos propios (`attribute_value`, ej. Color 'Azul').

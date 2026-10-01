@@ -241,6 +241,21 @@ export interface AdjustStockInput {
   reason: string
 }
 
+export interface QuickAdjustmentReason {
+  id: string
+  text: string
+  type: 'replace' | 'append'
+}
+
+export const DEFAULT_QUICK_REASONS: QuickAdjustmentReason[] = [
+  { id: '1', text: 'Conteo físico / Arqueo', type: 'replace' },
+  { id: '2', text: 'Merma por daño o rotura', type: 'replace' },
+  { id: '3', text: 'Devolución a proveedor', type: 'replace' },
+  { id: '4', text: 'Ingreso de mercadería / Ajuste', type: 'replace' },
+  { id: '5', text: 'Pérdida / Descuadre', type: 'replace' },
+  { id: '6', text: 'Corrección de inventario', type: 'replace' }
+]
+
 export type DenominationCounts = Record<number, number>
 
 export type WithdrawalRules = Record<number, number | null>
@@ -355,6 +370,16 @@ export interface ExcelColumnMapping {
   stock: string
   min_stock?: string
   department?: string
+  product_type?: string
+  parent_name?: string
+  attribute_name?: string
+  attribute_value?: string
+  suppliers?: string
+}
+
+export interface ExportExcelResult {
+  filePath: string
+  totalExported: number
 }
 
 export interface ExcelParsePreview {

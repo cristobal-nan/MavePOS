@@ -20,6 +20,15 @@ interface CatalogState {
     stock: number
     actions: number
   }
+  modalColumnWidths: {
+    code: number
+    name: number
+    type: number
+    category: number
+    price: number
+    stock: number
+    actions: number
+  }
   isLoading: boolean
   isLoadingMore: boolean
   hasMore: boolean
@@ -34,7 +43,7 @@ interface CatalogState {
   setSelectedSupplier: (supId: number | null) => void
   setSelectedProductType: (type: 'sellable' | 'simple' | 'variation' | 'variable' | 'all') => void
   toggleSort: (column: 'name' | 'stock' | 'sale_price') => void
-  setColumnWidth: (column: string, width: number) => void
+  setColumnWidth: (column: string, width: number, context?: 'catalog' | 'modal') => void
   saveProduct: (input: ProductInput) => Promise<Product>
   saveVariableProduct: (parent: ProductInput, variations: ProductInput[]) => Promise<{ parent: Product; variations: Product[] }>
   getVariations: (parentId: number) => Promise<Product[]>
@@ -67,6 +76,15 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     price: 110,
     stock: 90,
     actions: 100
+  },
+  modalColumnWidths: {
+    code: 120,
+    name: 260,
+    type: 130,
+    category: 150,
+    price: 100,
+    stock: 80,
+    actions: 0
   },
   isLoading: false,
   isLoadingMore: false,
@@ -220,13 +238,16 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     get().fetchProducts()
   },
 
-  setColumnWidth: (column: string, width: number) => {
-    set((state) => ({
-      columnWidths: {
-        ...state.columnWidths,
-        [column]: Math.max(60, width)
+  setColumnWidth: (column: string, width: number, context: 'catalog' | 'modal' = 'catalog') => {
+    set((state) => {
+      const targetKey = context === 'modal' ? 'modalColumnWidths' : 'columnWidths'
+      return {
+        [targetKey]: {
+          ...state[targetKey],
+          [column]: Math.max(60, width)
+        }
       }
-    }))
+    })
   },
 
   saveProduct: async (input: ProductInput) => {

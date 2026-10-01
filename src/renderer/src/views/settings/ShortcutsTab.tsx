@@ -29,7 +29,7 @@ export const ShortcutsTab: React.FC = () => {
                 </kbd>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-600 font-medium">Catálogo de Productos</span>
+                <span className="text-slate-600 font-medium">Productos</span>
                 <kbd className="px-2.5 py-1 bg-white border border-slate-200 rounded-md font-mono font-bold text-lilac-700 shadow-xs">
                   F2
                 </kbd>
