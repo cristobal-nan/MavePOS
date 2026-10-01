@@ -44,7 +44,7 @@ export const DenominationsCalculator: React.FC<DenominationsCalculatorProps> = (
   return (
     <div className="bg-white border border-lilac-200 rounded-2xl p-5 shadow-xs flex flex-col gap-3 flex-1 select-none">
       {/* Header */}
-      <div className="border-b border-slate-100 pb-2.5 flex items-start justify-between gap-2">
+      <div className="border-b border-slate-100 pb-2.5 flex items-start justify-between gap-2 min-h-[50px]">
         <div>
           <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
             <Coins className="w-4 h-4 text-lilac-600 shrink-0" />
@@ -68,12 +68,12 @@ export const DenominationsCalculator: React.FC<DenominationsCalculatorProps> = (
       ) : (
         /* Tabla de 3 Columnas */
         <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full text-left text-xs border-collapse table-fixed">
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
-              <tr>
-                <th className="py-2 px-3 w-5/12">Denominación</th>
-                <th className="py-2 px-3 w-3/12 text-center">Cantidad</th>
-                <th className="py-2 px-3 w-4/12 text-right">Total</th>
+              <tr className="h-9">
+                <th className="px-3 w-5/12 align-middle">Denominación</th>
+                <th className="px-3 w-3/12 text-center align-middle">Cantidad</th>
+                <th className="px-3 w-4/12 text-right align-middle">Total</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
@@ -81,12 +81,12 @@ export const DenominationsCalculator: React.FC<DenominationsCalculatorProps> = (
                 const count = denominationCounts?.[d.value] || 0
                 const subtotal = d.value * count
                 return (
-                  <tr key={d.value} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="py-1.5 px-3 font-semibold text-slate-800">
+                  <tr key={d.value} className="h-10 hover:bg-slate-50/60 transition-colors">
+                    <td className="px-3 font-semibold text-slate-800 align-middle">
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs font-bold text-slate-900">{d.label}</span>
                         <span
-                          className={`text-[9px] font-semibold px-1.5 py-0.2 rounded ${
+                          className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
                             d.type === 'bill'
                               ? 'bg-blue-50 text-blue-700 border border-blue-200'
                               : 'bg-amber-50 text-amber-700 border border-amber-200'
@@ -97,13 +97,15 @@ export const DenominationsCalculator: React.FC<DenominationsCalculatorProps> = (
                       </div>
                     </td>
 
-                    <td className="py-1.5 px-3 text-center">
+                    <td className="px-3 text-center align-middle">
                       {readOnly ? (
-                        <span className="font-mono font-bold text-xs text-slate-800">
-                          {count > 0 ? `${count} un.` : '—'}
-                        </span>
+                        <div className="h-7 flex items-center justify-center">
+                          <span className="font-mono font-bold text-xs text-slate-800">
+                            {count > 0 ? `${count} un.` : '—'}
+                          </span>
+                        </div>
                       ) : (
-                        <div className="inline-flex items-center gap-1 justify-center">
+                        <div className="h-7 inline-flex items-center gap-1 justify-center">
                           <input
                             type="number"
                             min="0"
@@ -112,14 +114,14 @@ export const DenominationsCalculator: React.FC<DenominationsCalculatorProps> = (
                             onChange={(e) =>
                               onDenominationChange?.(d.value, parseInt(e.target.value, 10))
                             }
-                            className="w-16 px-2 py-1 text-xs font-bold text-slate-900 border border-slate-300 rounded-lg bg-slate-50 text-center focus:outline-none focus:bg-white focus:border-lilac-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            className="w-16 h-7 px-2 text-xs font-bold text-slate-900 border border-slate-300 rounded-lg bg-slate-50 text-center focus:outline-none focus:bg-white focus:border-lilac-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                           <span className="text-[10px] text-slate-400 font-medium">un.</span>
                         </div>
                       )}
                     </td>
 
-                    <td className="py-1.5 px-3 text-right">
+                    <td className="px-3 text-right align-middle">
                       <span
                         className={`text-xs font-bold font-mono ${
                           subtotal > 0 ? 'text-slate-900' : 'text-slate-300'
@@ -134,11 +136,11 @@ export const DenominationsCalculator: React.FC<DenominationsCalculatorProps> = (
             </tbody>
             {!hideFooter && (
               <tfoot className="bg-lilac-50/60 border-t-2 border-lilac-200 font-bold">
-                <tr>
-                  <td colSpan={2} className="py-2.5 px-3 text-slate-800 text-xs uppercase tracking-wide">
+                <tr className="h-10">
+                  <td colSpan={2} className="px-3 text-slate-800 text-xs uppercase tracking-wide align-middle">
                     {footerLabel}
                   </td>
-                  <td className="py-2.5 px-3 text-right text-sm font-black text-lilac-800 font-mono">
+                  <td className="px-3 text-right text-sm font-black text-lilac-800 font-mono align-middle">
                     {formatCLP(total)}
                   </td>
                 </tr>

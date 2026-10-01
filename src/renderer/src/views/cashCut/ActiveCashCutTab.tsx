@@ -11,7 +11,8 @@ import {
   Coins,
   CheckCircle2,
   XCircle,
-  Sparkles
+  Sparkles,
+  FileText
 } from 'lucide-react'
 import { useCashStore } from '../../store/cashStore'
 import { formatCLP, formatDateTime } from '../../utils/formatters'
@@ -24,14 +25,13 @@ import {
 } from '@shared/finance'
 import { DenominationsCalculator } from './DenominationsCalculator'
 import { ConfirmCashCutModal } from './ConfirmCashCutModal'
-import { ReceiptCashCutModal } from './ReceiptCashCutModal'
 
 interface ActiveCashCutTabProps {
   onSwitchToHistory: () => void
 }
 
 export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHistory }) => {
-  const { currentSession, currentSummary, closeSession } = useCashStore()
+  const { currentSession, currentSummary, closeSession, setCompletedCutReceipt } = useCashStore()
 
   // Estado del arqueo físico de cierre (calculadora de denominaciones de la derecha)
   const [denominationCounts, setDenominationCounts] = useState<Record<number, number>>({
@@ -55,8 +55,6 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
 
   // Modales
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false)
-  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false)
-  const [completedCutData, setCompletedCutData] = useState<any | null>(null)
   const [isClosing, setIsClosing] = useState(false)
 
   // Cargar reglas de retiro configuradas en settings
@@ -156,8 +154,7 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
 
     if (success) {
       setIsConfirmModalOpen(false)
-      setCompletedCutData(receiptData)
-      setIsReceiptModalOpen(true)
+      setCompletedCutReceipt(receiptData)
     }
   }
 
@@ -346,46 +343,54 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
       </div>
 
       {/* Sección Principal: Cuadre de Cajas */}
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Coins className="w-5 h-5 text-lilac-600" />
-              <span>Cuadre de Cajas</span>
-            </h4>
-            <p className="text-xs text-slate-500">
-              Conciliación integral del turno: arqueo físico de efectivo en gaveta, cuadre con máquina de tarjetas y verificación de transferencias.
-            </p>
-          </div>
+      <div className="flex flex-col gap-4">
+        <div>
+          <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
+            <Coins className="w-5 h-5 text-lilac-600" />
+            <span>Cuadre de Cajas</span>
+          </h4>
+          <p className="text-xs text-slate-500">
+            Conciliación integral del turno: arqueo físico de efectivo en gaveta, cuadre con máquina de tarjetas y verificación de transferencias.
+          </p>
         </div>
 
-        {/* 1. Cuadre en Efectivo: Dos Calculadoras Lado a Lado */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
-          {/* Izquierda: Fondo Inicial de Turno (Solo Lectura) */}
-          <DenominationsCalculator
-            title="1. Fondo Inicial (Apertura de Turno)"
-            subtitle="Billetes y monedas registrados al abrir este turno"
-            badgeLabel="Inicio de Turno"
-            badgeVariant="slate"
-            denominationCounts={openingCounts}
-            countedCash={currentSession.opening_fund}
-            readOnly={true}
-            footerLabel="Total Fondo Inicial"
-            emptyMessage="Turno iniciado con monto plano sin desglose de billetes"
-          />
+        {/* Título: Cuadre Efectivo */}
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+            <Banknote className="w-4 h-4 text-lilac-600" />
+            <h5 className="text-xs font-black text-slate-700 uppercase tracking-wider">
+              Cuadre Efectivo
+            </h5>
+          </div>
 
-          {/* Derecha: Conteo Físico de Cierre (Editable para cuadrar) */}
-          <DenominationsCalculator
-            title="2. Arqueo Físico (Cierre de Turno)"
-            subtitle="Ingresa la cantidad física en gaveta para cuadrar"
-            badgeLabel="Cierre / Cuadre"
-            badgeVariant="lilac"
-            denominationCounts={denominationCounts}
-            onDenominationChange={handleDenominationChange}
-            countedCash={countedCash}
-            readOnly={false}
-            footerLabel="Total Físico Contado"
-          />
+          {/* Dos Calculadoras Lado a Lado */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
+            {/* Izquierda: Fondo Inicial de Turno (Solo Lectura) */}
+            <DenominationsCalculator
+              title="Apertura de turno"
+              subtitle="Billetes y monedas registrados al abrir este turno"
+              badgeLabel="Inicio de Turno"
+              badgeVariant="slate"
+              denominationCounts={openingCounts}
+              countedCash={currentSession.opening_fund}
+              readOnly={true}
+              footerLabel="Total Fondo Inicial"
+              emptyMessage="Turno iniciado con monto plano sin desglose de billetes"
+            />
+
+            {/* Derecha: Conteo Físico de Cierre (Editable para cuadrar) */}
+            <DenominationsCalculator
+              title="Cierre de turno"
+              subtitle="Ingresa la cantidad física en gaveta para cuadrar"
+              badgeLabel="Cierre / Cuadre"
+              badgeVariant="lilac"
+              denominationCounts={denominationCounts}
+              onDenominationChange={handleDenominationChange}
+              countedCash={countedCash}
+              readOnly={false}
+              footerLabel="Total Físico Contado"
+            />
+          </div>
         </div>
       </div>
 
@@ -496,210 +501,223 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
         </div>
       </div>
 
-      {/* 2. Cuadre de Tarjetas (2/3) y Cuadre de Transferencias (1/3) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
-        {/* Izquierda: Cuadre de Pago con Tarjetas (2/3) */}
-        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between gap-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-                <CreditCard className="w-4 h-4" />
-              </div>
-              <div>
-                <h4 className="text-sm font-bold text-slate-900">
-                  Cuadre de Pago con Tarjetas
-                </h4>
-                <p className="text-[11px] text-slate-500">
-                  Compara las ventas registradas con el total del voucher de cierre de lote de la máquina POS
-                </p>
-              </div>
-            </div>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-              Máquina POS
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-            {/* Ventas Tarjeta POS */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-col justify-between">
-              <span className="text-[11px] font-semibold text-slate-500">Ventas Tarjeta (Sistema)</span>
-              <span className="text-xl font-black text-blue-700 mt-1">
-                {formatCLP(cardSales)}
-              </span>
-              <span className="text-[10px] text-slate-400 mt-0.5">Total registrado en POS</span>
-            </div>
-
-            {/* Total Máquina POS Input */}
-            <div className="bg-blue-50/40 border border-blue-200 rounded-xl p-3.5 flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <label htmlFor="card-machine-input" className="text-[11px] font-bold text-blue-900">
-                  Total Máquina POS ($)
-                </label>
-                {cardSales > 0 && cardMachineInput === '' && (
-                  <button
-                    type="button"
-                    onClick={() => setCardMachineInput(cardSales.toString())}
-                    className="text-[10px] font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer"
-                  >
-                    Copiar POS
-                  </button>
-                )}
-              </div>
-              <input
-                id="card-machine-input"
-                type="number"
-                min={0}
-                placeholder={cardSales > 0 ? cardSales.toString() : '0'}
-                value={cardMachineInput}
-                onChange={(e) => setCardMachineInput(e.target.value)}
-                className="w-full mt-1 px-3 py-1.5 bg-white border border-blue-300 rounded-lg text-sm font-black text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-center"
-              />
-              <span className="text-[10px] text-slate-500 mt-0.5 text-center">
-                Monto del voucher de cierre
-              </span>
-            </div>
-
-            {/* Diferencia Tarjeta */}
-            <div className="flex flex-col items-center justify-center p-3 text-center">
-              <span className="text-[11px] font-semibold text-slate-500 mb-1">
-                Diferencia Tarjeta
-              </span>
-              {cardDifference === 0 ? (
-                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Cuadrada ($0)</span>
-                </div>
-              ) : cardDifference > 0 ? (
-                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
-                  <span>+{formatCLP(cardDifference)} (Sobrante)</span>
-                </div>
-              ) : (
-                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                  <XCircle className="w-3.5 h-3.5 text-rose-600" />
-                  <span>−{formatCLP(Math.abs(cardDifference))} (Faltante)</span>
-                </div>
-              )}
-              <span className="text-[10px] text-slate-400 mt-1">
-                Se refleja en el historial
-              </span>
-            </div>
-          </div>
+      {/* Título: Cuadre Tarjeta y Transferencia */}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+          <CreditCard className="w-4 h-4 text-lilac-600" />
+          <h5 className="text-xs font-black text-slate-700 uppercase tracking-wider">
+            Cuadre Tarjeta y Transferencia
+          </h5>
         </div>
 
-        {/* Derecha: Cuadre de Transferencias (1/3) */}
-        <div
-          className={`lg:col-span-1 rounded-2xl p-5 shadow-sm flex flex-col justify-between gap-4 transition-all ${
-            hasTransferSales
-              ? 'bg-white border border-slate-200'
-              : 'bg-slate-50/70 border border-slate-200/80 border-dashed opacity-60'
-          }`}
-        >
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-2.5">
-              <div
-                className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold ${
-                  hasTransferSales
-                    ? 'bg-indigo-50 text-indigo-600'
-                    : 'bg-slate-100 text-slate-400'
-                }`}
-              >
-                <Send className="w-4 h-4" />
+        {/* 2. Cuadre de Tarjetas (2/3) y Cuadre de Transferencias (1/3) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
+          {/* Izquierda: Cuadre de Pago con Tarjetas (2/3) */}
+          <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col justify-between gap-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                  <CreditCard className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">
+                    Cuadre de Pago con Tarjetas
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    Compara las ventas registradas con el total del voucher de cierre de lote de la máquina POS
+                  </p>
+                </div>
               </div>
-              <div>
-                <h4 className="text-sm font-bold text-slate-900">
-                  Cuadre de Transferencias
-                </h4>
-                <p className="text-[11px] text-slate-500">
-                  {hasTransferSales
-                    ? 'Verificación en cuenta bancaria'
-                    : 'Sin transferencias este turno'}
-                </p>
-              </div>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                Máquina POS
+              </span>
             </div>
-            <span
-              className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                hasTransferSales
-                  ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                  : 'bg-slate-100 text-slate-400 border-slate-200'
-              }`}
-            >
-              {hasTransferSales ? 'Activo' : 'Inactivo'}
-            </span>
-          </div>
 
-          {!hasTransferSales ? (
-            <div className="py-6 flex flex-col items-center justify-center text-center text-slate-400">
-              <Send className="w-8 h-8 text-slate-300 mb-2" />
-              <p className="text-xs font-semibold text-slate-600">
-                No hubo ventas con transferencia
-              </p>
-              <p className="text-[10px] text-slate-400 mt-0.5 max-w-[200px]">
-                Este módulo solo se activa al registrar cobros con transferencia
-              </p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                <span className="text-[11px] font-medium text-slate-500">Ventas Sistema:</span>
-                <span className="text-xs font-bold text-indigo-800">{formatCLP(transferSales)}</span>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+              {/* Ventas Tarjeta POS */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-col justify-between">
+                <span className="text-[11px] font-semibold text-slate-500">Ventas Tarjeta (Sistema)</span>
+                <span className="text-xl font-black text-blue-700 mt-1">
+                  {formatCLP(cardSales)}
+                </span>
+                <span className="text-[10px] text-slate-400 mt-0.5">Total registrado en POS</span>
               </div>
 
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label htmlFor="transfer-verified-input" className="text-[11px] font-bold text-slate-700">
-                    Monto en Banco ($):
+              {/* Total Máquina POS Input */}
+              <div className="bg-blue-50/40 border border-blue-200 rounded-xl p-3.5 flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="card-machine-input" className="text-[11px] font-bold text-blue-900">
+                    Total Máquina POS ($)
                   </label>
-                  {transferVerifiedInput === '' && (
+                  {cardSales > 0 && cardMachineInput === '' && (
                     <button
                       type="button"
-                      onClick={() => setTransferVerifiedInput(transferSales.toString())}
-                      className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
+                      onClick={() => setCardMachineInput(cardSales.toString())}
+                      className="text-[10px] font-bold text-blue-600 hover:text-blue-800 underline cursor-pointer"
                     >
                       Copiar POS
                     </button>
                   )}
                 </div>
                 <input
-                  id="transfer-verified-input"
+                  id="card-machine-input"
                   type="number"
                   min={0}
-                  placeholder={transferSales.toString()}
-                  value={transferVerifiedInput}
-                  onChange={(e) => setTransferVerifiedInput(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs font-black text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-center"
+                  placeholder={cardSales > 0 ? cardSales.toString() : '0'}
+                  value={cardMachineInput}
+                  onChange={(e) => setCardMachineInput(e.target.value)}
+                  className="w-full mt-1 px-3 py-1.5 bg-white border border-blue-300 rounded-lg text-sm font-black text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-center"
                 />
+                <span className="text-[10px] text-slate-500 mt-0.5 text-center">
+                  Monto del voucher de cierre
+                </span>
               </div>
 
-              <div className="flex justify-between items-center pt-2 border-t border-slate-100">
-                <span className="text-[11px] font-medium text-slate-500">Diferencia:</span>
-                {transferDifference === 0 ? (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    Cuadrada ($0)
-                  </span>
-                ) : transferDifference > 0 ? (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                    +{formatCLP(transferDifference)}
-                  </span>
+              {/* Diferencia Tarjeta */}
+              <div className="flex flex-col items-center justify-center p-3 text-center">
+                <span className="text-[11px] font-semibold text-slate-500 mb-1">
+                  Diferencia Tarjeta
+                </span>
+                {cardDifference === 0 ? (
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Cuadrada ($0)</span>
+                  </div>
+                ) : cardDifference > 0 ? (
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
+                    <span>+{formatCLP(cardDifference)} (Sobrante)</span>
+                  </div>
                 ) : (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                    −{formatCLP(Math.abs(transferDifference))}
-                  </span>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                    <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                    <span>−{formatCLP(Math.abs(cardDifference))} (Faltante)</span>
+                  </div>
                 )}
+                <span className="text-[10px] text-slate-400 mt-1">
+                  Se refleja en el historial
+                </span>
               </div>
             </div>
-          )}
+          </div>
+
+          {/* Derecha: Cuadre de Transferencias (1/3) */}
+          <div
+            className={`lg:col-span-1 rounded-2xl p-5 shadow-sm flex flex-col justify-between gap-4 transition-all ${
+              hasTransferSales
+                ? 'bg-white border border-slate-200'
+                : 'bg-slate-50/70 border border-slate-200/80 border-dashed opacity-60'
+            }`}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div
+                  className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold ${
+                    hasTransferSales
+                      ? 'bg-indigo-50 text-indigo-600'
+                      : 'bg-slate-100 text-slate-400'
+                  }`}
+                >
+                  <Send className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">
+                    Cuadre de Transferencias
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    {hasTransferSales
+                      ? 'Verificación en cuenta bancaria'
+                      : 'Sin transferencias este turno'}
+                  </p>
+                </div>
+              </div>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                  hasTransferSales
+                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                    : 'bg-slate-100 text-slate-400 border-slate-200'
+                }`}
+              >
+                {hasTransferSales ? 'Activo' : 'Inactivo'}
+              </span>
+            </div>
+
+            {!hasTransferSales ? (
+              <div className="py-6 flex flex-col items-center justify-center text-center text-slate-400">
+                <Send className="w-8 h-8 text-slate-300 mb-2" />
+                <p className="text-xs font-semibold text-slate-600">
+                  No hubo ventas con transferencia
+                </p>
+                <p className="text-[10px] text-slate-400 mt-0.5 max-w-[200px]">
+                  Este módulo solo se activa al registrar cobros con transferencia
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <div className="flex justify-between items-center bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                  <span className="text-[11px] font-medium text-slate-500">Ventas Sistema:</span>
+                  <span className="text-xs font-bold text-indigo-800">{formatCLP(transferSales)}</span>
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label htmlFor="transfer-verified-input" className="text-[11px] font-bold text-slate-700">
+                      Monto en Banco ($):
+                    </label>
+                    {transferVerifiedInput === '' && (
+                      <button
+                        type="button"
+                        onClick={() => setTransferVerifiedInput(transferSales.toString())}
+                        className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
+                      >
+                        Copiar POS
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    id="transfer-verified-input"
+                    type="number"
+                    min={0}
+                    placeholder={transferSales.toString()}
+                    value={transferVerifiedInput}
+                    onChange={(e) => setTransferVerifiedInput(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs font-black text-slate-900 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-center"
+                  />
+                </div>
+
+                <div className="flex justify-between items-center pt-2 border-t border-slate-100">
+                  <span className="text-[11px] font-medium text-slate-500">Diferencia:</span>
+                  {transferDifference === 0 ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      Cuadrada ($0)
+                    </span>
+                  ) : transferDifference > 0 ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                      +{formatCLP(transferDifference)}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                      −{formatCLP(Math.abs(transferDifference))}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Observaciones del Turno */}
-      <div>
-        <label className="block text-xs font-bold text-slate-700 mb-1">
-          Observaciones / Notas del Cierre (opcional)
-        </label>
+      {/* Título: Observaciones */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+          <FileText className="w-4 h-4 text-lilac-600" />
+          <h5 className="text-xs font-black text-slate-700 uppercase tracking-wider">
+            Observaciones
+          </h5>
+        </div>
         <textarea
           rows={2}
-          placeholder="Detalles sobre diferencias, incidencias o comentarios del turno..."
+          placeholder="Detalles sobre diferencias, incidencias o comentarios del turno (opcional)..."
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           className="w-full px-3 py-2 text-xs border border-slate-300 rounded-xl focus:outline-none focus:border-lilac-500 resize-none text-slate-800 placeholder:text-slate-400"
@@ -732,15 +750,6 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
         isClosing={isClosing}
         onClose={() => setIsConfirmModalOpen(false)}
         onConfirm={handleExecuteCloseSession}
-      />
-
-      <ReceiptCashCutModal
-        isOpen={isReceiptModalOpen}
-        data={completedCutData}
-        onClose={() => {
-          setIsReceiptModalOpen(false)
-          setCompletedCutData(null)
-        }}
       />
     </div>
   )

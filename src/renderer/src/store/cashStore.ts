@@ -20,11 +20,15 @@ interface CashState {
   ) => Promise<boolean>
   clearError: () => void
   getLastClosedSession: () => Promise<CashSession | null>
+  completedCutReceipt: any | null
+  setCompletedCutReceipt: (data: any | null) => void
 }
 
 export const useCashStore = create<CashState>((set, get) => ({
   currentSession: null,
   currentSummary: null,
+  completedCutReceipt: null,
+  setCompletedCutReceipt: (data) => set({ completedCutReceipt: data }),
   pastSessions: [],
   isLoading: true,
   isSummaryLoading: false,

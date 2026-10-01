@@ -1,22 +1,24 @@
 import React from 'react'
-import { CheckCircle2, Printer } from 'lucide-react'
+import { CheckCircle2, Printer, Power } from 'lucide-react'
 import { formatCLP, formatDateTime } from '../../utils/formatters'
 
 interface ReceiptCashCutModalProps {
   isOpen: boolean
   data: any | null
   onClose: () => void
+  onExitApp?: () => void
 }
 
 export const ReceiptCashCutModal: React.FC<ReceiptCashCutModalProps> = ({
   isOpen,
   data,
-  onClose
+  onClose,
+  onExitApp
 }) => {
   if (!isOpen || !data) return null
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 bg-slate-900/70 flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl shadow-2xl border border-lilac-200 w-full max-w-lg p-6 flex flex-col gap-4 animate-in fade-in zoom-in-95">
         <div className="text-center pb-2 border-b border-slate-100">
           <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-2">
@@ -107,19 +109,32 @@ export const ReceiptCashCutModal: React.FC<ReceiptCashCutModalProps> = ({
           <button
             type="button"
             onClick={() => window.print()}
-            className="px-4 py-2 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors"
+            className="px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <Printer className="w-4 h-4" />
             <span>Imprimir Comprobante</span>
           </button>
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-6 py-2 rounded-xl bg-lilac-600 hover:bg-lilac-700 text-white font-bold text-xs shadow-md transition-colors"
-          >
-            Finalizar
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
+            >
+              Nuevo Turno
+            </button>
+
+            {onExitApp && (
+              <button
+                type="button"
+                onClick={onExitApp}
+                className="px-5 py-2.5 rounded-xl bg-lilac-600 hover:bg-lilac-700 text-white font-bold text-xs shadow-md shadow-lilac-600/20 flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Power className="w-3.5 h-3.5" />
+                <span>Cerrar POS y Salir</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
