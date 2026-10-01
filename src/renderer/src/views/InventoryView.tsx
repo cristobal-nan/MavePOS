@@ -5,30 +5,19 @@ import {
   ArrowLeftRight,
   BookOpen,
   Search,
-  Plus,
-  Minus,
   RefreshCw,
   CheckCircle2,
-  Package,
   Calendar,
   ArrowDownRight,
   ArrowUpRight,
   X,
-  AlertCircle
+  AlertCircle,
+  Barcode
 } from 'lucide-react'
 import { useInventoryStore } from '../store/inventoryStore'
-import { ProductSearchResult, MovementType } from '@shared/types'
+import { ProductSearchResult, MovementType, QuickAdjustmentReason, DEFAULT_QUICK_REASONS } from '@shared/types'
 import { ProductSearchModal } from '../components/ProductSearchModal'
 import { formatCLP } from '../utils/formatters'
-
-const QUICK_REASONS = [
-  'Conteo físico / Arqueo',
-  'Merma por daño o rotura',
-  'Devolución a proveedor',
-  'Ingreso de mercadería / Ajuste',
-  'Pérdida / Descuadre',
-  'Corrección de inventario'
-]
 
 export const InventoryView: React.FC = () => {
   const {
@@ -58,13 +47,40 @@ export const InventoryView: React.FC = () => {
   const [kardexCodeInput, setKardexCodeInput] = useState('')
 
   // Estado del formulario de ajuste
-  const [adjustMode, setAdjustMode] = useState<'relative' | 'replace'>('relative')
-  const [relativeDelta, setRelativeDelta] = useState<number>(1)
-  const [replaceQuantity, setReplaceQuantity] = useState<number>(0)
+  const [deltaInput, setDeltaInput] = useState('')
+  const [newStockInput, setNewStockInput] = useState('')
   const [reason, setReason] = useState('')
   const [feedbackMessage, setFeedbackMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [quickReasons, setQuickReasons] = useState<QuickAdjustmentReason[]>([...DEFAULT_QUICK_REASONS])
 
   const codeInputRef = useRef<HTMLInputElement>(null)
+
+  // Cargar motivos configurados desde settings al cambiar de tab o montar
+  useEffect(() => {
+    let isMounted = true
+    window.api
+      .getAllSettings()
+      .then((settings) => {
+        if (!isMounted) return
+        if (settings?.inventory_quick_reasons) {
+          try {
+            const parsed = JSON.parse(settings.inventory_quick_reasons)
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setQuickReasons(parsed)
+            }
+          } catch (e) {
+            console.error('Error parseando inventory_quick_reasons:', e)
+          }
+        }
+      })
+      .catch((err) => {
+        console.error('Error al cargar configuración de motivos:', err)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [activeTab])
 
   // Cargar datos al montar y al cambiar de tab
   useEffect(() => {
@@ -77,32 +93,71 @@ export const InventoryView: React.FC = () => {
     }
   }, [activeTab, selectedProduct])
 
-  // Al seleccionar un producto en 'adjust', inicializar la cantidad de reemplazo con su stock actual
+  // Al seleccionar un producto en 'adjust', inicializar inputs con su stock actual
   useEffect(() => {
     if (selectedProduct) {
-      setReplaceQuantity(selectedProduct.stock)
-      setRelativeDelta(1)
+      setCodeInput(selectedProduct.code || '')
+      setNewStockInput(String(selectedProduct.stock))
+      setDeltaInput('')
       setReason('')
       setFeedbackMessage(null)
+    } else {
+      setCodeInput('')
+      setNewStockInput('')
+      setDeltaInput('')
+      setReason('')
     }
   }, [selectedProduct])
 
-  // Calcular nuevo stock según el modo
+  // Calcular nuevo stock según inputs
   const calculateNewStock = (): number => {
     if (!selectedProduct) return 0
-    if (adjustMode === 'relative') {
-      return selectedProduct.stock + relativeDelta
-    }
-    return replaceQuantity
+    const n = parseInt(newStockInput, 10)
+    return isNaN(n) ? selectedProduct.stock : n
   }
 
   // Calcular delta real
   const calculateEffectiveDelta = (): number => {
     if (!selectedProduct) return 0
-    if (adjustMode === 'relative') {
-      return relativeDelta
+    const n = parseInt(newStockInput, 10)
+    if (isNaN(n)) return 0
+    return n - selectedProduct.stock
+  }
+
+  // Manejador del input de delta (+ / -) con sincronización bidireccional
+  const handleDeltaChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    if (!selectedProduct) return
+    const val = e.target.value.replace(/[^0-9+-]/g, '')
+    // Evitar múltiples signos
+    if ((val.match(/\+/g) || []).length > 1 || (val.match(/-/g) || []).length > 1) {
+      return
     }
-    return replaceQuantity - selectedProduct.stock
+    setDeltaInput(val)
+    if (val === '' || val === '+' || val === '-') {
+      setNewStockInput(String(selectedProduct.stock))
+      return
+    }
+    const d = parseInt(val, 10)
+    if (!isNaN(d)) {
+      setNewStockInput(String(selectedProduct.stock + d))
+    }
+  }
+
+  // Manejador del input de nueva cantidad con sincronización bidireccional
+  const handleNewStockChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    if (!selectedProduct) return
+    const val = e.target.value.replace(/[^0-9]/g, '')
+    setNewStockInput(val)
+    if (val === '') {
+      const d = 0 - selectedProduct.stock
+      setDeltaInput(d > 0 ? `+${d}` : String(d))
+      return
+    }
+    const n = parseInt(val, 10)
+    if (!isNaN(n)) {
+      const d = n - selectedProduct.stock
+      setDeltaInput(d > 0 ? `+${d}` : String(d))
+    }
   }
 
   // Buscar producto por código digitado / escaneado
@@ -117,7 +172,6 @@ export const InventoryView: React.FC = () => {
       if (exactMatch) {
         if (target === 'adjust') {
           setSelectedProduct(exactMatch)
-          setCodeInput('')
         } else {
           setKardexProduct(exactMatch)
           setKardexCodeInput('')
@@ -135,13 +189,16 @@ export const InventoryView: React.FC = () => {
 
   // Enviar formulario de ajuste
   const handleConfirmAdjust = async (): Promise<void> => {
-    if (!selectedProduct || !selectedProduct.code) return
+    if (!selectedProduct || !selectedProduct.code) {
+      setFeedbackMessage({ type: 'error', text: 'Debe seleccionar un producto para ajustar.' })
+      return
+    }
 
     const effDelta = calculateEffectiveDelta()
     const newStock = calculateNewStock()
 
     if (effDelta === 0) {
-      setFeedbackMessage({ type: 'error', text: 'El ajuste no modifica la existencia (delta = 0).' })
+      setFeedbackMessage({ type: 'error', text: 'El ajuste no modifica la existencia (diferencia = 0).' })
       return
     }
 
@@ -156,29 +213,32 @@ export const InventoryView: React.FC = () => {
     }
 
     try {
-      if (adjustMode === 'relative') {
-        await adjustStock({
-          product_code: selectedProduct.code,
-          delta: relativeDelta,
-          reason: reason.trim()
-        })
-      } else {
-        await adjustStock({
-          product_code: selectedProduct.code,
-          new_stock: replaceQuantity,
-          reason: reason.trim()
-        })
-      }
+      await adjustStock({
+        product_code: selectedProduct.code,
+        new_stock: newStock,
+        reason: reason.trim()
+      })
 
       setFeedbackMessage({
         type: 'success',
         text: `¡Ajuste guardado con éxito! Nuevo stock de ${selectedProduct.name}: ${newStock} unidades.`
       })
+      setDeltaInput('')
+      setNewStockInput(String(newStock))
       setReason('')
       // Actualizar conteo de stock bajo en segundo plano
       fetchLowStock()
     } catch (err: any) {
       setFeedbackMessage({ type: 'error', text: err.message || 'Error al procesar el ajuste.' })
+    }
+  }
+
+  // Aplicar motivo rápido (reemplazar o añadir a la frase)
+  const handleApplyReason = (item: QuickAdjustmentReason): void => {
+    if (item.type === 'replace') {
+      setReason(item.text)
+    } else {
+      setReason((prev) => (prev.trim() ? `${prev.trim()} ${item.text}` : item.text))
     }
   }
 
@@ -332,368 +392,293 @@ export const InventoryView: React.FC = () => {
         {/* SUBTAB 1: AJUSTAR EXISTENCIA                             */}
         {/* ========================================================= */}
         {activeTab === 'adjust' && (
-          <div className="max-w-4xl mx-auto flex flex-col gap-6">
-            {/* Top Search Bar */}
-            <div className="bg-white p-4 rounded-2xl border border-lilac-100 shadow-sm flex flex-col sm:flex-row items-center gap-3">
-              <div className="relative flex-1 w-full">
-                <input
-                  ref={codeInputRef}
-                  type="text"
-                  value={codeInput}
-                  onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleCodeSearch('adjust')
-                  }}
-                  placeholder="Escanear código de barras o escribir código..."
-                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-lilac-500 focus:bg-white rounded-xl text-sm font-mono outline-none transition-all uppercase"
-                />
-                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <div className="max-w-2xl mx-auto">
+            <div className="bg-white rounded-3xl border border-lilac-100 p-8 shadow-sm flex flex-col gap-6">
+              {/* Encabezado al estilo de la captura */}
+              <div className="flex items-center justify-between border-b border-lilac-50 pb-4">
+                <h2 className="text-xl font-black text-lilac-800 uppercase tracking-wide">
+                  AJUSTAR INVENTARIO
+                </h2>
+                {selectedProduct && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedProduct(null)
+                      setCodeInput('')
+                      codeInputRef.current?.focus()
+                    }}
+                    className="text-xs font-semibold text-slate-400 hover:text-slate-600 flex items-center gap-1 transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>Cambiar producto</span>
+                  </button>
+                )}
               </div>
 
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <button
-                  onClick={() => handleCodeSearch('adjust')}
-                  className="flex-1 sm:flex-none px-4 py-2.5 bg-lilac-600 hover:bg-lilac-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm"
+              {/* Mensaje de feedback / notificación */}
+              {feedbackMessage && (
+                <div
+                  className={`p-3.5 rounded-xl border flex items-center justify-between text-xs font-medium animate-in fade-in duration-200 ${
+                    feedbackMessage.type === 'success'
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                      : 'bg-rose-50 border-rose-200 text-rose-800'
+                  }`}
                 >
-                  Buscar Código
-                </button>
-                <button
-                  onClick={() => handleOpenSearchModal('adjust')}
-                  className="flex-1 sm:flex-none px-4 py-2.5 bg-lilac-50 hover:bg-lilac-100 text-lilac-700 border border-lilac-200 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2"
-                >
-                  <Search className="w-4 h-4" />
-                  <span>Catálogo Completo</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Notification / Feedback Banner */}
-            {feedbackMessage && (
-              <div
-                className={`p-3.5 rounded-xl border flex items-center justify-between text-xs font-medium animate-in fade-in duration-200 ${
-                  feedbackMessage.type === 'success'
-                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                    : 'bg-rose-50 border-rose-200 text-rose-800'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  {feedbackMessage.type === 'success' ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                  )}
-                  <span>{feedbackMessage.text}</span>
-                </div>
-                <button
-                  onClick={() => setFeedbackMessage(null)}
-                  className="p-1 rounded hover:bg-black/5 text-slate-400 hover:text-slate-600"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            )}
-
-            {!selectedProduct ? (
-              <div className="bg-white rounded-3xl border border-dashed border-lilac-200 p-12 flex flex-col items-center justify-center text-center">
-                <div className="w-16 h-16 rounded-2xl bg-lilac-50 text-lilac-400 flex items-center justify-center mb-4">
-                  <Package className="w-8 h-8" />
-                </div>
-                <h3 className="text-base font-bold text-slate-700 mb-1">Ningún producto seleccionado</h3>
-                <p className="text-xs text-slate-500 max-w-sm mb-6">
-                  Pistolea el código de barras con tu lector o pulsa &ldquo;Catálogo Completo&rdquo; para buscarlo por nombre.
-                </p>
-                <button
-                  onClick={() => handleOpenSearchModal('adjust')}
-                  className="px-5 py-2.5 bg-lilac-600 hover:bg-lilac-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2"
-                >
-                  <Search className="w-4 h-4" />
-                  <span>Explorar Catálogo</span>
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-6">
-                {/* Product Info Card */}
-                <div className="bg-white rounded-3xl border border-lilac-100 p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                        {selectedProduct.code}
-                      </span>
-                      {(selectedProduct.parent_category_name || selectedProduct.category_name) && (
-                        <span className="px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-lilac-50 text-lilac-700 border border-lilac-100">
-                          {selectedProduct.parent_category_name
-                            ? `${selectedProduct.parent_category_name}${selectedProduct.category_name ? ' > ' + selectedProduct.category_name : ''}`
-                            : selectedProduct.category_name}
-                        </span>
-                      )}
-                      <span className="px-2 py-0.5 rounded-lg text-[11px] font-medium bg-slate-100 text-slate-600">
-                        {selectedProduct.product_type === 'variation' ? 'Variación' : 'Producto Simple'}
-                      </span>
-                    </div>
-
-                    <h2 className="text-xl font-bold text-slate-800">
-                      {selectedProduct.parent_name
-                        ? `${selectedProduct.parent_name} ${selectedProduct.name}`
-                        : selectedProduct.name}
-                    </h2>
-
-                    <div className="text-xs text-slate-500 font-medium">
-                      Precio de venta: <span className="font-bold text-slate-800">{formatCLP(selectedProduct.sale_price)}</span>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    {feedbackMessage.type === 'success' ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                    )}
+                    <span>{feedbackMessage.text}</span>
                   </div>
-
-                  <div className="flex items-center gap-4 self-end md:self-center">
-                    <div className="flex flex-col items-center bg-slate-50 border border-slate-200 px-5 py-3 rounded-2xl">
-                      <span className="text-[11px] uppercase tracking-wider font-bold text-slate-600">Existencia Actual</span>
-                      <span className="text-2xl font-black text-slate-800">{selectedProduct.stock}</span>
-                      <span className="text-[11px] text-slate-500">unidades</span>
-                    </div>
-
-                    <button
-                      onClick={() => setSelectedProduct(null)}
-                      className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 border border-transparent hover:border-slate-200 transition-colors"
-                      title="Cambiar producto"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFeedbackMessage(null)}
+                    className="p-1 rounded hover:bg-black/5 text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
                 </div>
+              )}
 
-                {/* Adjustment Controls Form */}
-                <div className="bg-white rounded-3xl border border-lilac-100 p-6 shadow-sm flex flex-col gap-6">
-                  {/* Mode Selector Tabs */}
-                  <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-2xl w-fit">
-                    <button
-                      onClick={() => setAdjustMode('relative')}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                        adjustMode === 'relative'
-                          ? 'bg-white text-lilac-700 shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      Ajuste Relativo (+ / −)
-                    </button>
-                    <button
-                      onClick={() => setAdjustMode('replace')}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                        adjustMode === 'replace'
-                          ? 'bg-white text-lilac-700 shadow-sm'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      Reemplazar Existencia
-                    </button>
-                  </div>
-
-                  {/* Quantity Input Area */}
-                  {adjustMode === 'relative' ? (
-                    <div className="flex flex-col gap-3">
-                      <label className="text-xs font-bold text-slate-700">
-                        Cantidad a sumar (+) o restar (−):
-                      </label>
-                      <div className="flex flex-wrap items-center gap-3">
-                        {/* Quick Presets */}
-                        <div className="flex items-center gap-1.5">
-                          {[-10, -5, -1].map((val) => (
-                            <button
-                              key={val}
-                              onClick={() => setRelativeDelta((prev) => prev + val)}
-                              className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-colors"
-                            >
-                              {val}
-                            </button>
-                          ))}
-                        </div>
-
-                        {/* Number Input with +/- buttons */}
-                        <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl overflow-hidden">
-                          <button
-                            onClick={() => setRelativeDelta((prev) => prev - 1)}
-                            className="p-2.5 text-slate-600 hover:bg-slate-200 transition-colors"
-                          >
-                            <Minus className="w-4 h-4" />
-                          </button>
-                          <input
-                            type="number"
-                            value={relativeDelta}
-                            onChange={(e) => setRelativeDelta(parseInt(e.target.value, 10) || 0)}
-                            className="w-24 text-center font-bold text-slate-800 bg-transparent text-sm outline-none"
-                          />
-                          <button
-                            onClick={() => setRelativeDelta((prev) => prev + 1)}
-                            className="p-2.5 text-slate-600 hover:bg-slate-200 transition-colors"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </button>
-                        </div>
-
-                        <div className="flex items-center gap-1.5">
-                          {[+1, +5, +10].map((val) => (
-                            <button
-                              key={val}
-                              onClick={() => setRelativeDelta((prev) => prev + val)}
-                              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold transition-colors"
-                            >
-                              +{val}
-                            </button>
-                          ))}
-                        </div>
-
+              {/* Formulario alineado al estilo de la captura */}
+              <div className="flex flex-col gap-4">
+                {/* 1. Código del Producto */}
+                <div className="flex items-center">
+                  <label className="w-36 sm:w-44 text-right pr-4 text-xs sm:text-sm font-bold text-slate-700 shrink-0">
+                    Código del Producto
+                  </label>
+                  <div className="flex items-center gap-2 flex-1">
+                    <div className="relative flex-1">
+                      <Barcode className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        ref={codeInputRef}
+                        type="text"
+                        value={codeInput}
+                        onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleCodeSearch('adjust')
+                        }}
+                        placeholder="Escanear o ingresar código..."
+                        className="w-full pl-10 pr-8 py-2 bg-slate-50 border border-slate-300 focus:border-lilac-500 focus:bg-white rounded-lg text-sm font-mono outline-none transition-all uppercase"
+                      />
+                      {codeInput && (
                         <button
-                          onClick={() => setRelativeDelta(0)}
-                          className="text-xs text-slate-400 hover:text-slate-600 underline ml-2"
+                          type="button"
+                          onClick={() => {
+                            setCodeInput('')
+                            setSelectedProduct(null)
+                            codeInputRef.current?.focus()
+                          }}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+                          title="Limpiar"
                         >
-                          Restablecer a 0
+                          <X className="w-4 h-4" />
                         </button>
-                      </div>
+                      )}
                     </div>
-                  ) : (
-                    <div className="flex flex-col gap-3">
-                      <label className="text-xs font-bold text-slate-700">
-                        Nueva existencia física total (conteo real en bodega/tienda):
-                      </label>
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl overflow-hidden">
-                          <button
-                            onClick={() => setReplaceQuantity((prev) => Math.max(0, prev - 1))}
-                            className="p-2.5 text-slate-600 hover:bg-slate-200 transition-colors"
-                          >
-                            <Minus className="w-4 h-4" />
-                          </button>
-                          <input
-                            type="number"
-                            min="0"
-                            value={replaceQuantity}
-                            onChange={(e) => setReplaceQuantity(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                            className="w-28 text-center font-bold text-slate-800 bg-transparent text-base outline-none"
-                          />
-                          <button
-                            onClick={() => setReplaceQuantity((prev) => prev + 1)}
-                            className="p-2.5 text-slate-600 hover:bg-slate-200 transition-colors"
-                          >
-                            <Plus className="w-4 h-4" />
-                          </button>
-                        </div>
-                        <span className="text-xs text-slate-500">
-                          Existencia anterior: <strong className="text-slate-700">{selectedProduct.stock}</strong>
-                        </span>
-                      </div>
-                    </div>
-                  )}
+                    <button
+                      type="button"
+                      onClick={() => handleCodeSearch('adjust')}
+                      className="px-3 py-2 bg-lilac-600 hover:bg-lilac-700 text-white rounded-lg text-xs font-bold transition-colors shrink-0 shadow-sm"
+                    >
+                      Buscar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenSearchModal('adjust')}
+                      className="px-3 py-2 bg-lilac-50 hover:bg-lilac-100 text-lilac-700 border border-lilac-200 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 shrink-0"
+                      title="Explorar catálogo completo"
+                    >
+                      <Search className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Catálogo</span>
+                    </button>
+                  </div>
+                </div>
 
-                  {/* Dynamic Result Preview Card */}
-                  <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex flex-col">
-                        <span className="text-[10px] uppercase font-bold text-slate-600">Stock Actual</span>
-                        <span className="text-sm font-extrabold text-slate-700">{selectedProduct.stock}</span>
-                      </div>
-
-                      <div className="text-slate-300 font-bold">➔</div>
-
-                      <div className="flex flex-col">
-                        <span className="text-[10px] uppercase font-bold text-slate-600">Diferencia</span>
-                        <span
-                          className={`text-sm font-extrabold ${
-                            calculateEffectiveDelta() > 0
-                              ? 'text-emerald-600'
-                              : calculateEffectiveDelta() < 0
-                              ? 'text-rose-600'
-                              : 'text-slate-500'
-                          }`}
-                        >
-                          {calculateEffectiveDelta() > 0 ? `+${calculateEffectiveDelta()}` : calculateEffectiveDelta()}
-                        </span>
-                      </div>
-
-                      <div className="text-slate-300 font-bold">➔</div>
-
-                      <div className="flex flex-col">
-                        <span className="text-[10px] uppercase font-bold text-slate-600">Nuevo Stock</span>
-                        <span
-                          className={`text-base font-black ${
-                            calculateNewStock() < 0
-                              ? 'text-rose-600'
-                              : calculateNewStock() === 0
-                              ? 'text-amber-600'
-                              : 'text-lilac-700'
-                          }`}
-                        >
-                          {calculateNewStock()} unidades
-                        </span>
-                      </div>
-                    </div>
-
-                    {calculateNewStock() < 0 && (
-                      <span className="px-3 py-1 rounded-xl bg-rose-100 text-rose-800 text-xs font-bold flex items-center gap-1.5">
-                        <AlertCircle className="w-3.5 h-3.5" />
-                        No puede ser negativo
+                {/* 2. Nombre */}
+                <div className="flex items-center min-h-[36px]">
+                  <label className="w-36 sm:w-44 text-right pr-4 text-xs sm:text-sm font-bold text-slate-700 shrink-0">
+                    Nombre
+                  </label>
+                  <div className="flex-1 text-sm sm:text-base font-bold text-slate-900 leading-tight">
+                    {selectedProduct ? (
+                      <span>
+                        {selectedProduct.parent_name
+                          ? `${selectedProduct.parent_name} ${selectedProduct.name}`
+                          : selectedProduct.name}
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 font-normal italic text-xs sm:text-sm">
+                        Ningún producto seleccionado
                       </span>
                     )}
                   </div>
+                </div>
 
-                  {/* Required Reason Input */}
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-slate-700">
-                        Motivo del ajuste <span className="text-rose-500">*</span>:
-                      </label>
-                      <span className="text-[11px] text-slate-400">Requerido para auditoría y kardex</span>
-                    </div>
+                {/* 3. Precio Venta (impreso en texto, justo debajo de Nombre) */}
+                <div className="flex items-center min-h-[36px]">
+                  <label className="w-36 sm:w-44 text-right pr-4 text-xs sm:text-sm font-bold text-slate-700 shrink-0">
+                    Precio Venta
+                  </label>
+                  <div className="flex-1 text-sm sm:text-base font-bold text-slate-800">
+                    {selectedProduct ? (
+                      <span>{formatCLP(selectedProduct.sale_price)}</span>
+                    ) : (
+                      <span className="text-slate-400 font-normal italic text-xs sm:text-sm">—</span>
+                    )}
+                  </div>
+                </div>
 
-                    {/* Quick Reason Chips */}
-                    <div className="flex flex-wrap gap-1.5 mb-1">
-                      {QUICK_REASONS.map((r) => (
-                        <button
-                          key={r}
-                          type="button"
-                          onClick={() => setReason(r)}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                            reason === r
-                              ? 'bg-lilac-600 text-white shadow-sm'
-                              : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-                          }`}
-                        >
-                          {r}
-                        </button>
-                      ))}
-                    </div>
+                {/* 4. Cantidad Actual */}
+                <div className="flex items-center min-h-[36px]">
+                  <label className="w-36 sm:w-44 text-right pr-4 text-xs sm:text-sm font-bold text-slate-700 shrink-0">
+                    Cantidad Actual
+                  </label>
+                  <div className="flex-1 flex items-baseline gap-2">
+                    <span className="text-2xl font-black text-slate-800">
+                      {selectedProduct ? selectedProduct.stock : '—'}
+                    </span>
+                    {selectedProduct && (
+                      <span className="text-xs text-slate-500 font-medium">unidades</span>
+                    )}
+                  </div>
+                </div>
 
+                {/* 5. + / - */}
+                <div className="flex items-center">
+                  <label className="w-36 sm:w-44 text-right pr-4 text-xs sm:text-sm font-bold text-slate-700 shrink-0">
+                    + / -
+                  </label>
+                  <div className="w-36 sm:w-44">
                     <input
                       type="text"
+                      disabled={!selectedProduct}
+                      value={deltaInput}
+                      onChange={handleDeltaChange}
+                      placeholder="0"
+                      className="w-full px-3 py-1.5 bg-white border border-slate-300 focus:border-lilac-500 rounded-lg text-sm font-bold text-slate-800 text-right outline-none transition-colors disabled:bg-slate-100 disabled:text-slate-400"
+                    />
+                  </div>
+                </div>
+
+                {/* 6. Nueva Cantidad */}
+                <div className="flex items-center">
+                  <label className="w-36 sm:w-44 text-right pr-4 text-xs sm:text-sm font-bold text-slate-700 shrink-0">
+                    Nueva Cantidad
+                  </label>
+                  <div className="w-36 sm:w-44">
+                    <input
+                      type="text"
+                      disabled={!selectedProduct}
+                      value={newStockInput}
+                      onChange={handleNewStockChange}
+                      placeholder="0"
+                      className={`w-full px-3 py-1.5 bg-white border rounded-lg text-sm font-bold text-right outline-none transition-colors disabled:bg-slate-100 disabled:text-slate-400 ${
+                        calculateNewStock() < 0
+                          ? 'border-rose-400 text-rose-600 focus:border-rose-500'
+                          : 'border-slate-300 text-slate-800 focus:border-lilac-500'
+                      }`}
+                    />
+                  </div>
+                  {calculateNewStock() < 0 && (
+                    <span className="ml-3 text-xs font-semibold text-rose-600">
+                      No puede ser negativo
+                    </span>
+                  )}
+                </div>
+
+                {/* 7. Motivo del ajuste */}
+                <div className="flex flex-col gap-2 pt-2">
+                  <div className="flex items-center">
+                    <label className="w-36 sm:w-44 text-right pr-4 text-xs sm:text-sm font-bold text-slate-700 shrink-0">
+                      Motivo del ajuste
+                    </label>
+                    <input
+                      type="text"
+                      disabled={!selectedProduct}
                       value={reason}
                       onChange={(e) => setReason(e.target.value)}
-                      placeholder="Escribe el motivo del ajuste (ej: Conteo físico, Merma por daño)..."
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-lilac-500 focus:bg-white rounded-xl text-xs outline-none transition-all"
+                      placeholder="Motivo del ajuste..."
+                      className="flex-1 py-2 px-3 bg-white border border-slate-300 focus:border-lilac-500 rounded-lg text-sm outline-none transition-colors disabled:bg-slate-100 disabled:text-slate-400"
                     />
                   </div>
 
-                  {/* Submit Action Button */}
-                  <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
-                    <button
-                      onClick={() => setSelectedProduct(null)}
-                      className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-800 transition-colors"
-                    >
-                      Cancelar
-                    </button>
+                  {/* Chips de motivos configurables agrupados */}
+                  {selectedProduct && (
+                    <div className="ml-36 sm:ml-44 flex flex-col gap-2 pt-1">
+                      {/* Motivos principales (Reemplazar) */}
+                      {quickReasons.filter((r) => r.type === 'replace').length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-[11px] font-bold text-lilac-700 mr-1 select-none">
+                            Principal:
+                          </span>
+                          {quickReasons
+                            .filter((r) => r.type === 'replace')
+                            .map((r) => (
+                              <button
+                                key={r.id}
+                                type="button"
+                                onClick={() => handleApplyReason(r)}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+                                  reason === r.text
+                                    ? 'bg-lilac-600 text-white shadow-sm'
+                                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                                }`}
+                                title="Reemplaza todo el texto con este motivo"
+                              >
+                                {r.text}
+                              </button>
+                            ))}
+                        </div>
+                      )}
 
-                    <button
-                      onClick={handleConfirmAdjust}
-                      disabled={
-                        isLoading ||
-                        !reason.trim() ||
-                        calculateEffectiveDelta() === 0 ||
-                        calculateNewStock() < 0
-                      }
-                      className="px-6 py-2.5 bg-lilac-600 hover:bg-lilac-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer disabled:cursor-not-allowed"
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Confirmar y Guardar Ajuste</span>
-                    </button>
-                  </div>
+                      {/* Complementos (Añadir a la frase) */}
+                      {quickReasons.filter((r) => r.type === 'append').length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-[11px] font-bold text-emerald-700 mr-1 select-none">
+                            Añadir detalle:
+                          </span>
+                          {quickReasons
+                            .filter((r) => r.type === 'append')
+                            .map((r) => (
+                              <button
+                                key={r.id}
+                                type="button"
+                                onClick={() => handleApplyReason(r)}
+                                className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/60"
+                                title="Añade esta palabra/detalle a la frase con un espacio"
+                              >
+                                + {r.text}
+                              </button>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
+
+              {/* Botón centrado al estilo de la captura */}
+              <div className="pt-6 flex justify-center border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={handleConfirmAdjust}
+                  disabled={
+                    isLoading ||
+                    !selectedProduct ||
+                    !reason.trim() ||
+                    calculateEffectiveDelta() === 0 ||
+                    calculateNewStock() < 0
+                  }
+                  className="px-8 py-3 bg-lilac-600 hover:bg-lilac-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl text-sm font-bold transition-all shadow-md flex items-center gap-2 cursor-pointer disabled:cursor-not-allowed hover:shadow-lg active:scale-98"
+                >
+                  <CheckCircle2 className="w-5 h-5" />
+                  <span>Realizar ajuste de inventario</span>
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

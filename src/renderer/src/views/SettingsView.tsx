@@ -4,6 +4,7 @@ import {
   Store,
   Printer,
   Wallet,
+  Boxes,
   HardDrive,
   Keyboard,
   AlertTriangle
@@ -11,11 +12,12 @@ import {
 import { BusinessSettingsTab } from './settings/BusinessSettingsTab'
 import { PrinterSettingsTab } from './settings/PrinterSettingsTab'
 import { CashSettingsTab } from './settings/CashSettingsTab'
+import { InventorySettingsTab } from './settings/InventorySettingsTab'
 import { BackupSettingsTab } from './settings/BackupSettingsTab'
 import { ShortcutsTab } from './settings/ShortcutsTab'
 import { DangerZoneTab } from './settings/DangerZoneTab'
 
-type SettingsSubTab = 'business' | 'printers' | 'cash' | 'backups' | 'shortcuts' | 'danger'
+type SettingsSubTab = 'business' | 'printers' | 'cash' | 'inventory' | 'backups' | 'shortcuts' | 'danger'
 
 export const SettingsView: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<SettingsSubTab>('business')
@@ -72,6 +74,17 @@ export const SettingsView: React.FC = () => {
             <span>Fondo y Retiro</span>
           </button>
           <button
+            onClick={() => setActiveSubTab('inventory')}
+            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+              activeSubTab === 'inventory'
+                ? 'bg-lilac-600 text-white shadow-sm'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+            }`}
+          >
+            <Boxes className="w-3.5 h-3.5" />
+            <span>Inventario</span>
+          </button>
+          <button
             onClick={() => setActiveSubTab('backups')}
             className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
               activeSubTab === 'backups'
@@ -111,6 +124,7 @@ export const SettingsView: React.FC = () => {
       {activeSubTab === 'business' && <BusinessSettingsTab />}
       {activeSubTab === 'printers' && <PrinterSettingsTab />}
       {activeSubTab === 'cash' && <CashSettingsTab />}
+      {activeSubTab === 'inventory' && <InventorySettingsTab />}
       {activeSubTab === 'backups' && <BackupSettingsTab />}
       {activeSubTab === 'shortcuts' && <ShortcutsTab />}
       {activeSubTab === 'danger' && <DangerZoneTab />}
