@@ -254,4 +254,27 @@ describe('Fase 4: Motor de Búsqueda de Productos (% wildcard, normalización y 
       expect(codes2.has(code)).toBe(false)
     }
   })
+
+  it('tolerancia de ceros a la izquierda en búsqueda por código (getProductByCode)', () => {
+    productService.upsertProduct({
+      code: '007542',
+      name: 'Aguja Crochet 4mm',
+      sale_price: 1500
+    })
+
+    // Búsqueda con ceros exactos
+    const exact = productService.getProductByCode('007542')
+    expect(exact).not.toBeNull()
+    expect(exact?.name).toBe('Aguja Crochet 4mm')
+
+    // Búsqueda sin ceros a la izquierda (código escaneado que omitió ceros)
+    const stripped = productService.getProductByCode('7542')
+    expect(stripped).not.toBeNull()
+    expect(stripped?.name).toBe('Aguja Crochet 4mm')
+
+    // Búsqueda con ceros extra digitados
+    const extraZeros = productService.getProductByCode('00007542')
+    expect(extraZeros).not.toBeNull()
+    expect(extraZeros?.name).toBe('Aguja Crochet 4mm')
+  })
 })

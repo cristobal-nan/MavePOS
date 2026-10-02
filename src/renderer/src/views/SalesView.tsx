@@ -24,6 +24,7 @@ import { ProductSearchModal } from '../components/ProductSearchModal'
 import { CheckoutModal } from '../components/CheckoutModal'
 import { SalesHistoryModal } from './history/SalesHistoryModal'
 import { CashWithdrawalModal } from './history/CashWithdrawalModal'
+import { useModalStack } from '../utils/modalStack'
 
 export const SalesView: React.FC = () => {
   const { currentSession } = useCashStore()
@@ -49,9 +50,17 @@ export const SalesView: React.FC = () => {
   const [isConfirmExactModalOpen, setIsConfirmExactModalOpen] = useState(false)
   const [isFinalizingExact, setIsFinalizingExact] = useState(false)
 
-  // Mensaje flotante central de "producto sin stock disponible"
-  const [outOfStockAlert, setOutOfStockAlert] = useState<{ visible: boolean; productName?: string } | null>(null)
-  const outOfStockTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  // Producto seleccionado activamente en el carrito para navegación con flechas y teclas +/-
+  const [selectedProductCode, setSelectedProductCode] = useState<string | null>(null)
+
+  // Mensaje flotante central de alerta de stock
+  const [stockAlert, setStockAlert] = useState<{
+    visible: boolean
+    title: string
+    productName?: string
+    message?: string
+  } | null>(null)
+  const stockAlertTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Modal de confirmación para eliminar producto del ticket al reducir a 0
   const [itemToDelete, setItemToDelete] = useState<{
@@ -74,14 +83,72 @@ export const SalesView: React.FC = () => {
   // Mensaje modal informativo de reglas de cambio
   const [exchangeAlert, setExchangeAlert] = useState<string | null>(null)
 
+  // Modal Stack Registrations for priority ESC and backdrop handling
+  const { handleBackdropClick: handleBackdropConfirmExact } = useModalStack({
+    id: 'sales-confirm-exact-modal',
+    isOpen: isConfirmExactModalOpen,
+    onClose: () => setIsConfirmExactModalOpen(false),
+    closeOnBackdrop: true
+  })
+
+  const { handleBackdropClick: handleBackdropItemToDelete } = useModalStack({
+    id: 'sales-item-to-delete-modal',
+    isOpen: Boolean(itemToDelete),
+    onClose: () => {
+      setItemToDelete(null)
+      barcodeInputRef.current?.focus()
+    },
+    closeOnBackdrop: true
+  })
+
+  const { handleBackdropClick: handleBackdropTicketDiscard } = useModalStack({
+    id: 'sales-ticket-discard-modal',
+    isOpen: Boolean(ticketToDiscard),
+    onClose: () => {
+      setTicketToDiscard(null)
+      barcodeInputRef.current?.focus()
+    },
+    closeOnBackdrop: true
+  })
+
+  const { handleBackdropClick: handleBackdropExchangeAlert } = useModalStack({
+    id: 'sales-exchange-alert-modal',
+    isOpen: Boolean(exchangeAlert),
+    onClose: () => {
+      setExchangeAlert(null)
+      barcodeInputRef.current?.focus()
+    },
+    closeOnBackdrop: true
+  })
+
   const showOutOfStockAlert = (productName?: string): void => {
-    if (outOfStockTimeoutRef.current) {
-      clearTimeout(outOfStockTimeoutRef.current)
+    if (stockAlertTimeoutRef.current) {
+      clearTimeout(stockAlertTimeoutRef.current)
     }
-    setOutOfStockAlert({ visible: true, productName })
-    outOfStockTimeoutRef.current = setTimeout(() => {
-      setOutOfStockAlert(null)
+    setStockAlert({
+      visible: true,
+      title: 'Producto sin stock disponible',
+      productName,
+      message: 'No quedan unidades disponibles para la venta.'
+    })
+    stockAlertTimeoutRef.current = setTimeout(() => {
+      setStockAlert(null)
     }, 2000)
+  }
+
+  const showMaxStockAlert = (productName: string, maxStock: number): void => {
+    if (stockAlertTimeoutRef.current) {
+      clearTimeout(stockAlertTimeoutRef.current)
+    }
+    setStockAlert({
+      visible: true,
+      title: 'Stock máximo alcanzado',
+      productName,
+      message: `No se puede superar el stock disponible de ${maxStock} unidades.`
+    })
+    stockAlertTimeoutRef.current = setTimeout(() => {
+      setStockAlert(null)
+    }, 2200)
   }
 
   const handleDecreaseQuantity = (it: { product_code: string; name: string; quantity: number; variant_label?: string | null }): void => {
@@ -98,8 +165,8 @@ export const SalesView: React.FC = () => {
 
   useEffect(() => {
     return () => {
-      if (outOfStockTimeoutRef.current) {
-        clearTimeout(outOfStockTimeoutRef.current)
+      if (stockAlertTimeoutRef.current) {
+        clearTimeout(stockAlertTimeoutRef.current)
       }
     }
   }, [])
@@ -159,6 +226,15 @@ export const SalesView: React.FC = () => {
   const periodCheck = isExchange && exchangeInfo
     ? isExchangePeriodExceeded(exchangeInfo.originalDate, 30)
     : { isExceeded: false, daysDiff: 0 }
+
+  // Mantener producto seleccionado en el carrito al cambiar items o tickets
+  useEffect(() => {
+    if (activeTicket.items.length === 0) {
+      setSelectedProductCode(null)
+    } else if (!selectedProductCode || !activeTicket.items.some((i) => i.product_code === selectedProductCode)) {
+      setSelectedProductCode(activeTicket.items[activeTicket.items.length - 1].product_code)
+    }
+  }, [activeTicket.items, selectedProductCode])
 
   const handleFinalizeExactExchange = async (): Promise<void> => {
     if (!currentSession) return
@@ -255,6 +331,72 @@ export const SalesView: React.FC = () => {
         return
       }
 
+      const isAnyModalOpen =
+        isSearchModalOpen ||
+        isCheckoutModalOpen ||
+        isHistoryModalOpen ||
+        isWithdrawalModalOpen ||
+        isConfirmExactModalOpen ||
+        Boolean(itemToDelete) ||
+        Boolean(ticketToDiscard) ||
+        Boolean(exchangeAlert)
+
+      if (!isAnyModalOpen && activeTicket.items.length > 0) {
+        // Navegación con flechas arriba y abajo en el carrito
+        if (e.key === 'ArrowUp') {
+          e.preventDefault()
+          const currentIndex = activeTicket.items.findIndex((i) => i.product_code === selectedProductCode)
+          if (currentIndex > 0) {
+            setSelectedProductCode(activeTicket.items[currentIndex - 1].product_code)
+          } else if (currentIndex === -1) {
+            setSelectedProductCode(activeTicket.items[activeTicket.items.length - 1].product_code)
+          }
+          return
+        }
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault()
+          const currentIndex = activeTicket.items.findIndex((i) => i.product_code === selectedProductCode)
+          if (currentIndex !== -1 && currentIndex < activeTicket.items.length - 1) {
+            setSelectedProductCode(activeTicket.items[currentIndex + 1].product_code)
+          } else if (currentIndex === -1) {
+            setSelectedProductCode(activeTicket.items[0].product_code)
+          }
+          return
+        }
+
+        // Teclas + y - para sumar o restar en el producto seleccionado (funciona incluso con foco en el input de código)
+        const isPlus = e.key === '+' || e.key === 'Add' || (e.key === '=' && e.shiftKey)
+        const isMinus = e.key === '-' || e.key === 'Subtract'
+
+        if (isPlus || isMinus) {
+          const activeEl = document.activeElement
+          const isBarcodeFocused = activeEl === barcodeInputRef.current
+          const isBodyOrNonInput = !activeEl || activeEl === document.body || !['INPUT', 'TEXTAREA'].includes(activeEl.tagName)
+
+          if (isBarcodeFocused || isBodyOrNonInput) {
+            e.preventDefault()
+            e.stopPropagation()
+            const targetItem =
+              activeTicket.items.find((i) => i.product_code === selectedProductCode) ||
+              activeTicket.items[activeTicket.items.length - 1]
+
+            if (targetItem) {
+              if (isPlus) {
+                if (targetItem.quantity >= targetItem.stock) {
+                  showMaxStockAlert(targetItem.name, targetItem.stock)
+                } else {
+                  updateQuantity(targetItem.product_code, targetItem.quantity + 1)
+                }
+              } else {
+                handleDecreaseQuantity(targetItem)
+              }
+            }
+            return
+          }
+        }
+      }
+
       // F10: open search modal
       if (e.key === 'F10') {
         e.preventDefault()
@@ -297,7 +439,8 @@ export const SalesView: React.FC = () => {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [
-    activeTicket.items.length,
+    activeTicket.items,
+    selectedProductCode,
     activeTicketIndex,
     currentSession?.id,
     createTicket,
@@ -310,7 +453,11 @@ export const SalesView: React.FC = () => {
     isFinalizingExact,
     itemToDelete,
     ticketToDiscard,
-    exchangeAlert
+    exchangeAlert,
+    isSearchModalOpen,
+    isCheckoutModalOpen,
+    isHistoryModalOpen,
+    isWithdrawalModalOpen
   ])
 
   const handleBarcodeSubmit = async (e: React.FormEvent): Promise<void> => {
@@ -335,6 +482,7 @@ export const SalesView: React.FC = () => {
           stock: product.stock,
           variant_label: product.attribute_value || null
         }, 1)
+        setSelectedProductCode(product.code)
         setBarcodeInput('')
       } else {
         setBarcodeError(`Producto con código "${rawCode}" no encontrado`)
@@ -359,6 +507,7 @@ export const SalesView: React.FC = () => {
       stock: product.stock,
       variant_label: product.attribute_value || null
     }, 1)
+    setSelectedProductCode(product.code)
     barcodeInputRef.current?.focus()
   }
 
@@ -496,7 +645,12 @@ export const SalesView: React.FC = () => {
               value={barcodeInput}
               onChange={(e) => {
                 setBarcodeError(null)
-                setBarcodeInput(e.target.value.toUpperCase())
+                setBarcodeInput(e.target.value.replace(/[+\-]/g, '').toUpperCase())
+              }}
+              onKeyDown={(e) => {
+                if (e.key === '+' || e.key === '-' || e.key === 'Add' || e.key === 'Subtract' || (e.key === '=' && e.shiftKey)) {
+                  e.preventDefault()
+                }
               }}
               placeholder="Escanear código de barras o escribir código y presionar Enter..."
               className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-300 focus:border-lilac-500 focus:bg-white rounded-xl text-sm font-mono text-slate-800 placeholder:font-sans placeholder:text-slate-400 focus:outline-none transition-all shadow-inner uppercase"
@@ -507,7 +661,7 @@ export const SalesView: React.FC = () => {
             type="submit"
             className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-colors shadow-xs"
           >
-            Agregar
+            Agregar (Enter)
           </button>
 
           <button
@@ -649,9 +803,18 @@ export const SalesView: React.FC = () => {
                   // Existencia = stock actual - cantidad en venta
                   const remainingStock = it.stock - it.quantity
                   const isStockCritical = remainingStock < 0
+                  const isSelected = selectedProductCode === it.product_code
 
                   return (
-                    <tr key={it.product_code} className="hover:bg-slate-50 transition-colors">
+                    <tr
+                      key={it.product_code}
+                      onClick={() => setSelectedProductCode(it.product_code)}
+                      className={`transition-colors cursor-pointer ${
+                        isSelected
+                          ? 'bg-lilac-100/90 ring-2 ring-lilac-500/80 ring-inset shadow-xs font-medium'
+                          : 'hover:bg-slate-50'
+                      }`}
+                    >
                       {/* Código */}
                       <td className="py-3 px-3 font-mono text-slate-600">{it.product_code}</td>
 
@@ -684,8 +847,18 @@ export const SalesView: React.FC = () => {
                             type="number"
                             min="1"
                             value={it.quantity}
+                            onFocus={(e) => {
+                              setSelectedProductCode(it.product_code)
+                              e.target.select()
+                            }}
+                            onClick={(e) => {
+                              setSelectedProductCode(it.product_code)
+                              ;(e.target as HTMLInputElement).select()
+                            }}
                             onChange={(e) => {
-                              const v = parseInt(e.target.value, 10)
+                              const rawVal = e.target.value
+                              if (rawVal === '') return
+                              const v = parseInt(rawVal, 10)
                               if (isNaN(v) || v <= 0) {
                                 setItemToDelete({
                                   code: it.product_code,
@@ -698,6 +871,11 @@ export const SalesView: React.FC = () => {
                                 showOutOfStockAlert(it.name)
                                 return
                               }
+                              if (v > it.stock) {
+                                showMaxStockAlert(it.name, it.stock)
+                                updateQuantity(it.product_code, it.stock)
+                                return
+                              }
                               updateQuantity(it.product_code, v)
                             }}
                             className="w-12 text-center text-xs font-bold bg-white py-1 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
@@ -707,6 +885,10 @@ export const SalesView: React.FC = () => {
                             onClick={() => {
                               if ((Number(it.stock) || 0) <= 0) {
                                 showOutOfStockAlert(it.name)
+                                return
+                              }
+                              if (it.quantity >= it.stock) {
+                                showMaxStockAlert(it.name, it.stock)
                                 return
                               }
                               updateQuantity(it.product_code, it.quantity + 1)
@@ -917,7 +1099,7 @@ export const SalesView: React.FC = () => {
 
       {/* Modal de Confirmación para Cambio Exacto ($ 0) */}
       {isConfirmExactModalOpen && isExchange && exchangeInfo && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 animate-in fade-in duration-150 select-none">
+        <div onClick={handleBackdropConfirmExact} className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 animate-in fade-in duration-150 select-none">
           <div className="bg-white rounded-3xl shadow-2xl border border-lilac-200 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
             {/* Header */}
             <div className="px-6 py-5 bg-gradient-to-r from-emerald-50 via-teal-50 to-white border-b border-emerald-100 flex items-center gap-3">
@@ -998,7 +1180,7 @@ export const SalesView: React.FC = () => {
 
       {/* Modal de Confirmación para Eliminar Producto del Ticket */}
       {itemToDelete && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 animate-in fade-in duration-150 select-none">
+        <div onClick={handleBackdropItemToDelete} className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 animate-in fade-in duration-150 select-none">
           <div className="bg-white rounded-3xl shadow-2xl border border-rose-200 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
             {/* Header */}
             <div className="px-6 py-5 bg-gradient-to-r from-rose-50 via-rose-50/50 to-white border-b border-rose-100 flex items-center gap-3">
@@ -1074,7 +1256,7 @@ export const SalesView: React.FC = () => {
 
       {/* Modal de confirmación para descartar ticket / cancelar cambio */}
       {ticketToDiscard && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 select-none animate-in fade-in duration-150">
+        <div onClick={handleBackdropTicketDiscard} className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 select-none animate-in fade-in duration-150">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
             {/* Header */}
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
@@ -1199,7 +1381,7 @@ export const SalesView: React.FC = () => {
 
       {/* Modal informativo de Reglas de Cambio (reemplaza alert nativo) */}
       {exchangeAlert && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 select-none animate-in fade-in duration-150">
+        <div onClick={handleBackdropExchangeAlert} className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 select-none animate-in fade-in duration-150">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
             <div className="px-6 py-4 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -1250,8 +1432,8 @@ export const SalesView: React.FC = () => {
         </div>
       )}
 
-      {/* Mensaje de Producto sin stock disponible (duración 2 segundos al medio de la pantalla) */}
-      {outOfStockAlert && (
+      {/* Mensaje de Producto sin stock o stock máximo alcanzado (duración 2.2 segundos al medio de la pantalla) */}
+      {stockAlert && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none p-4 select-none animate-in fade-in zoom-in-95 duration-150">
           <div className="bg-white border-2 border-rose-500 rounded-3xl shadow-2xl px-8 py-6 flex items-center gap-5 max-w-lg mx-auto ring-8 ring-rose-500/10">
             <div className="w-14 h-14 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 shadow-inner">
@@ -1259,11 +1441,16 @@ export const SalesView: React.FC = () => {
             </div>
             <div className="flex flex-col">
               <span className="text-xl font-black text-rose-600 tracking-tight">
-                Producto sin stock disponible
+                {stockAlert.title}
               </span>
-              {outOfStockAlert.productName && (
-                <span className="text-xs font-semibold text-slate-600 mt-1 line-clamp-1">
-                  {outOfStockAlert.productName}
+              {stockAlert.productName && (
+                <span className="text-xs font-bold text-slate-800 mt-1 line-clamp-1">
+                  {stockAlert.productName}
+                </span>
+              )}
+              {stockAlert.message && (
+                <span className="text-xs text-slate-500 mt-0.5">
+                  {stockAlert.message}
                 </span>
               )}
             </div>

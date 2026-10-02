@@ -8,7 +8,10 @@ import {
   AlertTriangle,
   GitBranch,
   CheckCircle2,
-  RefreshCw
+  RefreshCw,
+  ChevronDown,
+  ChevronRight,
+  CornerDownRight
 } from 'lucide-react'
 import { ProductSearchResult } from '@shared/types'
 import { formatCLP } from '../utils/formatters'
@@ -25,6 +28,7 @@ interface ProductSearchProps {
   enableMultiSelect?: boolean
   selectedIds?: Set<number>
   onToggleSelect?: (product: ProductSearchResult) => void
+  onToggleParentWithVariations?: (parent: ProductSearchResult, variations: ProductSearchResult[]) => void
   onSelectAllVisible?: () => void
   isAllVisibleSelected?: boolean
   context?: 'catalog' | 'modal'
@@ -41,6 +45,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
   enableMultiSelect = false,
   selectedIds,
   onToggleSelect,
+  onToggleParentWithVariations,
   onSelectAllVisible,
   isAllVisibleSelected = false,
   context = 'catalog'
@@ -95,6 +100,76 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
   const resizeStartX = useRef<number>(0)
   const resizeStartWidth = useRef<number>(0)
   const hasDraggedRef = useRef<boolean>(false)
+
+  // Highlighted index for modal keyboard navigation (single click / arrow keys)
+  const [highlightedIndex, setHighlightedIndex] = useState<number>(0)
+  // Set of collapsed parent IDs (default empty => everything expanded)
+  const [collapsedParentIds, setCollapsedParentIds] = useState<Set<number>>(new Set())
+  const rowRefs = useRef<(HTMLTableRowElement | null)[]>([])
+
+  // Filter visible products according to collapsed parent variable products in catalog
+  const visibleProducts = products.filter((p) => {
+    if (context === 'catalog' && p.parent_id && collapsedParentIds.has(p.parent_id)) {
+      return false
+    }
+    return true
+  })
+
+  // Reset highlighted row to 0 on new query or product list change
+  useEffect(() => {
+    setHighlightedIndex(0)
+  }, [products, searchQuery])
+
+  // Scroll highlighted row into view smoothly
+  useEffect(() => {
+    if (context === 'modal' && rowRefs.current[highlightedIndex]) {
+      rowRefs.current[highlightedIndex]?.scrollIntoView({ block: 'nearest' })
+    }
+  }, [highlightedIndex, context])
+
+  const toggleParentCollapse = (parentId: number, e: React.MouseEvent): void => {
+    e.preventDefault()
+    e.stopPropagation()
+    setCollapsedParentIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(parentId)) {
+        next.delete(parentId)
+      } else {
+        next.add(parentId)
+      }
+      return next
+    })
+  }
+
+  const handleToggleParentCheckbox = (parent: ProductSearchResult): void => {
+    const parentId = parent.id
+    if (!parentId) return
+    const childVariations = products.filter((p) => p.parent_id === parentId)
+    if (onToggleParentWithVariations) {
+      onToggleParentWithVariations(parent, childVariations)
+    } else if (onToggleSelect) {
+      onToggleSelect(parent)
+      childVariations.forEach((v) => onToggleSelect(v))
+    }
+  }
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
+    if (context === 'modal') {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setHighlightedIndex((prev) => Math.min(visibleProducts.length - 1, prev + 1))
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setHighlightedIndex((prev) => Math.max(0, prev - 1))
+      } else if (e.key === 'Enter') {
+        e.preventDefault()
+        const target = visibleProducts[highlightedIndex]
+        if (target) {
+          onSelectProduct?.(target)
+        }
+      }
+    }
+  }
 
   const handleMouseDownResize = (col: string, e: React.MouseEvent): void => {
     e.preventDefault()
@@ -222,6 +297,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={placeholder}
             autoFocus={autoFocus}
+            onKeyDown={handleInputKeyDown}
             className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 focus:border-lilac-500 focus:bg-white rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none transition-all"
           />
           {searchQuery && (
@@ -377,46 +453,69 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                   Buscando en catálogo...
                 </td>
               </tr>
-            ) : products.length === 0 ? (
+            ) : visibleProducts.length === 0 ? (
               <tr>
                 <td colSpan={(showActions ? 7 : 6) + (enableMultiSelect ? 1 : 0) + 1} className="py-12 text-center text-slate-400">
                   No se encontraron productos coincidentes.
                 </td>
               </tr>
             ) : (
-              products.map((p) => {
+              visibleProducts.map((p, idx) => {
                 const isSelected = selectedProductCode === p.code
                 const isChecked = p.id ? selectedIds?.has(p.id) : false
                 const isLowStock = p.stock <= p.min_stock
                 const isVariable = p.product_type === 'variable'
                 const isVariation = p.product_type === 'variation'
+                const isCollapsed = isVariable && p.id ? collapsedParentIds.has(p.id) : false
+                const isModalHighlighted = context === 'modal' && highlightedIndex === idx
 
                 return (
                   <tr
                     key={p.id || p.code || Math.random()}
+                    ref={(el) => {
+                      rowRefs.current[idx] = el
+                    }}
                     onClick={() => {
-                      if (enableMultiSelect && onToggleSelect) {
-                        onToggleSelect(p)
-                      } else {
+                      if (context === 'modal') {
+                        setHighlightedIndex(idx)
+                      }
+                    }}
+                    onDoubleClick={() => {
+                      if (context === 'modal' || onSelectProduct) {
                         onSelectProduct?.(p)
                       }
                     }}
-                    className={`hover:bg-lilac-50/70 transition-colors cursor-pointer ${
-                      isChecked ? 'bg-lilac-100/60 font-semibold' : isSelected ? 'bg-lilac-100 font-semibold' : ''
-                    } ${isVariable ? 'bg-slate-50/70' : ''}`}
+                    className={`transition-colors cursor-pointer ${
+                      isModalHighlighted
+                        ? 'bg-lilac-200/95 text-lilac-950 font-bold ring-2 ring-lilac-500 border-l-4 border-l-lilac-700 shadow-xs'
+                        : isChecked
+                        ? 'bg-lilac-100/70 font-semibold'
+                        : isSelected
+                        ? 'bg-lilac-100 font-semibold'
+                        : isVariable
+                        ? 'bg-slate-50/80 hover:bg-slate-100/90'
+                        : isVariation
+                        ? 'bg-white hover:bg-lilac-50/70'
+                        : 'hover:bg-lilac-50/70'
+                    }`}
                   >
                     {enableMultiSelect && (
                       <td
                         className="py-2.5 px-3 text-center border-r border-slate-200/40"
                         onClick={(e) => {
                           e.stopPropagation()
-                          onToggleSelect?.(p)
                         }}
                       >
                         <input
                           type="checkbox"
                           checked={isChecked || false}
-                          onChange={() => onToggleSelect?.(p)}
+                          onChange={() => {
+                            if (isVariable) {
+                              handleToggleParentCheckbox(p)
+                            } else {
+                              onToggleSelect?.(p)
+                            }
+                          }}
                           className="w-3.5 h-3.5 rounded text-lilac-600 focus:ring-lilac-500 cursor-pointer accent-lilac-600"
                         />
                       </td>
@@ -430,9 +529,32 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                       )}
                     </td>
 
-                    {/* Nombre */}
+                    {/* Nombre con sangría y botón expandir/colapsar */}
                     <td className="py-2.5 px-3 text-slate-900 font-medium truncate border-r border-slate-100" title={p.name}>
-                      <span className="truncate">{p.name}</span>
+                      <div className="flex items-center gap-1.5 truncate">
+                        {isVariable && p.id && (
+                          <button
+                            type="button"
+                            onClick={(e) => toggleParentCollapse(p.id!, e)}
+                            className="p-0.5 rounded hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-colors shrink-0"
+                            title={isCollapsed ? 'Desplegar variaciones' : 'Colapsar variaciones'}
+                          >
+                            {isCollapsed ? (
+                              <ChevronRight className="w-4 h-4 text-lilac-600" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4 text-lilac-600" />
+                            )}
+                          </button>
+                        )}
+                        {isVariation && (
+                          <span className="pl-4 text-slate-300 flex items-center shrink-0">
+                            <CornerDownRight className="w-3.5 h-3.5 text-lilac-400" />
+                          </span>
+                        )}
+                        <span className={`truncate ${isVariable ? 'font-bold text-slate-900' : isVariation ? 'text-slate-800' : ''}`}>
+                          {p.name}
+                        </span>
+                      </div>
                     </td>
 
                     {/* Tipo / Variación */}

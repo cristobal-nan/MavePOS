@@ -3,6 +3,7 @@ import { X, Search } from 'lucide-react'
 import { ProductSearchResult } from '@shared/types'
 import { ProductSearch } from './ProductSearch'
 import { useCatalogStore } from '../store/catalogStore'
+import { useModalStack } from '../utils/modalStack'
 
 interface ProductSearchModalProps {
   isOpen: boolean
@@ -19,7 +20,7 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
   onSelectProduct,
   title = 'Búsqueda de Productos',
   placeholder = 'Escribe el nombre o fragmento con % (ej: algod, %negro) y haz clic para seleccionar...',
-  footerText = 'Haz clic en cualquier fila para seleccionar el producto.'
+  footerText = 'Haz doble clic o presiona Enter para seleccionar el producto resaltado.'
 }) => {
   const [modalSize, setModalSize] = useState<{ width: number; height: number }>({
     width: Math.min(typeof window !== 'undefined' ? Math.max(960, Math.round(window.innerWidth * 0.82)) : 980, 1150),
@@ -30,17 +31,25 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
   const resizeStartPos = useRef({ x: 0, y: 0 })
   const resizeStartSize = useRef({ width: 0, height: 0 })
 
-  // Limpiar búsqueda al desmontar o cerrar
-  useEffect(() => {
-    if (!isOpen) {
-      useCatalogStore.getState().setSearchQuery('')
-    }
-  }, [isOpen])
-
   const handleClose = (): void => {
     useCatalogStore.getState().setSearchQuery('')
     onClose()
   }
+
+  useEffect(() => {
+    if (isOpen) {
+      useCatalogStore.getState().setSelectedProductType('sellable')
+      useCatalogStore.getState().setSearchQuery('')
+      useCatalogStore.getState().fetchProducts()
+    }
+  }, [isOpen])
+
+  const { handleBackdropClick } = useModalStack({
+    id: 'product-search-modal',
+    isOpen,
+    onClose: handleClose,
+    closeOnBackdrop: true
+  })
 
   const handleSelect = (product: ProductSearchResult): void => {
     useCatalogStore.getState().setSearchQuery('')
@@ -86,7 +95,10 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+    <div
+      onClick={handleBackdropClick}
+      className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4"
+    >
       <div
         style={{
           width: `${modalSize.width}px`,

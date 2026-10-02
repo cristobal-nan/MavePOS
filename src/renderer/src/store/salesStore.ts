@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import { CartItem, CompleteSaleInput, CompletedSaleResult, ExchangeInfo } from '@shared/types'
+import { CartItem, CompleteSaleInput, CompletedSaleResult, ExchangeInfo, LastSaleInfo } from '@shared/types'
+import { formatPaymentMethods } from '../utils/formatters'
 
 export interface Ticket {
   id?: number // Database sale id if saved as pending
@@ -17,6 +18,7 @@ interface SalesState {
 
   isInitialized: boolean
   initializedSessionId: number | null
+  lastSale: LastSaleInfo | null
 
   // Actions
   loadPendingTickets: (cashSessionId?: number, force?: boolean) => Promise<void>
@@ -30,6 +32,18 @@ interface SalesState {
   putTicketOnStandby: (cashSessionId: number) => Promise<void>
   deleteTicket: (index: number) => Promise<void>
   finalizeSale: (input: Omit<CompleteSaleInput, 'saleId' | 'items'>) => Promise<CompletedSaleResult>
+  fetchLastSale: (cashSessionId?: number) => Promise<void>
+  setLastSale: (sale: LastSaleInfo | null) => void
+}
+
+function getInitialLastSale(): LastSaleInfo | null {
+  try {
+    const raw = localStorage.getItem('last_sale_info')
+    if (raw) return JSON.parse(raw)
+  } catch {
+    // ignore
+  }
+  return null
 }
 
 export const useSalesStore = create<SalesState>((set, get) => ({
@@ -41,6 +55,48 @@ export const useSalesStore = create<SalesState>((set, get) => ({
   error: null,
   isInitialized: false,
   initializedSessionId: null,
+  lastSale: getInitialLastSale(),
+
+  setLastSale: (sale: LastSaleInfo | null) => set({ lastSale: sale }),
+
+  fetchLastSale: async (cashSessionId?: number) => {
+    if (!window?.api?.sales?.getHistory) return
+    try {
+      const history = await window.api.sales.getHistory({
+        limit: 1,
+        status: 'completed',
+        cashSessionId
+      })
+      if (history && history.length > 0) {
+        const s = history[0]
+        let change: number | null = null
+        try {
+          const raw = localStorage.getItem('last_sale_info')
+          if (raw) {
+            const cached = JSON.parse(raw) as LastSaleInfo
+            if (cached.folio === s.folio || cached.ticket_number === s.ticket_number) {
+              change = cached.change ?? null
+            }
+          }
+        } catch {
+          // ignore
+        }
+
+        const info: LastSaleInfo = {
+          folio: s.folio,
+          ticket_number: s.ticket_number,
+          paymentMethod: formatPaymentMethods(s.payments || []),
+          totalItems: s.total_items || 0,
+          totalAmount: s.total,
+          change,
+          completedAt: s.completed_at || s.created_at
+        }
+        set({ lastSale: info })
+      }
+    } catch (err) {
+      console.error('Error obteniendo última venta:', err)
+    }
+  },
 
   loadPendingTickets: async (cashSessionId?: number, force = false) => {
     const { isInitialized, initializedSessionId } = get()
@@ -81,6 +137,9 @@ export const useSalesStore = create<SalesState>((set, get) => ({
           initializedSessionId: targetSessionId
         })
       }
+
+      // Sincronizar última venta registrada
+      get().fetchLastSale(targetSessionId ?? undefined)
     } catch (err: any) {
       console.error('Error cargando ventas pendientes:', err)
       set({ error: err.message, isLoading: false })
@@ -364,13 +423,31 @@ export const useSalesStore = create<SalesState>((set, get) => ({
         }))
       })
 
+      const totalItems = currentTicket.items.reduce((sum, it) => sum + it.quantity, 0)
+      const lastSaleInfo: LastSaleInfo = {
+        folio: result.sale.folio,
+        ticket_number: result.sale.ticket_number,
+        paymentMethod: formatPaymentMethods(result.payments || []),
+        totalItems,
+        totalAmount: result.sale.total,
+        change: result.change,
+        completedAt: result.sale.completed_at || result.sale.created_at
+      }
+
+      try {
+        localStorage.setItem('last_sale_info', JSON.stringify(lastSaleInfo))
+      } catch {
+        // ignore
+      }
+
       // Clean or remove current ticket
       if (tickets.length > 1) {
         const remaining = tickets.filter((_, idx) => idx !== activeTicketIndex)
         set({
           tickets: remaining,
           activeTicketIndex: Math.min(activeTicketIndex, remaining.length - 1),
-          isLoading: false
+          isLoading: false,
+          lastSale: lastSaleInfo
         })
       } else {
         // If it was the only ticket, generate the first available non-sold ticket number for this session
@@ -378,7 +455,8 @@ export const useSalesStore = create<SalesState>((set, get) => ({
         set({
           tickets: [{ ticketIndex: nextIdx, label: `Ticket #${nextIdx}`, items: [] }],
           activeTicketIndex: 0,
-          isLoading: false
+          isLoading: false,
+          lastSale: lastSaleInfo
         })
       }
 
