@@ -19,3 +19,21 @@ export function formatDateTime(isoString: string): string {
     return isoString
   }
 }
+
+export function formatPaymentMethods(payments: { method: string; amount: number }[]): string {
+  if (!payments || payments.length === 0) return 'Cambio'
+  const active = payments.filter((p) => p.amount > 0)
+  if (active.length === 0) return 'Cambio'
+
+  const methodNames: Record<string, string> = {
+    cash: 'Efectivo',
+    card: 'Tarjeta',
+    transfer: 'Transferencia'
+  }
+
+  if (active.length === 1) {
+    return methodNames[active[0].method] || active[0].method
+  }
+
+  return active.map((p) => methodNames[p.method] || p.method).join(' + ')
+}

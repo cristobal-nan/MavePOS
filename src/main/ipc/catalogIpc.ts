@@ -113,20 +113,21 @@ export function registerCatalogIpc(
     return excelService.importExcel(filePath, customMapping)
   })
 
-  ipcMain.handle('excel:exportProducts', async (_event, defaultPrefix?: string) => {
+  ipcMain.handle('excel:exportProducts', async (_event, defaultPrefix?: string, productIds?: number[]) => {
     const today = new Date().toISOString().slice(0, 10)
     const prefix = (defaultPrefix || 'Productos').trim() || 'Productos'
-    const defaultFilename = `${prefix}_${today}.xlsx`
+    const isSubset = productIds && productIds.length > 0
+    const defaultFilename = isSubset ? `${prefix}_Seleccionados_${today}.xlsx` : `${prefix}_${today}.xlsx`
 
     const res = await dialog.showSaveDialog(mainWindow, {
-      title: 'Guardar catálogo de productos en Excel',
+      title: isSubset ? 'Guardar productos seleccionados en Excel' : 'Guardar catálogo de productos en Excel',
       defaultPath: defaultFilename,
       filters: [{ name: 'Hojas de Cálculo Excel (*.xlsx)', extensions: ['xlsx'] }]
     })
 
     if (res.canceled || !res.filePath) return null
 
-    const result = excelService.exportProducts(res.filePath)
+    const result = excelService.exportProducts(res.filePath, productIds)
     return {
       filePath: res.filePath,
       totalExported: result.totalExported

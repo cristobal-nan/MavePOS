@@ -83,10 +83,29 @@ export class ProductService {
   }
 
   getProductByCode(code: string, includeInactive = false): Product | null {
+    const trimmed = (code || '').trim()
+    if (!trimmed) return null
+
     const query = includeInactive
       ? 'SELECT * FROM products WHERE code = ?'
       : 'SELECT * FROM products WHERE code = ? AND active = 1'
-    const row = this.db.prepare(query).get(code) as Product | undefined
+    let row = this.db.prepare(query).get(trimmed) as Product | undefined
+
+    // Si no se encontró de forma literal y el código es puramente numérico,
+    // buscar con tolerancia a ceros a la izquierda (ej: '0123' vs '123')
+    if (!row && /^\d+$/.test(trimmed)) {
+      const stripped = trimmed.replace(/^0+/, '')
+      if (stripped && stripped !== trimmed) {
+        row = this.db.prepare(query).get(stripped) as Product | undefined
+      }
+      if (!row) {
+        const altQuery = includeInactive
+          ? "SELECT * FROM products WHERE LTRIM(code, '0') = ? LIMIT 1"
+          : "SELECT * FROM products WHERE LTRIM(code, '0') = ? AND active = 1 LIMIT 1"
+        row = this.db.prepare(altQuery).get(stripped || '0') as Product | undefined
+      }
+    }
+
     if (row) this.attachSuppliersToProduct(row)
     return row || null
   }
@@ -640,10 +659,16 @@ export class ProductService {
           params.push(pattern, pattern)
         })
 
-        // Also check if raw query matches code literally (Section 5.3)
+        // Also check if raw query matches code literally (Section 5.3) with leading zero tolerance
         if (!rawInput.includes('%')) {
-          conditions.push(`(${nameConditions.join(' AND ')} OR p.code = ?)`)
-          params.push(rawInput.trim())
+          if (/^\d+$/.test(rawInput)) {
+            const stripped = rawInput.replace(/^0+/, '') || '0'
+            conditions.push(`(${nameConditions.join(' AND ')} OR p.code = ? OR LTRIM(p.code, '0') = ?)`)
+            params.push(rawInput.trim(), stripped)
+          } else {
+            conditions.push(`(${nameConditions.join(' AND ')} OR p.code = ?)`)
+            params.push(rawInput.trim())
+          }
         } else {
           conditions.push(`(${nameConditions.join(' AND ')})`)
         }
@@ -659,8 +684,8 @@ export class ProductService {
     } else if (orderBy === 'sale_price') {
       orderClause = `ORDER BY p.sale_price ${safeOrderDir}, COALESCE(parent.search_name, p.search_name) ASC, p.search_name ASC, p.id ASC`
     } else {
-      // Orden alfabético según el producto padre (o simple), y luego por la variación
-      orderClause = `ORDER BY COALESCE(parent.search_name, p.search_name) ${safeOrderDir}, p.search_name ${safeOrderDir}, p.id ASC`
+      // Orden alfabético según el producto padre (o simple), con el padre variable primero, y luego sus variaciones
+      orderClause = `ORDER BY COALESCE(parent.search_name, p.search_name) ${safeOrderDir}, CASE WHEN p.product_type = 'variable' THEN 0 ELSE 1 END ASC, p.search_name ${safeOrderDir}, p.id ASC`
     }
 
     const sql = `

@@ -328,4 +328,57 @@ describe('Fase 10: Importación de Catálogo desde Excel (.xlsx)', () => {
       expect(suppliers.map((s) => s.name)).toContain('Proveedor Central')
     })
   })
+
+  describe('Exportación de Productos (exportProducts)', () => {
+    it('exporta catálogo completo o filtrado por productIds seleccionados', () => {
+      const p1 = productService.upsertProduct({
+        code: '00123',
+        name: 'Producto Uno',
+        sale_price: 1000,
+        cost_price: 500,
+        stock: 10
+      })
+      const p2 = productService.upsertProduct({
+        code: '00456',
+        name: 'Producto Dos',
+        sale_price: 2000,
+        cost_price: 1000,
+        stock: 20
+      })
+      const p3 = productService.upsertProduct({
+        code: '00789',
+        name: 'Producto Tres',
+        sale_price: 3000,
+        cost_price: 1500,
+        stock: 30
+      })
+
+      // Exportar solo p1 y p3
+      const exportPath = path.join(os.tmpdir(), `test_export_${Date.now()}.xlsx`)
+      const res = excelService.exportProducts(exportPath, [p1.id, p3.id])
+
+      expect(res.filePath).toBe(exportPath)
+      expect(res.totalExported).toBe(2)
+      expect(fs.existsSync(exportPath)).toBe(true)
+
+      // Leer el archivo exportado y verificar los códigos
+      const wb = XLSX.readFile(exportPath)
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const data: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 })
+
+      // Fila 0: encabezados, Fila 1: Producto Uno, Fila 2: Producto Tres
+      expect(data.length).toBe(3)
+      const exportedCodes = [data[1][0], data[2][0]]
+      expect(exportedCodes).toContain('00123')
+      expect(exportedCodes).toContain('00789')
+      expect(exportedCodes).not.toContain('00456')
+
+      // Limpiar archivo temporal
+      try {
+        fs.unlinkSync(exportPath)
+      } catch {
+        // ignore
+      }
+    })
+  })
 })

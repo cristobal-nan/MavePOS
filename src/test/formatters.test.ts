@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatCLP, parseCLP } from '../renderer/src/utils/formatters'
+import { formatCLP, parseCLP, formatPaymentMethods } from '../renderer/src/utils/formatters'
 
 describe('Fase 3: Formateo de Moneda CLP (Reglas de Dominio)', () => {
   it('formatea montos a CLP como enteros sin decimales con punto de miles', () => {
@@ -21,5 +21,18 @@ describe('Fase 3: Formateo de Moneda CLP (Reglas de Dominio)', () => {
     expect(parseCLP('$ 1.250.000')).toBe(1250000)
     expect(parseCLP('')).toBe(0)
     expect(parseCLP('abc')).toBe(0)
+  })
+
+  it('formatea métodos de pago para la información de venta anterior', () => {
+    expect(formatPaymentMethods([{ method: 'cash', amount: 5000 }])).toBe('Efectivo')
+    expect(formatPaymentMethods([{ method: 'card', amount: 8000 }])).toBe('Tarjeta')
+    expect(formatPaymentMethods([{ method: 'transfer', amount: 10000 }])).toBe('Transferencia')
+    expect(
+      formatPaymentMethods([
+        { method: 'cash', amount: 5000 },
+        { method: 'card', amount: 5000 }
+      ])
+    ).toBe('Efectivo + Tarjeta')
+    expect(formatPaymentMethods([])).toBe('Cambio')
   })
 })

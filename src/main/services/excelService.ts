@@ -519,7 +519,16 @@ export class ExcelService {
    * Exports all active sellable products (simple and variation) to an Excel (.xlsx) file,
    * preserving internal structure (Tipo, Producto Padre, Atributo, Valor Atributo, Proveedores).
    */
-  exportProducts(targetFilePath: string): ExportExcelResult {
+  exportProducts(targetFilePath: string, productIds?: number[]): ExportExcelResult {
+    let whereClause = "WHERE p.active = 1 AND p.product_type IN ('simple', 'variation')"
+    const params: any[] = []
+
+    if (productIds && productIds.length > 0) {
+      const placeholders = productIds.map(() => '?').join(',')
+      whereClause += ` AND (p.id IN (${placeholders}) OR (p.parent_id IS NOT NULL AND p.parent_id IN (${placeholders})))`
+      params.push(...productIds, ...productIds)
+    }
+
     const products = this.db
       .prepare(`
         SELECT 
@@ -547,10 +556,10 @@ export class ExcelService {
         LEFT JOIN categories c ON c.id = p.category_id
         LEFT JOIN categories parent_cat ON parent_cat.id = c.parent_id
         LEFT JOIN products parent ON parent.id = p.parent_id
-        WHERE p.active = 1 AND p.product_type IN ('simple', 'variation')
+        ${whereClause}
         ORDER BY COALESCE(parent.search_name, p.search_name) ASC, p.search_name ASC
       `)
-      .all() as any[]
+      .all(...params) as any[]
 
     const rows = products.map((p) => {
       let categoryStr = ''
@@ -561,7 +570,7 @@ export class ExcelService {
       }
 
       return {
-        Código: p.code || '',
+        Código: p.code !== null && p.code !== undefined ? String(p.code) : '',
         Producto: p.name || '',
         Tipo: p.product_type === 'variation' ? 'variacion' : 'simple',
         'Producto Padre': p.parent_product_name || '',
@@ -577,13 +586,27 @@ export class ExcelService {
     })
 
     const worksheet = XLSX.utils.json_to_sheet(rows)
+
+    // Formatear columna Código como texto explícito ('@') para no perder ceros a la izquierda en Excel
+    if (worksheet['!ref']) {
+      const range = XLSX.utils.decode_range(worksheet['!ref'])
+      for (let r = range.s.r + 1; r <= range.e.r; r++) {
+        const cellAddress = XLSX.utils.encode_cell({ r, c: 0 })
+        const cell = worksheet[cellAddress]
+        if (cell) {
+          cell.t = 's'
+          cell.z = '@'
+        }
+      }
+    }
+
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Productos')
     XLSX.writeFile(workbook, targetFilePath)
 
     return {
       filePath: targetFilePath,
-      totalExported: rows.length
+      totalExported: products.length
     }
   }
 }

@@ -58,7 +58,7 @@ export interface CatalogAPI {
   selectExcelFile: () => Promise<string | null>
   parseExcelFile: (filePath: string) => Promise<ExcelParsePreview>
   importExcelFile: (filePath: string, customMapping?: Partial<ExcelColumnMapping>) => Promise<ImportReportResult>
-  exportExcel: (defaultPrefix?: string) => Promise<{ filePath: string; totalExported: number } | null>
+  exportExcel: (defaultPrefix?: string, productIds?: number[]) => Promise<{ filePath: string; totalExported: number } | null>
   openContainingFolder: (filePath: string) => Promise<boolean>
 }
 
@@ -211,7 +211,7 @@ export interface WindowAPI {
   selectExcelFile: () => Promise<string | null>
   parseExcelFile: (filePath: string) => Promise<ExcelParsePreview>
   importExcelFile: (filePath: string, customMapping?: Partial<ExcelColumnMapping>) => Promise<ImportReportResult>
-  exportExcel: (defaultPrefix?: string) => Promise<{ filePath: string; totalExported: number } | null>
+  exportExcel: (defaultPrefix?: string, productIds?: number[]) => Promise<{ filePath: string; totalExported: number } | null>
   openContainingFolder: (filePath: string) => Promise<boolean>
 
   getReportData: (filter: ReportFilter) => Promise<FullReportData>
@@ -253,7 +253,7 @@ const catalog: CatalogAPI = {
   selectExcelFile: () => ipcRenderer.invoke('excel:selectFile'),
   parseExcelFile: (filePath) => ipcRenderer.invoke('excel:parseFile', filePath),
   importExcelFile: (filePath, customMapping) => ipcRenderer.invoke('excel:importFile', filePath, customMapping),
-  exportExcel: (defaultPrefix) => ipcRenderer.invoke('excel:exportProducts', defaultPrefix),
+  exportExcel: (defaultPrefix, productIds) => ipcRenderer.invoke('excel:exportProducts', defaultPrefix, productIds),
   openContainingFolder: (filePath) => ipcRenderer.invoke('excel:openContainingFolder', filePath)
 }
 

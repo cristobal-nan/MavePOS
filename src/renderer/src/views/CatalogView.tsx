@@ -22,9 +22,10 @@ import { ProductSearch } from '../components/ProductSearch'
 import { ProductFormModal } from '../components/ProductFormModal'
 import { CategoryModal } from '../components/CategoryModal'
 import { SupplierModal } from '../components/SupplierModal'
-import { ExcelImportModal } from '../components/ExcelImportModal'
+import { ExcelUnifiedModal } from '../components/ExcelUnifiedModal'
 import { BulkCategoryModal } from '../components/BulkCategoryModal'
 import { BulkGroupVariableModal } from '../components/BulkGroupVariableModal'
+import { useModalStack } from '../utils/modalStack'
 
 export const CatalogView: React.FC = () => {
   const {
@@ -60,10 +61,25 @@ export const CatalogView: React.FC = () => {
   const [productToDelete, setProductToDelete] = useState<ProductSearchResult | null>(null)
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false)
 
+  const { handleBackdropClick: handleBackdropDeleteSingle } = useModalStack({
+    id: 'catalog-delete-single-modal',
+    isOpen: !!productToDelete,
+    onClose: () => setProductToDelete(null),
+    closeOnBackdrop: true
+  })
+
+  const { handleBackdropClick: handleBackdropDeleteBulk } = useModalStack({
+    id: 'catalog-delete-bulk-modal',
+    isOpen: isBulkDeleteModalOpen,
+    onClose: () => setIsBulkDeleteModalOpen(false),
+    closeOnBackdrop: true
+  })
+
   useEffect(() => {
+    setSelectedProductType('all')
     loadMetadata()
     fetchProducts()
-  }, [loadMetadata, fetchProducts])
+  }, [setSelectedProductType, loadMetadata, fetchProducts])
 
   const handleExportExcel = async (): Promise<void> => {
     setIsExporting(true)
@@ -78,6 +94,26 @@ export const CatalogView: React.FC = () => {
     } catch (err: any) {
       console.error('Error exportando Excel:', err)
       setExportError(err.message || 'Error al exportar catálogo')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  const handleExportSelected = async (): Promise<void> => {
+    if (selectedProductIds.size === 0) return
+    setIsExporting(true)
+    setExportSuccessInfo(null)
+    setExportError(null)
+    try {
+      const prefix = await window.api.getSetting('excel_export_prefix', 'Productos')
+      const ids = Array.from(selectedProductIds)
+      const res = await window.api.exportExcel(prefix || 'Productos', ids)
+      if (res && res.filePath) {
+        setExportSuccessInfo(res)
+      }
+    } catch (err: any) {
+      console.error('Error exportando productos seleccionados:', err)
+      setExportError(err.message || 'Error al exportar productos seleccionados')
     } finally {
       setIsExporting(false)
     }
@@ -112,6 +148,28 @@ export const CatalogView: React.FC = () => {
         next.delete(product.id!)
       } else {
         next.add(product.id!)
+      }
+      return next
+    })
+  }
+
+  const handleToggleParentWithVariations = (
+    parent: ProductSearchResult,
+    variations: ProductSearchResult[]
+  ): void => {
+    const parentId = parent.id
+    if (!parentId) return
+
+    const variationIds = variations.map((v) => v.id).filter((id): id is number => typeof id === 'number')
+    const allIds = [parentId, ...variationIds]
+    const allSelected = allIds.every((id) => selectedProductIds.has(id))
+
+    setSelectedProductIds((prev) => {
+      const next = new Set(prev)
+      if (allSelected) {
+        allIds.forEach((id) => next.delete(id))
+      } else {
+        allIds.forEach((id) => next.add(id))
       }
       return next
     })
@@ -180,20 +238,10 @@ export const CatalogView: React.FC = () => {
           <button
             onClick={() => setIsExcelModalOpen(true)}
             className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 border border-emerald-200/60"
-            title="Importar catálogo masivo desde archivo Excel (.xlsx)"
+            title="Importar o exportar productos en formato Excel (.xlsx)"
           >
             <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Importar Excel</span>
-          </button>
-
-          <button
-            onClick={handleExportExcel}
-            disabled={isExporting}
-            className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 disabled:bg-slate-100 text-emerald-800 disabled:text-slate-400 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 border border-emerald-200/60 cursor-pointer disabled:cursor-not-allowed"
-            title="Exportar todos los productos a archivo Excel (.xlsx)"
-          >
-            <Download className="w-3.5 h-3.5 text-emerald-600" />
-            <span>{isExporting ? 'Exportando...' : 'Exportar Excel'}</span>
+            <span>Importar / Exportar</span>
           </button>
 
           {products.length === 0 && (
@@ -351,6 +399,16 @@ export const CatalogView: React.FC = () => {
             </button>
 
             <button
+              onClick={handleExportSelected}
+              disabled={isExporting}
+              className="px-3 py-1.5 bg-emerald-500/90 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+              title="Exportar únicamente los productos seleccionados a un archivo Excel (.xlsx)"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>{isExporting ? 'Exportando...' : 'Exportar Seleccionados'}</span>
+            </button>
+
+            <button
               onClick={handleBulkDelete}
               className="px-3 py-1.5 bg-red-500/80 hover:bg-red-600 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
               title="Eliminar (soft delete) los productos seleccionados"
@@ -381,8 +439,10 @@ export const CatalogView: React.FC = () => {
           enableMultiSelect={true}
           selectedIds={selectedProductIds}
           onToggleSelect={handleToggleSelect}
+          onToggleParentWithVariations={handleToggleParentWithVariations}
           onSelectAllVisible={handleSelectAllVisible}
           isAllVisibleSelected={isAllVisibleSelected}
+          context="catalog"
         />
       </div>
 
@@ -403,9 +463,19 @@ export const CatalogView: React.FC = () => {
         onClose={() => setIsSupplierModalOpen(false)}
       />
 
-      <ExcelImportModal
+      <ExcelUnifiedModal
         isOpen={isExcelModalOpen}
         onClose={() => setIsExcelModalOpen(false)}
+        selectedCount={selectedProductIds.size}
+        onExportAll={handleExportExcel}
+        onExportSelected={handleExportSelected}
+        isExporting={isExporting}
+        exportSuccessInfo={exportSuccessInfo}
+        exportError={exportError}
+        onClearExportFeedback={() => {
+          setExportSuccessInfo(null)
+          setExportError(null)
+        }}
         onSuccess={() => {
           loadMetadata()
           fetchProducts()
@@ -435,7 +505,10 @@ export const CatalogView: React.FC = () => {
       />
       {/* Modal de confirmación para eliminar un producto individual */}
       {productToDelete && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 select-none animate-in fade-in duration-150">
+        <div
+          onClick={handleBackdropDeleteSingle}
+          className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 select-none animate-in fade-in duration-150"
+        >
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -502,7 +575,10 @@ export const CatalogView: React.FC = () => {
 
       {/* Modal de confirmación para eliminación masiva */}
       {isBulkDeleteModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 select-none animate-in fade-in duration-150">
+        <div
+          onClick={handleBackdropDeleteBulk}
+          className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 select-none animate-in fade-in duration-150"
+        >
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
             <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
               <div className="flex items-center gap-3">

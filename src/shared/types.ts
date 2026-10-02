@@ -188,6 +188,16 @@ export interface CompletedSaleResult {
   change: number
 }
 
+export interface LastSaleInfo {
+  folio?: number | null
+  ticket_number?: number
+  paymentMethod: string
+  totalItems: number
+  totalAmount: number
+  change?: number | null
+  completedAt?: string
+}
+
 export interface SaleDetail extends Sale {
   items: (SaleItem & { current_stock?: number })[]
   payments: SalePayment[]
@@ -232,6 +242,8 @@ export interface InventoryMovementDetail extends InventoryMovement {
   sale_folio: number | null
   parent_name?: string | null
   attribute_value?: string | null
+  stock_before?: number
+  stock_after?: number
 }
 
 export interface AdjustStockInput {
