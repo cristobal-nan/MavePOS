@@ -19,6 +19,7 @@ nsis:
   oneClick: false
   perMachine: true
   allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
   createDesktopShortcut: always
   createStartMenuShortcut: true
   shortcutName: POS Offline
