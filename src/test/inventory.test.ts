@@ -203,8 +203,15 @@ describe('Fase 6: Control de Inventario, Ajustes, Alertas y Kardex', () => {
 
       expect(movements.length).toBeGreaterThanOrEqual(2)
       expect(movements[0].product_name).toBeDefined()
-      expect(movements.some((m) => m.product_code === 'PROD_S1' && m.delta === 10)).toBe(true)
-      expect(movements.some((m) => m.product_code === 'VAR_AZUL' && m.delta === -1)).toBe(true)
+      const s1Movement = movements.find((m) => m.product_code === 'PROD_S1' && m.delta === 10)
+      expect(s1Movement).toBeDefined()
+      expect(s1Movement?.stock_before).toBe(20)
+      expect(s1Movement?.stock_after).toBe(30)
+
+      const varMovement = movements.find((m) => m.product_code === 'VAR_AZUL' && m.delta === -1)
+      expect(varMovement).toBeDefined()
+      expect(varMovement?.stock_before).toBe(3)
+      expect(varMovement?.stock_after).toBe(2)
     })
 
     it('permite filtrar movimientos por tipo (ej: "ajuste")', () => {
@@ -245,8 +252,16 @@ describe('Fase 6: Control de Inventario, Ajustes, Alertas y Kardex', () => {
 
       // Debe venir ordenado descendentemente por fecha/id (más reciente primero)
       expect(kardex[0].reason).toBe('Tercer ajuste')
+      expect(kardex[0].stock_before).toBe(22)
+      expect(kardex[0].stock_after).toBe(32)
+
       expect(kardex[1].reason).toBe('Segundo ajuste')
+      expect(kardex[1].stock_before).toBe(25)
+      expect(kardex[1].stock_after).toBe(22)
+
       expect(kardex[2].reason).toBe('Primer ajuste')
+      expect(kardex[2].stock_before).toBe(20)
+      expect(kardex[2].stock_after).toBe(25)
     })
   })
 })

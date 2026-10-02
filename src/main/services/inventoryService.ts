@@ -111,49 +111,123 @@ export class InventoryService {
 
   getMovementsByDate(dateStr?: string, type?: MovementType): InventoryMovementDetail[] {
     const targetDate = dateStr || new Date().toISOString().slice(0, 10)
-    const conditions: string[] = ['m.created_at LIKE ?']
-    const params: any[] = [`${targetDate}%`]
 
+    let typeFilter = ''
     if (type) {
-      conditions.push('m.type = ?')
-      params.push(type)
+      typeFilter = 'AND am.type = ?'
     }
 
     const sql = `
+      WITH product_codes_on_date AS (
+        SELECT DISTINCT product_code
+        FROM inventory_movements
+        WHERE created_at LIKE ?
+      ),
+      all_movements_for_these_products AS (
+        SELECT
+          m.*,
+          COALESCE(p.stock, (SELECT SUM(delta) FROM inventory_movements WHERE product_code = m.product_code)) AS current_product_stock,
+          COALESCE(
+            SUM(m.delta) OVER (
+              PARTITION BY m.product_code
+              ORDER BY m.created_at DESC, m.id DESC
+              ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+            ),
+            0
+          ) AS delta_after_this
+        FROM inventory_movements m
+        JOIN product_codes_on_date pcd ON m.product_code = pcd.product_code
+        LEFT JOIN products p ON m.product_code = p.code
+      ),
+      ranked AS (
+        SELECT
+          am.*,
+          p.name AS product_name,
+          p.attribute_value,
+          parent.name AS parent_name,
+          s.folio AS sale_folio,
+          (am.current_product_stock - am.delta_after_this) AS stock_after,
+          (am.current_product_stock - am.delta_after_this - am.delta) AS stock_before
+        FROM all_movements_for_these_products am
+        LEFT JOIN products p ON am.product_code = p.code
+        LEFT JOIN products parent ON p.parent_id = parent.id
+        LEFT JOIN sales s ON am.ref_sale_id = s.id
+        WHERE am.created_at LIKE ?
+        ${typeFilter}
+      )
       SELECT
-        m.*,
-        p.name AS product_name,
-        p.attribute_value,
-        parent.name AS parent_name,
-        s.folio AS sale_folio
-      FROM inventory_movements m
-      LEFT JOIN products p ON m.product_code = p.code
-      LEFT JOIN products parent ON p.parent_id = parent.id
-      LEFT JOIN sales s ON m.ref_sale_id = s.id
-      WHERE ${conditions.join(' AND ')}
-      ORDER BY m.created_at DESC, m.id DESC
+        id,
+        product_code,
+        delta,
+        type,
+        reason,
+        ref_sale_id,
+        created_at,
+        product_name,
+        attribute_value,
+        parent_name,
+        sale_folio,
+        stock_after,
+        stock_before
+      FROM ranked
+      ORDER BY created_at DESC, id DESC
     `
 
-    return this.db.prepare(sql).all(...params) as InventoryMovementDetail[]
+    const finalParams = [`${targetDate}%`, `${targetDate}%`]
+    if (type) {
+      finalParams.push(type)
+    }
+
+    return this.db.prepare(sql).all(...finalParams) as InventoryMovementDetail[]
   }
 
   getProductKardex(productCode: string, limit = 100): InventoryMovementDetail[] {
     const trimmed = productCode.trim()
+    const prod = this.db
+      .prepare("SELECT code FROM products WHERE code = ? OR LTRIM(code, '0') = LTRIM(?, '0') LIMIT 1")
+      .get(trimmed, trimmed) as { code: string } | undefined
+    const actualCode = prod ? prod.code : trimmed
+
     const sql = `
+      WITH ranked AS (
+        SELECT
+          m.*,
+          p.name AS product_name,
+          p.attribute_value,
+          parent.name AS parent_name,
+          s.folio AS sale_folio,
+          COALESCE(p.stock, (SELECT SUM(delta) FROM inventory_movements WHERE product_code = m.product_code)) AS current_product_stock,
+          COALESCE(
+            SUM(m.delta) OVER (
+              ORDER BY m.created_at DESC, m.id DESC
+              ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+            ),
+            0
+          ) AS delta_after_this
+        FROM inventory_movements m
+        LEFT JOIN products p ON m.product_code = p.code
+        LEFT JOIN products parent ON p.parent_id = parent.id
+        LEFT JOIN sales s ON m.ref_sale_id = s.id
+        WHERE m.product_code = ?
+      )
       SELECT
-        m.*,
-        p.name AS product_name,
-        p.attribute_value,
-        parent.name AS parent_name,
-        s.folio AS sale_folio
-      FROM inventory_movements m
-      LEFT JOIN products p ON m.product_code = p.code
-      LEFT JOIN products parent ON p.parent_id = parent.id
-      LEFT JOIN sales s ON m.ref_sale_id = s.id
-      WHERE m.product_code = ?
-      ORDER BY m.created_at DESC, m.id DESC
+        id,
+        product_code,
+        delta,
+        type,
+        reason,
+        ref_sale_id,
+        created_at,
+        product_name,
+        attribute_value,
+        parent_name,
+        sale_folio,
+        (current_product_stock - delta_after_this) AS stock_after,
+        (current_product_stock - delta_after_this - delta) AS stock_before
+      FROM ranked
+      ORDER BY created_at DESC, id DESC
       LIMIT ?
     `
-    return this.db.prepare(sql).all(trimmed, limit) as InventoryMovementDetail[]
+    return this.db.prepare(sql).all(actualCode, limit) as InventoryMovementDetail[]
   }
 }
