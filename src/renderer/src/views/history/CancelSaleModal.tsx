@@ -3,6 +3,7 @@ import { AlertTriangle } from 'lucide-react'
 import { formatCLP } from '../../utils/formatters'
 import { useHistoryStore } from '../../store/historyStore'
 import { useCashStore } from '../../store/cashStore'
+import { useModalStack } from '../../utils/modalStack'
 
 interface CancelSaleModalProps {
   sale: { id: number; folio: number; total: number } | null
@@ -21,6 +22,13 @@ export const CancelSaleModal: React.FC<CancelSaleModalProps> = ({
   const [cancelReason, setCancelReason] = useState('')
   const [isCancelling, setIsCancelling] = useState(false)
   const [cancelError, setCancelError] = useState<string | null>(null)
+
+  const { handleBackdropClick } = useModalStack({
+    id: 'cancel-sale-modal',
+    isOpen: !!sale,
+    onClose,
+    closeOnBackdrop: true
+  })
 
   if (!sale) return null
 
@@ -42,7 +50,10 @@ export const CancelSaleModal: React.FC<CancelSaleModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-[80] bg-slate-900/60 flex items-center justify-center p-4">
+    <div
+      onClick={handleBackdropClick}
+      className="fixed inset-0 z-[80] bg-slate-900/60 flex items-center justify-center p-4"
+    >
       <div className="bg-white rounded-3xl shadow-2xl border border-rose-200 w-full max-w-md p-6 flex flex-col gap-4 animate-in fade-in zoom-in-95">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">

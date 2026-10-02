@@ -10,6 +10,7 @@ import {
 import { SaleDetail, ExchangeInfo, ExchangeReturnedItem } from '@shared/types'
 import { formatCLP, formatDateTime } from '../../utils/formatters'
 import { isExchangePeriodExceeded } from '@shared/finance'
+import { useModalStack } from '../../utils/modalStack'
 
 interface ProductExchangeModalProps {
   saleDetail: SaleDetail
@@ -26,6 +27,13 @@ export const ProductExchangeModal: React.FC<ProductExchangeModalProps> = ({
 }) => {
   // Cantidades seleccionadas para devolver por cada product_code
   const [selectedQuantities, setSelectedQuantities] = useState<Record<string, number>>({})
+
+  const { handleBackdropClick } = useModalStack({
+    id: 'product-exchange-modal',
+    isOpen,
+    onClose,
+    closeOnBackdrop: true
+  })
 
   if (!isOpen) return null
 
@@ -80,7 +88,10 @@ export const ProductExchangeModal: React.FC<ProductExchangeModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 animate-in fade-in duration-200">
+    <div
+      onClick={handleBackdropClick}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 animate-in fade-in duration-200"
+    >
       <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 flex flex-col max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-b border-amber-200/60 flex items-center justify-between shrink-0">

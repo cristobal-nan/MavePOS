@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { X, Plus, Trash2, Layers, Edit2, Check } from 'lucide-react'
 import { useCatalogStore } from '../store/catalogStore'
 import { Category } from '@shared/types'
+import { useModalStack } from '../utils/modalStack'
 
 interface CategoryModalProps {
   isOpen: boolean
@@ -17,6 +18,20 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({ isOpen, onClose })
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [categoryToDelete, setCategoryToDelete] = useState<{ id: number; name: string } | null>(null)
+
+  useModalStack({
+    id: 'category-modal',
+    isOpen: isOpen && !categoryToDelete,
+    onClose,
+    closeOnBackdrop: false
+  })
+
+  useModalStack({
+    id: 'category-confirm-delete-modal',
+    isOpen: !!categoryToDelete,
+    onClose: () => setCategoryToDelete(null),
+    closeOnBackdrop: false
+  })
 
   if (!isOpen) return null
 

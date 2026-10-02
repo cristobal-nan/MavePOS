@@ -4,6 +4,7 @@ import { useHistoryStore } from '../../store/historyStore'
 import { SalesHistoryTab } from './SalesHistoryTab'
 import { SaleDetailModal } from './SaleDetailModal'
 import { CancelSaleModal } from './CancelSaleModal'
+import { useModalStack } from '../../utils/modalStack'
 
 interface SalesHistoryModalProps {
   isOpen: boolean
@@ -15,7 +16,6 @@ export const SalesHistoryModal: React.FC<SalesHistoryModalProps> = ({ isOpen, on
     sales,
     fetchSalesHistory,
     closeSaleDetail,
-    selectedSaleDetail,
     error,
     clearError
   } = useHistoryStore()
@@ -23,39 +23,26 @@ export const SalesHistoryModal: React.FC<SalesHistoryModalProps> = ({ isOpen, on
   const [saleToCancel, setSaleToCancel] = useState<{ id: number; folio: number; total: number } | null>(null)
   const [successBanner, setSuccessBanner] = useState<string | null>(null)
 
+  const { handleBackdropClick } = useModalStack({
+    id: 'sales-history-modal',
+    isOpen,
+    onClose,
+    closeOnBackdrop: true
+  })
+
   useEffect(() => {
     if (isOpen) {
       fetchSalesHistory()
     }
   }, [isOpen, fetchSalesHistory])
 
-  // Escape key handler to close modal if no sub-modal is open
-  useEffect(() => {
-    if (!isOpen) return
-
-    const handleKeyDown = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') {
-        // If an inner modal (detail or cancel) is open, let that inner modal handle escape
-        if (saleToCancel) {
-          setSaleToCancel(null)
-          return
-        }
-        if (selectedSaleDetail) {
-          closeSaleDetail()
-          return
-        }
-        onClose()
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, saleToCancel, selectedSaleDetail, closeSaleDetail, onClose])
-
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-150 select-none">
+    <div
+      onClick={handleBackdropClick}
+      className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-150 select-none"
+    >
       <div className="bg-white rounded-3xl shadow-2xl border border-lilac-200 w-full max-w-6xl h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
         {/* Header del Modal */}
         <div className="px-6 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">

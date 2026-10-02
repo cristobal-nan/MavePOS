@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { X, Plus, Trash2, Truck, Edit2, Check } from 'lucide-react'
 import { useCatalogStore } from '../store/catalogStore'
 import { Supplier } from '@shared/types'
+import { useModalStack } from '../utils/modalStack'
 
 interface SupplierModalProps {
   isOpen: boolean
@@ -17,6 +18,20 @@ export const SupplierModal: React.FC<SupplierModalProps> = ({ isOpen, onClose })
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [supplierToDelete, setSupplierToDelete] = useState<{ id: number; name: string } | null>(null)
+
+  useModalStack({
+    id: 'supplier-modal',
+    isOpen: isOpen && !supplierToDelete,
+    onClose,
+    closeOnBackdrop: false
+  })
+
+  useModalStack({
+    id: 'supplier-confirm-delete-modal',
+    isOpen: !!supplierToDelete,
+    onClose: () => setSupplierToDelete(null),
+    closeOnBackdrop: false
+  })
 
   if (!isOpen) return null
 

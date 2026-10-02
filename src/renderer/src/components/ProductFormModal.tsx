@@ -15,6 +15,7 @@ import {
 import { ProductInput, ProductSearchResult, ProductType } from '@shared/types'
 import { useCatalogStore } from '../store/catalogStore'
 import { parseCLP } from '../utils/formatters'
+import { useModalStack } from '../utils/modalStack'
 
 interface VariationRow {
   id?: number
@@ -213,20 +214,19 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     setError(null)
   }, [product, categories, isOpen, getVariations])
 
-  useEffect(() => {
-    if (!isOpen) return
-    const handleKeyDown = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') {
-        if (isConfirmParentModalOpen) {
-          e.stopPropagation()
-          setIsConfirmParentModalOpen(false)
-          return
-        }
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, isConfirmParentModalOpen])
+  useModalStack({
+    id: 'product-form-modal',
+    isOpen: isOpen && !isConfirmParentModalOpen,
+    onClose,
+    closeOnBackdrop: false
+  })
+
+  useModalStack({
+    id: 'product-form-confirm-parent-modal',
+    isOpen: isConfirmParentModalOpen,
+    onClose: () => setIsConfirmParentModalOpen(false),
+    closeOnBackdrop: false
+  })
 
   const handleAddInlineSupplier = async (): Promise<void> => {
     const trimmed = newInlineSupplierName.trim()

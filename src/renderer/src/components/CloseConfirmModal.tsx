@@ -2,12 +2,25 @@ import React, { useEffect, useState } from 'react'
 import { AlertCircle, Archive, CheckCircle2, ShieldCheck, X } from 'lucide-react'
 import { CashSession } from '@shared/types'
 import { useUIStore } from '../store/uiStore'
+import { useModalStack } from '../utils/modalStack'
 
 export const CloseConfirmModal: React.FC = () => {
   const { closeModalStep, openCloseModal, closeCloseModal } = useUIStore()
   const [activeSession, setActiveSession] = useState<CashSession | null>(null)
   const [countdown, setCountdown] = useState(5)
   const [isProcessing, setIsProcessing] = useState(false)
+
+  const handleCancel = (): void => {
+    closeCloseModal()
+    setIsProcessing(false)
+  }
+
+  const { handleBackdropClick } = useModalStack({
+    id: 'close-confirm-modal',
+    isOpen: closeModalStep !== 'closed',
+    onClose: handleCancel,
+    closeOnBackdrop: true
+  })
 
   // Reset countdown each time we enter 'countdown_backup'
   useEffect(() => {
@@ -56,10 +69,6 @@ export const CloseConfirmModal: React.FC = () => {
     return () => clearInterval(timer)
   }, [closeModalStep, countdown])
 
-  const handleCancel = (): void => {
-    closeCloseModal()
-    setIsProcessing(false)
-  }
 
   const handleNoCloseCash = async (): Promise<void> => {
     // Leave cash session open and exit immediately
@@ -93,7 +102,7 @@ export const CloseConfirmModal: React.FC = () => {
   if (closeModalStep === 'closed') return null
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
+    <div onClick={handleBackdropClick} className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl border border-lilac-200 max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Step 1: "¿Cerrar caja?" */}
         {closeModalStep === 'ask_cash_close' && (

@@ -3,6 +3,7 @@ import { X, GitBranch, CheckCircle2, Layers, Tag, Sparkles, Truck, Plus } from '
 import { ProductSearchResult } from '@shared/types'
 import { formatCLP } from '../utils/formatters'
 import { useCatalogStore } from '../store/catalogStore'
+import { useModalStack } from '../utils/modalStack'
 
 interface BulkGroupVariableModalProps {
   isOpen: boolean
@@ -39,6 +40,13 @@ export const BulkGroupVariableModal: React.FC<BulkGroupVariableModalProps> = ({
   onSuccess
 }) => {
   const { categories, suppliers, saveSupplier, groupProductsAsVariable } = useCatalogStore()
+
+  useModalStack({
+    id: 'bulk-group-variable-modal',
+    isOpen,
+    onClose,
+    closeOnBackdrop: false
+  })
 
   const [parentName, setParentName] = useState('')
   const [categoryId, setCategoryId] = useState<number | null>(null)

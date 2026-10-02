@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { X, FolderInput, CheckCircle2, Layers, Truck, Plus } from 'lucide-react'
 import { ProductSearchResult } from '@shared/types'
 import { useCatalogStore } from '../store/catalogStore'
+import { useModalStack } from '../utils/modalStack'
 
 interface BulkCategoryModalProps {
   isOpen: boolean
@@ -31,6 +32,13 @@ export const BulkCategoryModal: React.FC<BulkCategoryModalProps> = ({
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useModalStack({
+    id: 'bulk-category-modal',
+    isOpen,
+    onClose,
+    closeOnBackdrop: false
+  })
 
   if (!isOpen) return null
 

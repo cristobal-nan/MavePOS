@@ -18,6 +18,7 @@ import { formatCLP, parseCLP } from '../utils/formatters'
 import { calculatePaymentChange } from '@shared/finance'
 import { useSalesStore } from '../store/salesStore'
 import { useCashStore } from '../store/cashStore'
+import { useModalStack } from '../utils/modalStack'
 
 interface CheckoutModalProps {
   isOpen: boolean
@@ -36,6 +37,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 }) => {
   const { currentSession } = useCashStore()
   const { finalizeSale } = useSalesStore()
+
+  const { handleBackdropClick } = useModalStack({
+    id: 'sales-checkout-modal',
+    isOpen,
+    onClose,
+    closeOnBackdrop: true
+  })
 
   const [activeMethod, setActiveMethod] = useState<TabMethod>('cash')
   const [cashGiven, setCashGiven] = useState<string>('')
@@ -219,7 +227,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+    <div
+      onClick={handleBackdropClick}
+      className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4"
+    >
       <div className="bg-white rounded-3xl shadow-2xl border border-lilac-100 max-w-lg w-full overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
         {/* Success Screen */}
         {completedResult ? (

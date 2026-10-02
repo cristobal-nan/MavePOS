@@ -1,6 +1,7 @@
 import React from 'react'
 import { CheckCircle2, Printer, Power } from 'lucide-react'
 import { formatCLP, formatDateTime } from '../../utils/formatters'
+import { useModalStack } from '../../utils/modalStack'
 
 interface ReceiptCashCutModalProps {
   isOpen: boolean
@@ -15,10 +16,17 @@ export const ReceiptCashCutModal: React.FC<ReceiptCashCutModalProps> = ({
   onClose,
   onExitApp
 }) => {
+  const { handleBackdropClick } = useModalStack({
+    id: 'receipt-cash-cut-modal',
+    isOpen: isOpen && !!data,
+    onClose,
+    closeOnBackdrop: true
+  })
+
   if (!isOpen || !data) return null
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/70 flex items-center justify-center p-4">
+    <div onClick={handleBackdropClick} className="fixed inset-0 z-50 bg-slate-900/70 flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl shadow-2xl border border-lilac-200 w-full max-w-lg p-6 flex flex-col gap-4 animate-in fade-in zoom-in-95">
         <div className="text-center pb-2 border-b border-slate-100">
           <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-2">

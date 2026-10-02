@@ -23,6 +23,7 @@ import { useCashStore } from '../../store/cashStore'
 import { useUIStore } from '../../store/uiStore'
 import { ProductExchangeModal } from './ProductExchangeModal'
 import { ExchangeInfo, PaymentMethod } from '@shared/types'
+import { useModalStack } from '../../utils/modalStack'
 
 interface SaleDetailModalProps {
   onOpenCancelModal: (id: number, folio: number, total: number) => void
@@ -149,6 +150,20 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
     onClose()
   }
 
+  const { handleBackdropClick } = useModalStack({
+    id: 'sale-detail-modal',
+    isOpen: !!selectedSaleDetail && !isExchangeModalOpen && !isChangePaymentModalOpen,
+    onClose: handleClose,
+    closeOnBackdrop: true
+  })
+
+  useModalStack({
+    id: 'sale-detail-change-payment-modal',
+    isOpen: isChangePaymentModalOpen,
+    onClose: () => setIsChangePaymentModalOpen(false),
+    closeOnBackdrop: true
+  })
+
   const handleConfirmExchange = async (exchangeInfo: ExchangeInfo): Promise<void> => {
     await createExchangeTicket(exchangeInfo, currentSession?.id)
     setIsExchangeModalOpen(false)
@@ -207,7 +222,10 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
+    <div
+      onClick={handleBackdropClick}
+      className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4"
+    >
       <div className="bg-white rounded-3xl shadow-2xl border border-lilac-200 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Header del Modal */}
         <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">

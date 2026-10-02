@@ -4,6 +4,7 @@ import { NavigationTabs, TabId } from './components/NavigationTabs'
 import { useUIStore } from './store/uiStore'
 import { useCashStore } from './store/cashStore'
 import { useCatalogStore } from './store/catalogStore'
+import { useInventoryStore } from './store/inventoryStore'
 import { SalesView } from './views/SalesView'
 import { CatalogView } from './views/CatalogView'
 import { InventoryView } from './views/InventoryView'
@@ -14,7 +15,8 @@ import { CloseConfirmModal } from './components/CloseConfirmModal'
 import { CashOpeningScreen } from './components/CashOpeningScreen'
 import { ReceiptCashCutModal } from './views/cashCut/ReceiptCashCutModal'
 import { formatCLP } from './utils/formatters'
-import { WifiOff, Database, Store, Loader2, DollarSign } from 'lucide-react'
+import { Store, Loader2 } from 'lucide-react'
+import { useSalesStore } from './store/salesStore'
 
 export const App: React.FC = () => {
   const { activeTab, setActiveTab, openCloseModal } = useUIStore()
@@ -25,6 +27,15 @@ export const App: React.FC = () => {
     completedCutReceipt,
     setCompletedCutReceipt
   } = useCashStore()
+  const { lastSale, fetchLastSale } = useSalesStore()
+
+  // Manejar selección de pestaña (siempre resetear Inventario a 'adjust')
+  const handleSelectTab = (tab: TabId): void => {
+    if (tab === 'inventario') {
+      useInventoryStore.getState().setActiveTab('adjust')
+    }
+    setActiveTab(tab)
+  }
 
   // Limpiar búsqueda de productos al cambiar de pestaña
   useEffect(() => {
@@ -35,6 +46,13 @@ export const App: React.FC = () => {
   useEffect(() => {
     checkCurrentSession()
   }, [checkCurrentSession])
+
+  // Sincronizar información de la última venta al iniciar sesión
+  useEffect(() => {
+    if (currentSession) {
+      fetchLastSale(currentSession.id)
+    }
+  }, [currentSession?.id, fetchLastSale])
 
   // Keyboard navigation between tabs (F1 to F6) - only active when cash is open
   useEffect(() => {
@@ -52,7 +70,7 @@ export const App: React.FC = () => {
 
       if (shortcuts[e.key]) {
         e.preventDefault()
-        setActiveTab(shortcuts[e.key])
+        handleSelectTab(shortcuts[e.key])
       }
     }
 
@@ -115,7 +133,7 @@ export const App: React.FC = () => {
       ) : (
         /* Caso B: Sí existe sesión abierta -> Entra directo a Ventas */
         <>
-          <NavigationTabs activeTab={activeTab} onSelectTab={setActiveTab} />
+          <NavigationTabs activeTab={activeTab} onSelectTab={handleSelectTab} />
           <main className="flex-1 flex overflow-hidden bg-slate-50">
             {renderActiveView()}
           </main>
@@ -124,30 +142,39 @@ export const App: React.FC = () => {
 
       {/* Bottom Status Bar */}
       <footer className="h-7 bg-white border-t border-lilac-100 px-3 flex items-center justify-between text-xs text-slate-500 select-none">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1.5 text-emerald-600 font-medium">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>Sistema Operativo</span>
-          </div>
-
-          {currentSession && (
-            <div className="flex items-center gap-1 text-lilac-700 bg-lilac-50 border border-lilac-200 px-2 py-0.5 rounded font-medium">
-              <DollarSign className="w-3.5 h-3.5 text-lilac-600" />
-              <span>Turno #{currentSession.id}</span>
-              <span className="text-lilac-300">|</span>
-              <span>Fondo: {formatCLP(currentSession.opening_fund)}</span>
+        <div className="flex items-center gap-2 overflow-hidden">
+          {lastSale ? (
+            <div className="flex items-center gap-2 text-xs truncate">
+              <span className="font-bold text-slate-700 shrink-0">
+                Venta anterior{lastSale.folio ? ` (#${lastSale.folio})` : ''}:
+              </span>
+              <span className="text-slate-300">|</span>
+              <span className="font-semibold text-lilac-700 bg-lilac-50 border border-lilac-200 px-2 py-0.5 rounded text-[11px] shrink-0">
+                {lastSale.paymentMethod}
+              </span>
+              <span className="text-slate-300">|</span>
+              <span className="font-medium text-slate-600 shrink-0">
+                {lastSale.totalItems} {lastSale.totalItems === 1 ? 'producto' : 'productos'}
+              </span>
+              <span className="text-slate-300">|</span>
+              <span className="font-bold text-slate-900 font-mono shrink-0">
+                {formatCLP(lastSale.totalAmount)}
+              </span>
+              {lastSale.change !== undefined && lastSale.change !== null && lastSale.change > 0 && (
+                <>
+                  <span className="text-slate-300">|</span>
+                  <span className="text-emerald-700 font-semibold bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[11px] shrink-0">
+                    Vuelto: {formatCLP(lastSale.change)}
+                  </span>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <span className="font-bold text-slate-600">Venta anterior:</span>
+              <span className="italic">Sin ventas registradas</span>
             </div>
           )}
-
-          <div className="flex items-center gap-1 text-slate-400">
-            <WifiOff className="w-3.5 h-3.5" />
-            <span>Modo 100% Offline</span>
-          </div>
-
-          <div className="flex items-center gap-1 text-slate-400">
-            <Database className="w-3.5 h-3.5" />
-            <span>SQLite Local</span>
-          </div>
         </div>
 
         <div className="flex items-center gap-3 text-slate-400">
