@@ -93,6 +93,27 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [selectedSaleDetail, returningItemCode, isReturnModeActive, isChangePaymentModalOpen])
 
+  const handleClose = (): void => {
+    setIsReturnModeActive(false)
+    setReturningItemCode(null)
+    setIsChangePaymentModalOpen(false)
+    onClose()
+  }
+
+  const { handleBackdropClick } = useModalStack({
+    id: 'sale-detail-modal',
+    isOpen: !!selectedSaleDetail && !isExchangeModalOpen && !isChangePaymentModalOpen,
+    onClose: handleClose,
+    closeOnBackdrop: true
+  })
+
+  useModalStack({
+    id: 'sale-detail-change-payment-modal',
+    isOpen: isChangePaymentModalOpen,
+    onClose: () => setIsChangePaymentModalOpen(false),
+    closeOnBackdrop: true
+  })
+
   if (!selectedSaleDetail) return null
 
   const isSaleFromToday = (() => {
@@ -142,27 +163,6 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
       setPaymentError('No se pudo actualizar el método de pago.')
     }
   }
-
-  const handleClose = (): void => {
-    setIsReturnModeActive(false)
-    setReturningItemCode(null)
-    setIsChangePaymentModalOpen(false)
-    onClose()
-  }
-
-  const { handleBackdropClick } = useModalStack({
-    id: 'sale-detail-modal',
-    isOpen: !!selectedSaleDetail && !isExchangeModalOpen && !isChangePaymentModalOpen,
-    onClose: handleClose,
-    closeOnBackdrop: true
-  })
-
-  useModalStack({
-    id: 'sale-detail-change-payment-modal',
-    isOpen: isChangePaymentModalOpen,
-    onClose: () => setIsChangePaymentModalOpen(false),
-    closeOnBackdrop: true
-  })
 
   const handleConfirmExchange = async (exchangeInfo: ExchangeInfo): Promise<void> => {
     await createExchangeTicket(exchangeInfo, currentSession?.id)
@@ -456,7 +456,7 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs">
-                  {selectedSaleDetail.items.map((it) => {
+                  {(selectedSaleDetail.items || []).map((it) => {
                     const availableToReturn = it.quantity - it.returned_qty
                     const isFullyReturned = availableToReturn <= 0
                     const isRowReturning = returningItemCode === it.product_code
