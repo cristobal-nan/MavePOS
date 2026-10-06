@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
-import { X, FolderInput, CheckCircle2, Layers, Truck, Plus } from 'lucide-react'
+import { X, FolderInput, CheckCircle2, Truck, Plus } from 'lucide-react'
 import { ProductSearchResult } from '@shared/types'
 import { useCatalogStore } from '../store/catalogStore'
 import { useModalStack } from '../utils/modalStack'
+import { CategorySelectCard } from './CategorySelectCard'
 
 interface BulkCategoryModalProps {
   isOpen: boolean
@@ -17,7 +18,7 @@ export const BulkCategoryModal: React.FC<BulkCategoryModalProps> = ({
   onClose,
   onSuccess
 }) => {
-  const { categories, suppliers, saveSupplier, bulkUpdateCategory } = useCatalogStore()
+  const { suppliers, saveSupplier, bulkUpdateCategory } = useCatalogStore()
 
   // Category mode: 'KEEP' (do not touch), 'NONE' (null/no category), or string representation of category id
   const [categoryChoice, setCategoryChoice] = useState<string>('KEEP')
@@ -127,25 +128,13 @@ export const BulkCategoryModal: React.FC<BulkCategoryModalProps> = ({
           )}
 
           {/* 1. Category Section */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-              <Layers className="w-4 h-4 text-lilac-600" />
-              <span>1. Categoría</span>
-            </label>
-            <select
-              value={categoryChoice}
-              onChange={(e) => setCategoryChoice(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-lilac-500 cursor-pointer font-medium"
-            >
-              <option value="KEEP">(Mantener categoría actual de cada producto)</option>
-              <option value="NONE">-- Sin categoría / Quitar categoría actual --</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id.toString()}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <CategorySelectCard
+            selectedCategoryId={categoryChoice}
+            onSelectCategory={setCategoryChoice}
+            title="1. Categoría"
+            allowKeepCurrent={true}
+            maxHeight="max-h-36"
+          />
 
           {/* 2. Supplier Section (Multiple Choice) */}
           <div className="space-y-3 pt-3 border-t border-slate-100">
@@ -181,7 +170,7 @@ export const BulkCategoryModal: React.FC<BulkCategoryModalProps> = ({
                       className="text-xs text-lilac-600 hover:text-lilac-700 font-bold flex items-center gap-1 hover:underline shrink-0"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>+ Nuevo Proveedor</span>
+                      <span>Nuevo Proveedor</span>
                     </button>
                   )}
                 </div>
