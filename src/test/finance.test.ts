@@ -11,7 +11,8 @@ import {
   calculateCashDifference,
   calculateNetSales,
   calculateNextOpeningFundAndWithdrawal,
-  DEFAULT_WITHDRAWAL_RULES
+  DEFAULT_WITHDRAWAL_RULES,
+  formatWithdrawalRulesSummary
 } from '../shared/finance'
 
 describe('Domain Financial Logic (CLP)', () => {
@@ -249,6 +250,49 @@ describe('Domain Financial Logic (CLP)', () => {
       expect(result.nextOpeningCounts[20000]).toBe(1)
       expect(result.nextOpeningCounts[10000]).toBe(0)
       expect(result.nextOpeningCounts[5000]).toBe(3)
+    })
+  })
+
+  describe('formatWithdrawalRulesSummary', () => {
+    it('formatea correctamente las reglas por defecto', () => {
+      const summary = formatWithdrawalRulesSummary(DEFAULT_WITHDRAWAL_RULES)
+      expect(summary).toBe('se retiran todos los de $20.000 y se dejan máx 2 de $10.000')
+    })
+
+    it('maneja reglas sin límites (todo ilimitado)', () => {
+      const summary = formatWithdrawalRulesSummary({
+        20000: null,
+        10000: null,
+        5000: null
+      })
+      expect(summary).toBe('sin límites de retiro, se conserva todo el efectivo')
+    })
+
+    it('formatea cuando se retiran múltiples denominaciones al 100% (límite 0)', () => {
+      const summary = formatWithdrawalRulesSummary({
+        20000: 0,
+        10000: 0,
+        5000: null
+      })
+      expect(summary).toBe('se retiran todos los de $20.000 y $10.000')
+    })
+
+    it('formatea cuando solo se establecen límites máximos positivos', () => {
+      const summary = formatWithdrawalRulesSummary({
+        20000: 1,
+        10000: 3,
+        5000: null
+      })
+      expect(summary).toBe('se dejan máx 1 de $20.000 y máx 3 de $10.000')
+    })
+
+    it('formatea correctamente combinaciones de retiro total y límites máximos', () => {
+      const summary = formatWithdrawalRulesSummary({
+        20000: 0,
+        10000: 3,
+        5000: 2
+      })
+      expect(summary).toBe('se retiran todos los de $20.000 y se dejan máx 3 de $10.000 y máx 2 de $5.000')
     })
   })
 })

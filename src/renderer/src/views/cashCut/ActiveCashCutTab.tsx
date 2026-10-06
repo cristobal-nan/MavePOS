@@ -21,7 +21,8 @@ import {
   calculateCashDifference,
   calculateNextOpeningFundAndWithdrawal,
   DEFAULT_WITHDRAWAL_RULES,
-  WithdrawalRules
+  WithdrawalRules,
+  formatWithdrawalRulesSummary
 } from '@shared/finance'
 import { DenominationsCalculator } from './DenominationsCalculator'
 import { ConfirmCashCutModal } from './ConfirmCashCutModal'
@@ -58,7 +59,7 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
   const [isClosing, setIsClosing] = useState(false)
 
   // Cargar reglas de retiro configuradas en settings
-  useEffect(() => {
+  const loadRules = (): void => {
     window.api
       ?.getAllSettings?.()
       .then((settings) => {
@@ -70,6 +71,12 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
         }
       })
       .catch(() => {})
+  }
+
+  useEffect(() => {
+    loadRules()
+    window.addEventListener('focus', loadRules)
+    return () => window.removeEventListener('focus', loadRules)
   }, [])
 
   // Desglose de inicio de turno (cuadro de la izquierda, solo lectura)
@@ -451,7 +458,7 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
                 Planificación de Retiro y Fondo para Mañana
               </h4>
               <p className="text-[11px] text-slate-600">
-                Calculado automáticamente según las reglas configuradas (se retiran todos los de $20.000 y se dejan máx 2 de $10.000).
+                Calculado automáticamente según las reglas configuradas ({formatWithdrawalRulesSummary(withdrawalRules)}).
               </p>
             </div>
           </div>

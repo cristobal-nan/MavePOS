@@ -115,6 +115,50 @@ export const DEFAULT_WITHDRAWAL_RULES: WithdrawalRules = {
   10: null
 }
 
+/**
+ * Genera un texto resumen legible en español de las reglas de fondo y retiro configuradas.
+ * Ejemplo por defecto: "se retiran todos los de $20.000 y se dejan máx 2 de $10.000"
+ */
+export function formatWithdrawalRulesSummary(
+  rules: WithdrawalRules = DEFAULT_WITHDRAWAL_RULES
+): string {
+  const zeroLabels: string[] = []
+  const limitLabels: string[] = []
+
+  for (const denom of CHILEAN_DENOMINATIONS) {
+    const limit = rules?.[denom.value]
+    if (limit === null || limit === undefined) {
+      continue
+    }
+    if (limit === 0) {
+      zeroLabels.push(denom.label)
+    } else {
+      limitLabels.push(`máx ${limit} de ${denom.label}`)
+    }
+  }
+
+  const joinList = (items: string[]): string => {
+    if (items.length === 0) return ''
+    if (items.length === 1) return items[0]
+    if (items.length === 2) return `${items[0]} y ${items[1]}`
+    return `${items.slice(0, -1).join(', ')} y ${items[items.length - 1]}`
+  }
+
+  if (zeroLabels.length === 0 && limitLabels.length === 0) {
+    return 'sin límites de retiro, se conserva todo el efectivo'
+  }
+
+  const parts: string[] = []
+  if (zeroLabels.length > 0) {
+    parts.push(`se retiran todos los de ${joinList(zeroLabels)}`)
+  }
+  if (limitLabels.length > 0) {
+    parts.push(`se dejan ${joinList(limitLabels)}`)
+  }
+
+  return parts.join(' y ')
+}
+
 export interface NextOpeningFundAndWithdrawalResult {
   nextOpeningFund: number
   withdrawalAmount: number
