@@ -23,10 +23,10 @@ export const CashCutHistoryTab: React.FC = () => {
         </span>
       </div>
 
-      <div className="bg-white border border-lilac-100 rounded-2xl shadow-sm overflow-hidden flex flex-col">
+      <div className="bg-white border border-black/60 rounded-2xl shadow-sm overflow-hidden flex flex-col">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[1100px]">
-            <thead className="bg-slate-100 text-slate-600 text-xs font-semibold border-b border-slate-200">
+            <thead className="bg-slate-100 text-slate-600 text-xs font-semibold border-b border-black/60">
               <tr>
                 <th className="py-2.5 px-3 w-16 text-center">Turno</th>
                 <th className="py-2.5 px-3 w-32">Apertura</th>
@@ -42,7 +42,7 @@ export const CashCutHistoryTab: React.FC = () => {
                 <th className="py-2.5 px-3 text-right w-28 text-amber-900">Retiro</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-xs">
+            <tbody className="divide-y divide-black/60 text-xs">
               {pastSessions.length === 0 ? (
                 <tr>
                   <td colSpan={12} className="py-16 text-center text-slate-400">
@@ -67,7 +67,7 @@ export const CashCutHistoryTab: React.FC = () => {
                   return (
                     <tr
                       key={session.id}
-                      className="hover:bg-lilac-50/40 transition-colors cursor-pointer"
+                      className="hover:bg-lilac-50/40 transition-colors cursor-pointer border-b border-black/60"
                       onClick={() => setSelectedPastSession(session)}
                       title="Haz clic para ver el detalle completo del turno"
                     >

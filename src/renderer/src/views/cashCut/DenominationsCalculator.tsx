@@ -42,9 +42,9 @@ export const DenominationsCalculator: React.FC<DenominationsCalculatorProps> = (
   }[badgeVariant]
 
   return (
-    <div className="bg-white border border-lilac-200 rounded-2xl p-5 shadow-xs flex flex-col gap-3 flex-1 select-none">
+    <div className="bg-white border border-black/60 rounded-2xl p-5 shadow-xs flex flex-col gap-3 flex-1 select-none">
       {/* Header */}
-      <div className="border-b border-slate-100 pb-2.5 flex items-start justify-between gap-2 min-h-[50px]">
+      <div className="border-b border-black/60 pb-2.5 flex items-start justify-between gap-2 min-h-[50px]">
         <div>
           <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
             <Coins className="w-4 h-4 text-lilac-600 shrink-0" />
@@ -61,27 +61,27 @@ export const DenominationsCalculator: React.FC<DenominationsCalculatorProps> = (
       </div>
 
       {readOnly && isAllZero && emptyMessage ? (
-        <div className="p-6 bg-slate-50 border border-slate-200 rounded-xl text-center text-xs text-slate-500 my-auto">
+        <div className="p-6 bg-slate-50 border border-black/60 rounded-xl text-center text-xs text-slate-500 my-auto">
           <p className="font-semibold text-slate-700 mb-1">{emptyMessage}</p>
           <p className="text-[11px] text-slate-400">Total registrado: {formatCLP(total)}</p>
         </div>
       ) : (
         /* Tabla de 3 Columnas */
-        <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+        <div className="border border-black/60 rounded-xl overflow-hidden shadow-2xs">
           <table className="w-full text-left text-xs border-collapse table-fixed">
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
+            <thead className="bg-slate-50 border-b border-black/60 text-slate-600 font-bold">
               <tr className="h-9">
                 <th className="px-3 w-5/12 align-middle">Denominación</th>
                 <th className="px-3 w-3/12 text-center align-middle">Cantidad</th>
                 <th className="px-3 w-4/12 text-right align-middle">Total</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 bg-white">
+            <tbody className="divide-y divide-black/60 bg-white">
               {CHILEAN_DENOMINATIONS.map((d) => {
                 const count = denominationCounts?.[d.value] || 0
                 const subtotal = d.value * count
                 return (
-                  <tr key={d.value} className="h-10 hover:bg-slate-50/60 transition-colors">
+                  <tr key={d.value} className="h-10 hover:bg-slate-50/60 transition-colors border-b border-black/60">
                     <td className="px-3 font-semibold text-slate-800 align-middle">
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs font-bold text-slate-900">{d.label}</span>
@@ -135,7 +135,7 @@ export const DenominationsCalculator: React.FC<DenominationsCalculatorProps> = (
               })}
             </tbody>
             {!hideFooter && (
-              <tfoot className="bg-lilac-50/60 border-t-2 border-lilac-200 font-bold">
+              <tfoot className="bg-lilac-50/60 border-t-2 border-black/60 font-bold">
                 <tr className="h-10">
                   <td colSpan={2} className="px-3 text-slate-800 text-xs uppercase tracking-wide align-middle">
                     {footerLabel}

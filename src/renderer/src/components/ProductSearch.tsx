@@ -11,7 +11,8 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronRight,
-  CornerDownRight
+  CornerDownRight,
+  Boxes
 } from 'lucide-react'
 import { ProductSearchResult } from '@shared/types'
 import { formatCLP } from '../utils/formatters'
@@ -51,8 +52,10 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
   context = 'catalog'
 }) => {
   const {
-    products,
-    searchQuery,
+    products: catalogProducts,
+    modalProducts,
+    searchQuery: catalogSearchQuery,
+    modalSearchQuery,
     setSearchQuery,
     orderBy,
     orderDir,
@@ -60,11 +63,22 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
     columnWidths: catalogColumnWidths,
     modalColumnWidths,
     setColumnWidth,
-    isLoading,
-    isLoadingMore,
-    hasMore,
-    loadMoreProducts
+    isLoading: catalogIsLoading,
+    modalIsLoading,
+    isLoadingMore: catalogIsLoadingMore,
+    modalIsLoadingMore,
+    hasMore: catalogHasMore,
+    modalHasMore,
+    loadMoreProducts,
+    fetchProducts,
+    config
   } = useCatalogStore()
+
+  const products = context === 'modal' ? modalProducts : catalogProducts
+  const searchQuery = context === 'modal' ? modalSearchQuery : catalogSearchQuery
+  const isLoading = context === 'modal' ? modalIsLoading : catalogIsLoading
+  const isLoadingMore = context === 'modal' ? modalIsLoadingMore : catalogIsLoadingMore
+  const hasMore = context === 'modal' ? modalHasMore : catalogHasMore
 
   // Seleccionar conjunto de anchos según contexto (pestaña vs ventana emergente)
   const columnWidths = context === 'modal' ? modalColumnWidths : catalogColumnWidths
@@ -106,6 +120,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
   // Set of collapsed parent IDs (default empty => everything expanded)
   const [collapsedParentIds, setCollapsedParentIds] = useState<Set<number>>(new Set())
   const rowRefs = useRef<(HTMLTableRowElement | null)[]>([])
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   // Filter visible products according to collapsed parent variable products in catalog
   const visibleProducts = products.filter((p) => {
@@ -122,10 +137,10 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
 
   // Scroll highlighted row into view smoothly
   useEffect(() => {
-    if (context === 'modal' && rowRefs.current[highlightedIndex]) {
+    if (rowRefs.current[highlightedIndex]) {
       rowRefs.current[highlightedIndex]?.scrollIntoView({ block: 'nearest' })
     }
-  }, [highlightedIndex, context])
+  }, [highlightedIndex])
 
   const toggleParentCollapse = (parentId: number, e: React.MouseEvent): void => {
     e.preventDefault()
@@ -154,22 +169,97 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
   }
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
-    if (context === 'modal') {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault()
-        setHighlightedIndex((prev) => Math.min(visibleProducts.length - 1, prev + 1))
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault()
-        setHighlightedIndex((prev) => Math.max(0, prev - 1))
-      } else if (e.key === 'Enter') {
-        e.preventDefault()
-        const target = visibleProducts[highlightedIndex]
-        if (target) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      e.stopPropagation()
+      setHighlightedIndex((prev) => Math.min(visibleProducts.length - 1, prev + 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      e.stopPropagation()
+      setHighlightedIndex((prev) => Math.max(0, prev - 1))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      e.stopPropagation()
+      const target = visibleProducts[highlightedIndex]
+      if (target) {
+        if (context === 'modal') {
           onSelectProduct?.(target)
+        } else if (onEditProduct) {
+          onEditProduct(target)
         }
       }
     }
   }
+
+  // Navegación estricta con flechas (modal y catálogo): jamás scrollear la vista con flechas, siempre navegar producto
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent): void => {
+      // 1. En catálogo: ignorar si hay cualquier modal abierto encima (z-50 o z-60)
+      if (context === 'catalog') {
+        if (document.querySelector('.fixed.z-50') || document.querySelector('.fixed.z-60')) {
+          return
+        }
+      }
+
+      // 2. En modal: ignorar si hay un modal superior apilado encima (z-60)
+      if (context === 'modal') {
+        if (document.querySelector('.fixed.z-60')) {
+          return
+        }
+      }
+
+      const activeEl = document.activeElement
+      const isInput = activeEl?.tagName === 'INPUT' || activeEl?.tagName === 'TEXTAREA' || activeEl?.tagName === 'SELECT'
+      const isOurSearchInput = activeEl === searchInputRef.current
+
+      // Si el foco está en un input ajeno (no el buscador ni la tabla de este componente), no interceptar
+      if (isInput && !isOurSearchInput) {
+        return
+      }
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        e.stopPropagation()
+        setHighlightedIndex((prev) => Math.min(visibleProducts.length - 1, prev + 1))
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        e.stopPropagation()
+        setHighlightedIndex((prev) => Math.max(0, prev - 1))
+      } else if (e.key === 'Enter') {
+        // En modal, Enter siempre selecciona el producto actual (incluso si perdió el foco el input)
+        if (context === 'modal') {
+          e.preventDefault()
+          e.stopPropagation()
+          const target = visibleProducts[highlightedIndex]
+          if (target) {
+            onSelectProduct?.(target)
+          }
+        } else if (context === 'catalog' && !isOurSearchInput) {
+          // En catálogo, Enter abre edición si el foco no está escribiendo en el buscador
+          e.preventDefault()
+          e.stopPropagation()
+          const target = visibleProducts[highlightedIndex]
+          if (target && onEditProduct) {
+            onEditProduct(target)
+          }
+        }
+      } else if (e.key === ' ' && context === 'catalog' && enableMultiSelect && !isOurSearchInput) {
+        e.preventDefault()
+        e.stopPropagation()
+        const target = visibleProducts[highlightedIndex]
+        if (target) {
+          if (target.product_type === 'variable') {
+            handleToggleParentCheckbox(target)
+          } else {
+            onToggleSelect?.(target)
+          }
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleGlobalKeyDown, { capture: true })
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown, { capture: true })
+  }, [context, visibleProducts, highlightedIndex, enableMultiSelect, onToggleSelect, onSelectProduct, onEditProduct])
 
   const handleMouseDownResize = (col: string, e: React.MouseEvent): void => {
     e.preventDefault()
@@ -241,7 +331,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
       (entries) => {
         const [entry] = entries
         if (entry.isIntersecting && hasMore && !isLoading && !isLoadingMore) {
-          loadMoreProducts()
+          loadMoreProducts(context)
         }
       },
       {
@@ -253,13 +343,13 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
 
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [hasMore, isLoading, isLoadingMore, loadMoreProducts])
+  }, [hasMore, isLoading, isLoadingMore, loadMoreProducts, context])
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>): void => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget
     if (scrollHeight - scrollTop - clientHeight < 300) {
       if (hasMore && !isLoading && !isLoadingMore) {
-        loadMoreProducts()
+        loadMoreProducts(context)
       }
     }
   }
@@ -275,34 +365,38 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
     )
   }
 
+  const isModal = context === 'modal'
+  const showTypeCol = context !== 'modal'
+
   const totalColumnsWidth =
     (enableMultiSelect ? 40 : 0) +
     columnWidths.code +
     columnWidths.name +
-    columnWidths.type +
+    (showTypeCol ? columnWidths.type : 0) +
     columnWidths.category +
     columnWidths.price +
     columnWidths.stock +
     (showActions ? columnWidths.actions : 0)
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-white rounded-2xl border border-lilac-100 shadow-sm overflow-hidden select-none">
+    <div className="flex-1 flex flex-col h-full bg-white rounded-2xl border border-black/60 shadow-sm overflow-hidden select-none">
       {/* Search Input Bar */}
-      <div className="p-3 border-b border-lilac-100 bg-white flex items-center gap-3">
+      <div className={`${isModal ? 'p-2' : 'p-2.5'} border-b border-black/60 bg-white flex items-center gap-2.5`}>
         <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
+            ref={searchInputRef}
             type="text"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => setSearchQuery(e.target.value, context)}
             placeholder={placeholder}
             autoFocus={autoFocus}
             onKeyDown={handleInputKeyDown}
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 focus:border-lilac-500 focus:bg-white rounded-xl text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none transition-all"
+            className={`w-full pl-9 pr-4 ${isModal ? 'py-1.5 text-sm' : 'py-1.5 text-xs'} bg-slate-50 border border-slate-200 focus:border-lilac-500 focus:bg-white rounded-xl text-slate-800 placeholder:text-slate-400 focus:outline-none transition-all`}
           />
           {searchQuery && (
             <button
-              onClick={() => setSearchQuery('')}
+              onClick={() => setSearchQuery('', context)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 px-1.5 py-0.5 rounded bg-slate-200 hover:bg-slate-300"
             >
               Limpiar
@@ -322,7 +416,16 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
       </div>
 
       {/* Table Container with persistent resizable headers */}
-      <div ref={containerRef} onScroll={handleScroll} className="flex-1 overflow-auto bg-slate-50/50">
+      <div
+        ref={containerRef}
+        onScroll={handleScroll}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'PageUp' || e.key === 'PageDown') {
+            e.preventDefault()
+          }
+        }}
+        className="flex-1 overflow-auto bg-slate-50/50"
+      >
         <table
           style={{
             width: `max(100%, ${totalColumnsWidth}px)`,
@@ -334,31 +437,42 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
             {enableMultiSelect && <col style={{ width: '40px', minWidth: '40px' }} />}
             <col style={{ width: `${columnWidths.code}px`, minWidth: `${columnWidths.code}px` }} />
             <col style={{ width: `${columnWidths.name}px`, minWidth: `${columnWidths.name}px` }} />
-            <col style={{ width: `${columnWidths.type}px`, minWidth: `${columnWidths.type}px` }} />
+            {showTypeCol && <col style={{ width: `${columnWidths.type}px`, minWidth: `${columnWidths.type}px` }} />}
             <col style={{ width: `${columnWidths.category}px`, minWidth: `${columnWidths.category}px` }} />
             <col style={{ width: `${columnWidths.price}px`, minWidth: `${columnWidths.price}px` }} />
             <col style={{ width: `${columnWidths.stock}px`, minWidth: `${columnWidths.stock}px` }} />
             {showActions && <col style={{ width: `${columnWidths.actions}px`, minWidth: `${columnWidths.actions}px` }} />}
             <col style={{ width: 'auto' }} />
           </colgroup>
-          <thead className="bg-slate-100 sticky top-0 z-10 border-b border-slate-200 text-xs font-semibold text-slate-600 shadow-sm">
+          <thead className="bg-slate-100 sticky top-0 z-10 border-b border-black/60 text-xs font-semibold text-slate-600 shadow-sm">
             <tr>
               {enableMultiSelect && (
-                <th style={{ width: '40px', minWidth: '40px' }} className="py-2.5 px-3 text-center border-r border-slate-200/60">
-                  <input
-                    type="checkbox"
-                    checked={isAllVisibleSelected && products.length > 0}
-                    onChange={onSelectAllVisible}
-                    className="w-3.5 h-3.5 rounded text-lilac-600 focus:ring-lilac-500 cursor-pointer accent-lilac-600"
-                    title="Seleccionar / deseleccionar todos los visibles"
-                  />
+                <th
+                  style={{ width: '40px', minWidth: '40px' }}
+                  className="py-1 px-1 text-center border-r border-black/60 cursor-pointer select-none hover:bg-slate-200/70 transition-colors"
+                  onClick={(e) => {
+                    if ((e.target as HTMLElement).tagName !== 'INPUT') {
+                      onSelectAllVisible?.()
+                    }
+                  }}
+                  title="Seleccionar / deseleccionar todos los visibles"
+                >
+                  <div className="w-full h-full flex items-center justify-center">
+                    <input
+                      type="checkbox"
+                      checked={isAllVisibleSelected && products.length > 0}
+                      onChange={onSelectAllVisible}
+                      className="w-4 h-4 rounded text-lilac-600 focus:ring-lilac-500 cursor-pointer accent-lilac-600"
+                      title="Seleccionar / deseleccionar todos los visibles"
+                    />
+                  </div>
                 </th>
               )}
 
               {/* Código */}
               <th
                 style={{ width: `${columnWidths.code}px`, minWidth: `${columnWidths.code}px` }}
-                className="py-2.5 px-3 relative border-r border-slate-200/60"
+                className="py-1 px-2.5 relative border-r border-black/60"
               >
                 <span>Código</span>
                 {renderResizeHandle('code')}
@@ -367,10 +481,10 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
               {/* Nombre (Ordenable) */}
               <th
                 style={{ width: `${columnWidths.name}px`, minWidth: `${columnWidths.name}px` }}
-                className="py-2.5 px-3 relative border-r border-slate-200/60 group cursor-pointer hover:bg-lilac-50"
+                className="py-1 px-2.5 relative border-r border-black/60 group cursor-pointer hover:bg-lilac-50"
                 onClick={() => {
                   if (hasDraggedRef.current) return
-                  toggleSort('name')
+                  toggleSort('name', context)
                 }}
               >
                 <div className="flex items-center justify-between">
@@ -380,19 +494,21 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                 {renderResizeHandle('name')}
               </th>
 
-              {/* Tipo de Producto */}
-              <th
-                style={{ width: `${columnWidths.type}px`, minWidth: `${columnWidths.type}px` }}
-                className="py-2.5 px-3 relative border-r border-slate-200/60"
-              >
-                <span>Tipo / Variación</span>
-                {renderResizeHandle('type')}
-              </th>
+              {/* Tipo de Producto (Oculto en modal emergente) */}
+              {showTypeCol && (
+                <th
+                  style={{ width: `${columnWidths.type}px`, minWidth: `${columnWidths.type}px` }}
+                  className="py-1 px-2.5 relative border-r border-black/60"
+                >
+                  <span>Tipo / Variación</span>
+                  {renderResizeHandle('type')}
+                </th>
+              )}
 
               {/* Categoría */}
               <th
                 style={{ width: `${columnWidths.category}px`, minWidth: `${columnWidths.category}px` }}
-                className="py-2.5 px-3 relative border-r border-slate-200/60"
+                className="py-1 px-2.5 relative border-r border-black/60"
               >
                 <span>Categoría</span>
                 {renderResizeHandle('category')}
@@ -401,10 +517,10 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
               {/* Precio (Ordenable) */}
               <th
                 style={{ width: `${columnWidths.price}px`, minWidth: `${columnWidths.price}px` }}
-                className="py-2.5 px-3 relative border-r border-slate-200/60 group cursor-pointer hover:bg-lilac-50 text-right"
+                className="py-1 px-2.5 relative border-r border-black/60 group cursor-pointer hover:bg-lilac-50 text-right"
                 onClick={() => {
                   if (hasDraggedRef.current) return
-                  toggleSort('sale_price')
+                  toggleSort('sale_price', context)
                 }}
               >
                 <div className="flex items-center justify-end gap-1">
@@ -417,10 +533,10 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
               {/* Existencia (Ordenable) */}
               <th
                 style={{ width: `${columnWidths.stock}px`, minWidth: `${columnWidths.stock}px` }}
-                className="py-2.5 px-3 relative border-r border-slate-200/60 group cursor-pointer hover:bg-lilac-50 text-right"
+                className="py-1 px-2.5 relative border-r border-black/60 group cursor-pointer hover:bg-lilac-50 text-right"
                 onClick={() => {
                   if (hasDraggedRef.current) return
-                  toggleSort('stock')
+                  toggleSort('stock', context)
                 }}
               >
                 <div className="flex items-center justify-end gap-1">
@@ -434,7 +550,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
               {showActions && (
                 <th
                   style={{ width: `${columnWidths.actions}px`, minWidth: `${columnWidths.actions}px` }}
-                  className="py-2.5 px-3 text-center relative border-r border-slate-200/60"
+                  className="py-1 px-2 text-center relative border-r border-black/60"
                 >
                   <span>Acciones</span>
                   {renderResizeHandle('actions')}
@@ -446,17 +562,42 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
             </tr>
           </thead>
 
-          <tbody className="divide-y divide-slate-100 text-xs">
+          <tbody className={`divide-y divide-black/60 ${isModal ? 'text-sm' : 'text-xs'}`}>
             {isLoading ? (
               <tr>
-                <td colSpan={(showActions ? 7 : 6) + (enableMultiSelect ? 1 : 0) + 1} className="py-12 text-center text-slate-400">
+                <td colSpan={(showActions ? 6 : 5) + (showTypeCol ? 1 : 0) + (enableMultiSelect ? 1 : 0) + 1} className="py-8 text-center text-slate-400">
+                  <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-lilac-600" />
                   Buscando en catálogo...
                 </td>
               </tr>
             ) : visibleProducts.length === 0 ? (
               <tr>
-                <td colSpan={(showActions ? 7 : 6) + (enableMultiSelect ? 1 : 0) + 1} className="py-12 text-center text-slate-400">
-                  No se encontraron productos coincidentes.
+                <td colSpan={(showActions ? 6 : 5) + (showTypeCol ? 1 : 0) + (enableMultiSelect ? 1 : 0) + 1} className="py-12 text-center text-slate-400">
+                  {searchQuery.trim() ? (
+                    <span>No se encontraron productos coincidentes para "{searchQuery}".</span>
+                  ) : context === 'modal' && !config.modalAutoLoad ? (
+                    <div className="flex flex-col items-center justify-center gap-1.5 py-4">
+                      <Search className="w-6 h-6 text-lilac-400" />
+                      <span className="text-slate-700 font-bold text-xs">Escribe en el buscador para ver productos</span>
+                      <span className="text-slate-400 text-[11px]">Carga automática desactivada para mayor velocidad en equipos de bajos recursos.</span>
+                    </div>
+                  ) : context === 'catalog' && !config.catalogAutoLoad ? (
+                    <div className="flex flex-col items-center justify-center gap-2 py-4">
+                      <Boxes className="w-7 h-7 text-lilac-400" />
+                      <span className="text-slate-800 font-bold text-xs">Carga automática desactivada</span>
+                      <span className="text-slate-500 text-[11px] max-w-sm">Escribe un término en el buscador, filtra por categoría o presiona el botón para cargar los productos.</span>
+                      <button
+                        type="button"
+                        onClick={() => fetchProducts(undefined, 'catalog')}
+                        className="mt-1 px-4 py-1.5 bg-lilac-600 hover:bg-lilac-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span>Cargar productos ahora</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <span>No se encontraron productos coincidentes.</span>
+                  )}
                 </td>
               </tr>
             ) : (
@@ -467,7 +608,8 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                 const isVariable = p.product_type === 'variable'
                 const isVariation = p.product_type === 'variation'
                 const isCollapsed = isVariable && p.id ? collapsedParentIds.has(p.id) : false
-                const isModalHighlighted = context === 'modal' && highlightedIndex === idx
+                const isHighlighted = highlightedIndex === idx
+                const rowPadding = isModal ? 'py-1 px-2.5' : 'py-0.5 px-2'
 
                 return (
                   <tr
@@ -476,18 +618,18 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                       rowRefs.current[idx] = el
                     }}
                     onClick={() => {
-                      if (context === 'modal') {
-                        setHighlightedIndex(idx)
-                      }
+                      setHighlightedIndex(idx)
                     }}
                     onDoubleClick={() => {
                       if (context === 'modal' || onSelectProduct) {
                         onSelectProduct?.(p)
+                      } else if (onEditProduct) {
+                        onEditProduct(p)
                       }
                     }}
-                    className={`transition-colors cursor-pointer ${
-                      isModalHighlighted
-                        ? 'bg-lilac-200/95 text-lilac-950 font-bold ring-2 ring-lilac-500 border-l-4 border-l-lilac-700 shadow-xs'
+                    className={`transition-colors cursor-pointer border-b border-black/60 ${
+                      isHighlighted
+                        ? 'product-row-highlighted bg-lilac-200/95 text-lilac-950 font-bold'
                         : isChecked
                         ? 'bg-lilac-100/70 font-semibold'
                         : isSelected
@@ -501,27 +643,36 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                   >
                     {enableMultiSelect && (
                       <td
-                        className="py-2.5 px-3 text-center border-r border-slate-200/40"
+                        className="p-0 text-center border-r border-black/60 cursor-pointer select-none"
                         onClick={(e) => {
                           e.stopPropagation()
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked || false}
-                          onChange={() => {
+                          if ((e.target as HTMLElement).tagName !== 'INPUT') {
                             if (isVariable) {
                               handleToggleParentCheckbox(p)
                             } else {
                               onToggleSelect?.(p)
                             }
-                          }}
-                          className="w-3.5 h-3.5 rounded text-lilac-600 focus:ring-lilac-500 cursor-pointer accent-lilac-600"
-                        />
+                          }
+                        }}
+                      >
+                        <div className={`w-full h-full flex items-center justify-center ${rowPadding}`}>
+                          <input
+                            type="checkbox"
+                            checked={isChecked || false}
+                            onChange={() => {
+                              if (isVariable) {
+                                handleToggleParentCheckbox(p)
+                              } else {
+                                onToggleSelect?.(p)
+                              }
+                            }}
+                            className="w-4 h-4 rounded text-lilac-600 focus:ring-lilac-500 cursor-pointer accent-lilac-600"
+                          />
+                        </div>
                       </td>
                     )}
                     {/* Código */}
-                    <td className="py-2.5 px-3 font-mono text-slate-700 truncate border-r border-slate-100">
+                    <td className={`${rowPadding} font-mono text-slate-700 truncate border-r border-black/60`}>
                       {p.code ? (
                         p.code
                       ) : (
@@ -530,7 +681,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                     </td>
 
                     {/* Nombre con sangría y botón expandir/colapsar */}
-                    <td className="py-2.5 px-3 text-slate-900 font-medium truncate border-r border-slate-100" title={p.name}>
+                    <td className={`${rowPadding} text-slate-900 font-medium truncate border-r border-black/60`} title={p.name}>
                       <div className="flex items-center gap-1.5 truncate">
                         {isVariable && p.id && (
                           <button
@@ -547,7 +698,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                           </button>
                         )}
                         {isVariation && (
-                          <span className="pl-4 text-slate-300 flex items-center shrink-0">
+                          <span className="pl-3 text-slate-300 flex items-center shrink-0">
                             <CornerDownRight className="w-3.5 h-3.5 text-lilac-400" />
                           </span>
                         )}
@@ -557,30 +708,32 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                       </div>
                     </td>
 
-                    {/* Tipo / Variación */}
-                    <td className="py-2.5 px-3 text-slate-600 truncate border-r border-slate-100">
-                      {isVariable ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-lilac-700 bg-lilac-50 border border-lilac-200 px-2 py-0.5 rounded-md">
-                          <GitBranch className="w-3 h-3 text-lilac-500" />
-                          <span>Variable ({p.variations_count || 0})</span>
-                        </span>
-                      ) : isVariation ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md">
-                          <span>
-                            {p.attribute_name ? `${p.attribute_name}: ` : ''}
-                            {p.attribute_value || 'Variación'}
+                    {/* Tipo / Variación (solo si no es modal) */}
+                    {showTypeCol && (
+                      <td className={`${rowPadding} text-slate-600 truncate border-r border-black/60`}>
+                        {isVariable ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-lilac-700 bg-lilac-50 border border-lilac-200 px-2 py-0.5 rounded-md">
+                            <GitBranch className="w-3 h-3 text-lilac-500" />
+                            <span>Variable ({p.variations_count || 0})</span>
                           </span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-500" />
-                          <span>Simple</span>
-                        </span>
-                      )}
-                    </td>
+                        ) : isVariation ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md">
+                            <span>
+                              {p.attribute_name ? `${p.attribute_name}: ` : ''}
+                              {p.attribute_value || 'Variación'}
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                            <span>Simple</span>
+                          </span>
+                        )}
+                      </td>
+                    )}
 
                     {/* Categoría */}
-                    <td className="py-2.5 px-3 text-slate-600 truncate border-r border-slate-100" title={p.category_display || p.category_name || 'Sin categoría'}>
+                    <td className={`${rowPadding} text-slate-600 truncate border-r border-black/60`} title={p.category_display || p.category_name || 'Sin categoría'}>
                       {p.category_display ? (
                         <span className="inline-flex items-center gap-1 text-[11px] text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md truncate max-w-full">
                           <Layers className="w-3 h-3 text-slate-400 shrink-0" />
@@ -600,7 +753,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                     </td>
 
                     {/* Precio */}
-                    <td className="py-2.5 px-3 text-right font-semibold text-slate-800 border-r border-slate-100">
+                    <td className={`${rowPadding} text-right font-semibold text-slate-800 border-r border-black/60`}>
                       {isVariable ? (
                         <span className="text-slate-400 font-normal italic">—</span>
                       ) : (
@@ -609,7 +762,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                     </td>
 
                     {/* Existencia / Stock */}
-                    <td className="py-2.5 px-3 text-right border-r border-slate-100">
+                    <td className={`${rowPadding} text-right border-r border-black/60`}>
                       {isVariable ? (
                         <span className="text-slate-400 italic">—</span>
                       ) : (
@@ -630,12 +783,12 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
 
                     {/* Acciones */}
                     {showActions && (
-                      <td className="py-2.5 px-3 text-center border-r border-slate-100" onClick={(e) => e.stopPropagation()}>
+                      <td className={`${rowPadding} text-center border-r border-black/60`} onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-1">
                           {onEditProduct && (
                             <button
                               onClick={() => onEditProduct(p)}
-                              className="px-2 py-1 text-[11px] text-lilac-700 bg-lilac-50 hover:bg-lilac-100 rounded font-medium transition-colors"
+                              className="px-2 py-0.5 text-[11px] text-lilac-700 bg-lilac-50 hover:bg-lilac-100 rounded font-medium transition-colors cursor-pointer"
                             >
                               Editar
                             </button>
@@ -643,7 +796,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                           {onDeleteProduct && (
                             <button
                               onClick={() => onDeleteProduct(p)}
-                              className="px-2 py-1 text-[11px] text-rose-600 hover:bg-rose-50 rounded font-medium transition-colors"
+                              className="px-2 py-0.5 text-[11px] text-rose-600 hover:bg-rose-50 rounded font-medium transition-colors cursor-pointer"
                             >
                               Eliminar
                             </button>

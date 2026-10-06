@@ -43,6 +43,27 @@ export const SalesView: React.FC = () => {
 
   const [barcodeInput, setBarcodeInput] = useState('')
   const [barcodeError, setBarcodeError] = useState<string | null>(null)
+  const barcodeErrorTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (barcodeErrorTimerRef.current) {
+        clearTimeout(barcodeErrorTimerRef.current)
+      }
+    }
+  }, [])
+
+  const triggerBarcodeError = (msg: string): void => {
+    if (barcodeErrorTimerRef.current) {
+      clearTimeout(barcodeErrorTimerRef.current)
+    }
+    setBarcodeInput('')
+    setBarcodeError(msg)
+    barcodeErrorTimerRef.current = setTimeout(() => {
+      setBarcodeError(null)
+      barcodeErrorTimerRef.current = null
+    }, 3000)
+  }
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false)
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false)
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
@@ -227,6 +248,15 @@ export const SalesView: React.FC = () => {
     ? isExchangePeriodExceeded(exchangeInfo.originalDate, 30)
     : { isExceeded: false, daysDiff: 0 }
 
+  const itemRowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map())
+
+  // Scroll selected product in ticket into view smoothly
+  useEffect(() => {
+    if (selectedProductCode && itemRowRefs.current.has(selectedProductCode)) {
+      itemRowRefs.current.get(selectedProductCode)?.scrollIntoView({ block: 'nearest' })
+    }
+  }, [selectedProductCode])
+
   // Mantener producto seleccionado en el carrito al cambiar items o tickets
   useEffect(() => {
     if (activeTicket.items.length === 0) {
@@ -341,26 +371,32 @@ export const SalesView: React.FC = () => {
         Boolean(ticketToDiscard) ||
         Boolean(exchangeAlert)
 
-      if (!isAnyModalOpen && activeTicket.items.length > 0) {
-        // Navegación con flechas arriba y abajo en el carrito
+      if (!isAnyModalOpen) {
+        // Navegación con flechas arriba y abajo en el carrito: NUNCA scrollear por defecto, navegar producto seleccionado
         if (e.key === 'ArrowUp') {
           e.preventDefault()
-          const currentIndex = activeTicket.items.findIndex((i) => i.product_code === selectedProductCode)
-          if (currentIndex > 0) {
-            setSelectedProductCode(activeTicket.items[currentIndex - 1].product_code)
-          } else if (currentIndex === -1) {
-            setSelectedProductCode(activeTicket.items[activeTicket.items.length - 1].product_code)
+          e.stopPropagation()
+          if (activeTicket.items.length > 0) {
+            const currentIndex = activeTicket.items.findIndex((i) => i.product_code === selectedProductCode)
+            if (currentIndex > 0) {
+              setSelectedProductCode(activeTicket.items[currentIndex - 1].product_code)
+            } else if (currentIndex === -1) {
+              setSelectedProductCode(activeTicket.items[activeTicket.items.length - 1].product_code)
+            }
           }
           return
         }
 
         if (e.key === 'ArrowDown') {
           e.preventDefault()
-          const currentIndex = activeTicket.items.findIndex((i) => i.product_code === selectedProductCode)
-          if (currentIndex !== -1 && currentIndex < activeTicket.items.length - 1) {
-            setSelectedProductCode(activeTicket.items[currentIndex + 1].product_code)
-          } else if (currentIndex === -1) {
-            setSelectedProductCode(activeTicket.items[0].product_code)
+          e.stopPropagation()
+          if (activeTicket.items.length > 0) {
+            const currentIndex = activeTicket.items.findIndex((i) => i.product_code === selectedProductCode)
+            if (currentIndex !== -1 && currentIndex < activeTicket.items.length - 1) {
+              setSelectedProductCode(activeTicket.items[currentIndex + 1].product_code)
+            } else if (currentIndex === -1) {
+              setSelectedProductCode(activeTicket.items[0].product_code)
+            }
           }
           return
         }
@@ -395,49 +431,49 @@ export const SalesView: React.FC = () => {
             return
           }
         }
-      }
 
-      // F10: open search modal
-      if (e.key === 'F10') {
-        e.preventDefault()
-        setIsSearchModalOpen(true)
-      }
-      // F12: checkout
-      if (e.key === 'F12') {
-        e.preventDefault()
-        handleCobrarClick()
-      }
-      // Ctrl+T: New Ticket
-      if (e.ctrlKey && e.key.toLowerCase() === 't') {
-        e.preventDefault()
-        if (currentSession?.id) {
-          createTicket(currentSession.id)
-        } else {
-          createTicket()
+        // F10: open search modal
+        if (e.key === 'F10') {
+          e.preventDefault()
+          setIsSearchModalOpen(true)
         }
-      }
-      // Ctrl+W: Close / Discard current ticket
-      if (e.ctrlKey && e.key.toLowerCase() === 'w') {
-        e.preventDefault()
-        const currentTicket = tickets[activeTicketIndex]
-        if (currentTicket) {
-          if (currentTicket.exchangeInfo || currentTicket.items.length > 0) {
-            setTicketToDiscard({
-              index: activeTicketIndex,
-              label: currentTicket.label,
-              itemsCount: currentTicket.items.length,
-              exchangeInfo: currentTicket.exchangeInfo || null
-            })
-            return
+        // F12: checkout
+        if (e.key === 'F12') {
+          e.preventDefault()
+          handleCobrarClick()
+        }
+        // Ctrl+T: New Ticket
+        if (e.ctrlKey && e.key.toLowerCase() === 't') {
+          e.preventDefault()
+          if (currentSession?.id) {
+            createTicket(currentSession.id)
+          } else {
+            createTicket()
           }
-          deleteTicket(activeTicketIndex)
-          barcodeInputRef.current?.focus()
+        }
+        // Ctrl+W: Close / Discard current ticket
+        if (e.ctrlKey && e.key.toLowerCase() === 'w') {
+          e.preventDefault()
+          const currentTicket = tickets[activeTicketIndex]
+          if (currentTicket) {
+            if (currentTicket.exchangeInfo || currentTicket.items.length > 0) {
+              setTicketToDiscard({
+                index: activeTicketIndex,
+                label: currentTicket.label,
+                itemsCount: currentTicket.items.length,
+                exchangeInfo: currentTicket.exchangeInfo || null
+              })
+              return
+            }
+            deleteTicket(activeTicketIndex)
+            barcodeInputRef.current?.focus()
+          }
         }
       }
     }
 
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    window.addEventListener('keydown', handleKeyDown, { capture: true })
+    return () => window.removeEventListener('keydown', handleKeyDown, { capture: true })
   }, [
     activeTicket.items,
     selectedProductCode,
@@ -462,6 +498,10 @@ export const SalesView: React.FC = () => {
 
   const handleBarcodeSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault()
+    if (barcodeErrorTimerRef.current) {
+      clearTimeout(barcodeErrorTimerRef.current)
+      barcodeErrorTimerRef.current = null
+    }
     setBarcodeError(null)
 
     const rawCode = barcodeInput.trim()
@@ -485,11 +525,11 @@ export const SalesView: React.FC = () => {
         setSelectedProductCode(product.code)
         setBarcodeInput('')
       } else {
-        setBarcodeError(`Producto con código "${rawCode}" no encontrado`)
+        triggerBarcodeError(`Producto con código "${rawCode}" no encontrado`)
       }
     } catch (err: any) {
       console.error('Error buscando código:', err)
-      setBarcodeError('Error al consultar código')
+      triggerBarcodeError('Error al consultar código de barras')
     }
   }
 
@@ -638,13 +678,23 @@ export const SalesView: React.FC = () => {
         {/* Barcode scanner input + Search button */}
         <form onSubmit={handleBarcodeSubmit} className="flex items-center gap-2">
           <div className="relative flex-1">
-            <Barcode className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Barcode
+              className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${
+                barcodeError ? 'text-rose-500 duration-100' : 'text-slate-400 duration-700'
+              }`}
+            />
             <input
               ref={barcodeInputRef}
               type="text"
               value={barcodeInput}
               onChange={(e) => {
-                setBarcodeError(null)
+                if (barcodeErrorTimerRef.current) {
+                  clearTimeout(barcodeErrorTimerRef.current)
+                  barcodeErrorTimerRef.current = null
+                }
+                if (barcodeError) {
+                  setBarcodeError(null)
+                }
                 setBarcodeInput(e.target.value.replace(/[+\-]/g, '').toUpperCase())
               }}
               onKeyDown={(e) => {
@@ -652,8 +702,12 @@ export const SalesView: React.FC = () => {
                   e.preventDefault()
                 }
               }}
-              placeholder="Escanear código de barras o escribir código y presionar Enter..."
-              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-300 focus:border-lilac-500 focus:bg-white rounded-xl text-sm font-mono text-slate-800 placeholder:font-sans placeholder:text-slate-400 focus:outline-none transition-all shadow-inner uppercase"
+              placeholder={barcodeError || 'Escanear código de barras o escribir código y presionar Enter...'}
+              className={`w-full pl-9 pr-4 py-2 rounded-xl text-sm font-mono placeholder:font-sans focus:outline-none uppercase shadow-inner transition-all border-[1.5px] ${
+                barcodeError
+                  ? 'input-barcode-error border-rose-500 bg-rose-50/50 text-rose-700 duration-100'
+                  : 'bg-slate-50 border-slate-300 focus:border-lilac-500 focus:bg-white text-slate-800 placeholder:text-slate-400 duration-700 ease-out'
+              }`}
             />
           </div>
 
@@ -673,13 +727,6 @@ export const SalesView: React.FC = () => {
             <span>Buscar (F10)</span>
           </button>
         </form>
-
-        {barcodeError && (
-          <div className="text-xs text-rose-600 font-semibold flex items-center gap-1">
-            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-            <span>{barcodeError}</span>
-          </div>
-        )}
       </div>
 
       {/* Main Cart Table */}
@@ -771,9 +818,16 @@ export const SalesView: React.FC = () => {
           </div>
         )}
 
-        <div className="flex-1 bg-white rounded-2xl border border-lilac-100 shadow-sm overflow-auto">
+        <div
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'PageUp' || e.key === 'PageDown') {
+              e.preventDefault()
+            }
+          }}
+          className="flex-1 bg-white rounded-2xl border border-black/60 shadow-sm overflow-auto"
+        >
           <table className="w-full text-left border-collapse">
-            <thead className="bg-slate-100 sticky top-0 z-10 text-xs font-semibold text-slate-600 border-b border-slate-200">
+            <thead className="bg-slate-100 sticky top-0 z-10 text-xs font-semibold text-slate-600 border-b border-black/60">
               <tr>
                 <th className="py-2.5 px-3 w-32">Código</th>
                 <th className="py-2.5 px-3">Producto / Descripción</th>
@@ -784,7 +838,7 @@ export const SalesView: React.FC = () => {
                 <th className="py-2.5 px-3 text-center w-16"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-xs">
+            <tbody className="divide-y divide-black/60 text-base">
               {activeTicket.items.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-20 text-center text-slate-400">
@@ -808,18 +862,25 @@ export const SalesView: React.FC = () => {
                   return (
                     <tr
                       key={it.product_code}
+                      ref={(el) => {
+                        if (el) {
+                          itemRowRefs.current.set(it.product_code, el)
+                        } else {
+                          itemRowRefs.current.delete(it.product_code)
+                        }
+                      }}
                       onClick={() => setSelectedProductCode(it.product_code)}
-                      className={`transition-colors cursor-pointer ${
+                      className={`transition-colors cursor-pointer border-b border-black/60 ${
                         isSelected
-                          ? 'bg-lilac-100/90 ring-2 ring-lilac-500/80 ring-inset shadow-xs font-medium'
+                          ? 'product-row-highlighted bg-lilac-100/90 font-medium'
                           : 'hover:bg-slate-50'
                       }`}
                     >
                       {/* Código */}
-                      <td className="py-3 px-3 font-mono text-slate-600">{it.product_code}</td>
+                      <td className="py-2 px-3 font-mono text-slate-600">{it.product_code}</td>
 
                       {/* Nombre & Variante */}
-                      <td className="py-3 px-3">
+                      <td className="py-2 px-3">
                         <span className="font-bold text-slate-800">{it.name}</span>
                         {it.variant_label && (
                           <span className="ml-2 text-[11px] text-lilac-700 bg-lilac-50 border border-lilac-200 px-1.5 py-0.5 rounded font-medium">
@@ -829,12 +890,12 @@ export const SalesView: React.FC = () => {
                       </td>
 
                       {/* Precio Unitario */}
-                      <td className="py-3 px-3 text-right font-medium text-slate-700">
+                      <td className="py-2 px-3 text-right font-medium text-slate-700">
                         {formatCLP(it.unit_price)}
                       </td>
 
                       {/* Cantidad con controles + y - */}
-                      <td className="py-3 px-3 text-center">
+                      <td className="py-2 px-3 text-center">
                         <div className="inline-flex items-center border border-slate-200 rounded-lg overflow-hidden bg-slate-50">
                           <button
                             type="button"
@@ -847,6 +908,11 @@ export const SalesView: React.FC = () => {
                             type="number"
                             min="1"
                             value={it.quantity}
+                            onKeyDown={(e) => {
+                              if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                                e.preventDefault()
+                              }
+                            }}
                             onFocus={(e) => {
                               setSelectedProductCode(it.product_code)
                               e.target.select()
@@ -901,12 +967,12 @@ export const SalesView: React.FC = () => {
                       </td>
 
                       {/* Importe */}
-                      <td className="py-3 px-3 text-right font-black text-slate-900">
+                      <td className="py-2 px-3 text-right font-black text-slate-900">
                         {formatCLP(importe)}
                       </td>
 
                       {/* Existencia Restante */}
-                      <td className="py-3 px-3 text-right">
+                      <td className="py-2 px-3 text-right">
                         <span
                           className={`font-semibold ${
                             isStockCritical
@@ -921,7 +987,7 @@ export const SalesView: React.FC = () => {
                       </td>
 
                       {/* Eliminar fila */}
-                      <td className="py-3 px-3 text-center">
+                      <td className="py-2 px-3 text-center">
                         <button
                           type="button"
                           onClick={() => {
@@ -1074,10 +1140,12 @@ export const SalesView: React.FC = () => {
       <CheckoutModal
         isOpen={isCheckoutModalOpen}
         totalAmount={isExchange && exchangeBalance ? exchangeBalance.differenceToPay : totalAmount}
-        onClose={() => setIsCheckoutModalOpen(false)}
-        onSuccess={() => {
+        onClose={() => {
           setIsCheckoutModalOpen(false)
           barcodeInputRef.current?.focus()
+        }}
+        onSuccess={() => {
+          // Permite visualizar la pantalla de éxito con el vuelto y continuar con Enter
         }}
       />
 
