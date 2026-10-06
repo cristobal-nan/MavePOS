@@ -276,5 +276,71 @@ describe('Fase 4: Motor de Búsqueda de Productos (% wildcard, normalización y 
     const extraZeros = productService.getProductByCode('00007542')
     expect(extraZeros).not.toBeNull()
     expect(extraZeros?.name).toBe('Aguja Crochet 4mm')
+
+    // Producto importado sin cero inicial pero con puntos (ej: 3.19234)
+    productService.upsertProduct({
+      code: '3.19234',
+      name: 'Lana Especial 3.19234',
+      sale_price: 2500
+    })
+
+    // Escanear código con cero inicial '03.19234' debe encontrar '3.19234'
+    const scannedWithZero = productService.getProductByCode('03.19234')
+    expect(scannedWithZero).not.toBeNull()
+    expect(scannedWithZero?.code).toBe('3.19234')
+    expect(scannedWithZero?.name).toBe('Lana Especial 3.19234')
+
+    // Escanear código con múltiples ceros iniciales '003.19234'
+    const scannedMultipleZeros = productService.getProductByCode('003.19234')
+    expect(scannedMultipleZeros).not.toBeNull()
+    expect(scannedMultipleZeros?.code).toBe('3.19234')
+
+    // Búsqueda por catálogo con searchProducts usando el código escaneado '03.19234'
+    const searchResults = productService.searchProducts({ query: '03.19234' })
+    expect(searchResults.some((p) => p.code === '3.19234')).toBe(true)
+  })
+
+  it('permite configurar límites iniciales y lotes de scroll dinámicos', () => {
+    // Buscar con límite inicial configurado de 4
+    const initialBatch = productService.searchProducts({ query: '', limit: 4, offset: 0 })
+    expect(initialBatch.length).toBe(4)
+
+    // Siguiente lote con tamaño configurable de 2
+    const nextBatch = productService.searchProducts({ query: '', limit: 2, offset: 4 })
+    expect(nextBatch.length).toBe(2)
+
+    // No se superponen
+    const initialCodes = new Set(initialBatch.map((p) => p.code))
+    for (const p of nextBatch) {
+      expect(initialCodes.has(p.code)).toBe(false)
+    }
+  })
+
+  it('permite verificar stock antes de eliminar producto simple o variación', () => {
+    // Producto con stock
+    const pWithStock = productService.upsertProduct({
+      code: 'WITH-STOCK-1',
+      name: 'Lana Azul Gruesa',
+      sale_price: 2500,
+      stock: 15
+    })
+    expect(pWithStock).not.toBeNull()
+    expect(pWithStock.stock).toBe(15)
+
+    // Producto sin stock (0)
+    const pZeroStock = productService.upsertProduct({
+      code: 'ZERO-STOCK-1',
+      name: 'Producto Agotado',
+      sale_price: 1000,
+      stock: 0
+    })
+    expect(pZeroStock.stock).toBe(0)
+
+    // Soft delete de producto con stock 0
+    const deleted = productService.softDeleteProduct(pZeroStock.code!)
+    expect(deleted).toBe(true)
+
+    const foundAfter = productService.getProductByCode('ZERO-STOCK-1')
+    expect(foundAfter).toBeNull() // No se encuentra en catálogo activo
   })
 })

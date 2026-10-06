@@ -23,13 +23,27 @@ export class InventoryService {
     }
 
     const tx = this.db.transaction(() => {
-      const product = this.db
+      let product = this.db
         .prepare('SELECT * FROM products WHERE code = ? AND active = 1')
         .get(trimmedCode) as Product | undefined
 
       if (!product) {
+        const stripped = trimmedCode.replace(/^0+/, '') || '0'
+        product = this.db
+          .prepare(`
+            SELECT * FROM products
+            WHERE (code = ? COLLATE NOCASE OR COALESCE(NULLIF(LTRIM(code, '0'), ''), '0') = ? COLLATE NOCASE)
+              AND active = 1
+            LIMIT 1
+          `)
+          .get(stripped, stripped) as Product | undefined
+      }
+
+      if (!product) {
         throw new Error(`Producto con código "${trimmedCode}" no encontrado o no está activo`)
       }
+
+      const canonicalCode = product.code || trimmedCode
 
       let delta: number
       let newStock: number
@@ -57,7 +71,7 @@ export class InventoryService {
       // 1. Actualizar stock del producto
       this.db
         .prepare('UPDATE products SET stock = ?, updated_at = ? WHERE code = ?')
-        .run(newStock, now, trimmedCode)
+        .run(newStock, now, canonicalCode)
 
       // 2. Registrar movimiento en inventory_movements
       const res = this.db
@@ -65,11 +79,11 @@ export class InventoryService {
           INSERT INTO inventory_movements (product_code, delta, type, reason, ref_sale_id, created_at)
           VALUES (?, ?, 'ajuste', ?, NULL, ?)
         `)
-        .run(trimmedCode, delta, trimmedReason, now)
+        .run(canonicalCode, delta, trimmedReason, now)
 
       const movement: InventoryMovement = {
         id: Number(res.lastInsertRowid),
-        product_code: trimmedCode,
+        product_code: canonicalCode,
         delta,
         type: 'ajuste',
         reason: trimmedReason,
@@ -183,9 +197,16 @@ export class InventoryService {
 
   getProductKardex(productCode: string, limit = 100): InventoryMovementDetail[] {
     const trimmed = productCode.trim()
+    const stripped = trimmed.replace(/^0+/, '') || '0'
     const prod = this.db
-      .prepare("SELECT code FROM products WHERE code = ? OR LTRIM(code, '0') = LTRIM(?, '0') LIMIT 1")
-      .get(trimmed, trimmed) as { code: string } | undefined
+      .prepare(`
+        SELECT code FROM products
+        WHERE code = ? COLLATE NOCASE
+           OR code = ? COLLATE NOCASE
+           OR COALESCE(NULLIF(LTRIM(code, '0'), ''), '0') = ? COLLATE NOCASE
+        LIMIT 1
+      `)
+      .get(trimmed, stripped, stripped) as { code: string } | undefined
     const actualCode = prod ? prod.code : trimmed
 
     const sql = `
