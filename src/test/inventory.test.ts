@@ -161,6 +161,30 @@ describe('Fase 6: Control de Inventario, Ajustes, Alertas y Kardex', () => {
         })
       }).toThrow(/Debe especificar un motivo/)
     })
+
+    it('ajusta stock y consulta kardex tolerando ceros a la izquierda escaneados (ej: 03.19234 vs 3.19234)', () => {
+      productService.upsertProduct({
+        code: '3.19234',
+        name: 'Madeja Lana 3.19234',
+        sale_price: 3500,
+        stock: 10,
+        min_stock: 2
+      })
+
+      const res = inventoryService.adjustStock({
+        product_code: '03.19234',
+        delta: 5,
+        reason: 'Ajuste con escáner de código con ceros'
+      })
+
+      expect(res.product.code).toBe('3.19234')
+      expect(res.product.stock).toBe(15)
+      expect(res.movement.product_code).toBe('3.19234')
+
+      const kardex = inventoryService.getProductKardex('03.19234')
+      expect(kardex.length).toBeGreaterThanOrEqual(1)
+      expect(kardex[0].product_code).toBe('3.19234')
+    })
   })
 
   describe('Alertas de Stock Bajo (getLowStockProducts)', () => {
@@ -248,7 +272,7 @@ describe('Fase 6: Control de Inventario, Ajustes, Alertas y Kardex', () => {
       })
 
       const kardex = inventoryService.getProductKardex('PROD_S1')
-      expect(kardex).toHaveLength(3)
+      expect(kardex).toHaveLength(4)
 
       // Debe venir ordenado descendentemente por fecha/id (más reciente primero)
       expect(kardex[0].reason).toBe('Tercer ajuste')
@@ -262,6 +286,94 @@ describe('Fase 6: Control de Inventario, Ajustes, Alertas y Kardex', () => {
       expect(kardex[2].reason).toBe('Primer ajuste')
       expect(kardex[2].stock_before).toBe(20)
       expect(kardex[2].stock_after).toBe(25)
+
+      expect(kardex[3].reason).toBe('Stock inicial (creación de producto)')
+      expect(kardex[3].type).toBe('inicial')
+      expect(kardex[3].delta).toBe(20)
+      expect(kardex[3].stock_before).toBe(0)
+      expect(kardex[3].stock_after).toBe(20)
+    })
+  })
+
+  describe('Stock Inicial al Crear Productos y Variaciones', () => {
+    it('registra movimiento tipo "inicial" al crear producto simple con stock > 0', () => {
+      productService.upsertProduct({
+        code: 'PROD_NEW_INIT',
+        name: 'Aguja de Tejer Circular 4.0mm',
+        product_type: 'simple',
+        sale_price: 3200,
+        stock: 15,
+        min_stock: 3
+      })
+
+      const kardex = inventoryService.getProductKardex('PROD_NEW_INIT')
+      expect(kardex).toHaveLength(1)
+      expect(kardex[0].type).toBe('inicial')
+      expect(kardex[0].delta).toBe(15)
+      expect(kardex[0].reason).toBe('Stock inicial (creación de producto)')
+      expect(kardex[0].stock_before).toBe(0)
+      expect(kardex[0].stock_after).toBe(15)
+
+      // Aparece también en movimientos del día
+      const today = new Date().toISOString().slice(0, 10)
+      const movements = inventoryService.getMovementsByDate(today, 'inicial')
+      const found = movements.find((m) => m.product_code === 'PROD_NEW_INIT')
+      expect(found).toBeDefined()
+      expect(found?.delta).toBe(15)
+      expect(found?.type).toBe('inicial')
+      expect(found?.reason).toBe('Stock inicial (creación de producto)')
+    })
+
+    it('no genera movimiento de inventario si el producto se crea con stock 0', () => {
+      productService.upsertProduct({
+        code: 'PROD_ZERO_STOCK',
+        name: 'Tijera Zigzag',
+        product_type: 'simple',
+        sale_price: 4500,
+        stock: 0,
+        min_stock: 2
+      })
+
+      const kardex = inventoryService.getProductKardex('PROD_ZERO_STOCK')
+      expect(kardex).toHaveLength(0)
+    })
+
+    it('registra movimientos iniciales para cada variación nueva con stock > 0 en un producto variable', () => {
+      productService.saveVariableProduct(
+        {
+          name: 'Trapillo Premium',
+          attribute_name: 'Color'
+        },
+        [
+          {
+            code: 'TRAP_AMARILLO',
+            name: 'Trapillo Premium Amarillo',
+            attribute_value: 'Amarillo',
+            sale_price: 4990,
+            stock: 8,
+            min_stock: 2
+          },
+          {
+            code: 'TRAP_NEGRO',
+            name: 'Trapillo Premium Negro',
+            attribute_value: 'Negro',
+            sale_price: 4990,
+            stock: 0, // Sin stock inicial
+            min_stock: 2
+          }
+        ]
+      )
+
+      // La variación con stock 8 debe tener movimiento inicial
+      const kardexAmarillo = inventoryService.getProductKardex('TRAP_AMARILLO')
+      expect(kardexAmarillo).toHaveLength(1)
+      expect(kardexAmarillo[0].type).toBe('inicial')
+      expect(kardexAmarillo[0].delta).toBe(8)
+      expect(kardexAmarillo[0].reason).toBe('Stock inicial (creación de producto)')
+
+      // La variación con stock 0 no debe tener movimiento
+      const kardexNegro = inventoryService.getProductKardex('TRAP_NEGRO')
+      expect(kardexNegro).toHaveLength(0)
     })
   })
 })

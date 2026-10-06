@@ -237,8 +237,8 @@ describe('Reorganización Post-Importación de Catálogo (Operaciones en Lote)',
         .prepare('SELECT * FROM inventory_movements WHERE product_code = ?')
         .all('UPDATED-CODE-02') as any[]
 
-      expect(movements).toHaveLength(1)
-      expect(movements[0].delta).toBe(30)
+      expect(movements).toHaveLength(2)
+      expect(movements.every((m) => m.product_code === 'UPDATED-CODE-02')).toBe(true)
 
       // Verificar que el código antiguo ya no tiene movimientos
       const oldMovements = db

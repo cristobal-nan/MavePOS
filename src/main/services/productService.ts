@@ -86,23 +86,35 @@ export class ProductService {
     const trimmed = (code || '').trim()
     if (!trimmed) return null
 
-    const query = includeInactive
-      ? 'SELECT * FROM products WHERE code = ?'
-      : 'SELECT * FROM products WHERE code = ? AND active = 1'
-    let row = this.db.prepare(query).get(trimmed) as Product | undefined
+    const baseWhere = includeInactive ? '' : ' AND active = 1'
 
-    // Si no se encontró de forma literal y el código es puramente numérico,
-    // buscar con tolerancia a ceros a la izquierda (ej: '0123' vs '123')
-    if (!row && /^\d+$/.test(trimmed)) {
-      const stripped = trimmed.replace(/^0+/, '')
-      if (stripped && stripped !== trimmed) {
-        row = this.db.prepare(query).get(stripped) as Product | undefined
+    // 1. Coincidencia exacta literal
+    let row = this.db
+      .prepare(`SELECT * FROM products WHERE code = ?${baseWhere}`)
+      .get(trimmed) as Product | undefined
+
+    // 2. Coincidencia exacta insensible a mayúsculas
+    if (!row) {
+      row = this.db
+        .prepare(`SELECT * FROM products WHERE code = ? COLLATE NOCASE${baseWhere}`)
+        .get(trimmed) as Product | undefined
+    }
+
+    // 3. Tolerancia de ceros a la izquierda (ej: '03.19234' vs '3.19234', '007542' vs '7542')
+    if (!row) {
+      const stripped = trimmed.replace(/^0+/, '') || '0'
+      if (stripped !== trimmed) {
+        row = this.db
+          .prepare(`SELECT * FROM products WHERE code = ? COLLATE NOCASE${baseWhere}`)
+          .get(stripped) as Product | undefined
       }
+
       if (!row) {
-        const altQuery = includeInactive
-          ? "SELECT * FROM products WHERE LTRIM(code, '0') = ? LIMIT 1"
-          : "SELECT * FROM products WHERE LTRIM(code, '0') = ? AND active = 1 LIMIT 1"
-        row = this.db.prepare(altQuery).get(stripped || '0') as Product | undefined
+        row = this.db
+          .prepare(
+            `SELECT * FROM products WHERE COALESCE(NULLIF(LTRIM(code, '0'), ''), '0') = ? COLLATE NOCASE${baseWhere} LIMIT 1`
+          )
+          .get(stripped) as Product | undefined
       }
     }
 
@@ -297,6 +309,13 @@ export class ProductService {
         now
       )
       targetId = Number(result.lastInsertRowid)
+
+      if (productType !== 'variable' && stock > 0 && trimmedCode) {
+        this.db.prepare(`
+          INSERT INTO inventory_movements (product_code, delta, type, reason, ref_sale_id, created_at)
+          VALUES (?, ?, 'inicial', 'Stock inicial (creación de producto)', NULL, ?)
+        `).run(trimmedCode, stock, now)
+      }
     }
 
     // Persist suppliers if provided
@@ -661,13 +680,18 @@ export class ProductService {
 
         // Also check if raw query matches code literally (Section 5.3) with leading zero tolerance
         if (!rawInput.includes('%')) {
-          if (/^\d+$/.test(rawInput)) {
-            const stripped = rawInput.replace(/^0+/, '') || '0'
-            conditions.push(`(${nameConditions.join(' AND ')} OR p.code = ? OR LTRIM(p.code, '0') = ?)`)
-            params.push(rawInput.trim(), stripped)
+          const trimmedInput = rawInput.trim()
+          const stripped = trimmedInput.replace(/^0+/, '') || '0'
+          if (stripped !== trimmedInput) {
+            conditions.push(
+              `(${nameConditions.join(' AND ')} OR p.code = ? COLLATE NOCASE OR p.code = ? COLLATE NOCASE OR COALESCE(NULLIF(LTRIM(p.code, '0'), ''), '0') = ? COLLATE NOCASE)`
+            )
+            params.push(trimmedInput, stripped, stripped)
           } else {
-            conditions.push(`(${nameConditions.join(' AND ')} OR p.code = ?)`)
-            params.push(rawInput.trim())
+            conditions.push(
+              `(${nameConditions.join(' AND ')} OR p.code = ? COLLATE NOCASE OR COALESCE(NULLIF(LTRIM(p.code, '0'), ''), '0') = ? COLLATE NOCASE)`
+            )
+            params.push(trimmedInput, stripped)
           }
         } else {
           conditions.push(`(${nameConditions.join(' AND ')})`)

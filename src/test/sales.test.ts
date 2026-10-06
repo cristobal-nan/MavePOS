@@ -156,7 +156,7 @@ describe('Fase 5: Módulo de Ventas (Importes, Totales, Pagos, Vuelto, Stock e I
 
       // Debe haberse registrado el movimiento en inventory_movements
       const movements = db
-        .prepare('SELECT * FROM inventory_movements WHERE product_code = ?')
+        .prepare("SELECT * FROM inventory_movements WHERE product_code = ? AND type = 'venta'")
         .all('7801') as any[]
 
       expect(movements).toHaveLength(1)
