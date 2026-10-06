@@ -1,14 +1,26 @@
 import { create } from 'zustand'
-import { Category, Product, ProductInput, ProductSearchResult, ProductType, GroupAsVariableInput, Supplier } from '@shared/types'
+import {
+  Category,
+  Product,
+  ProductInput,
+  ProductSearchResult,
+  ProductType,
+  GroupAsVariableInput,
+  Supplier,
+  CatalogConfig,
+  DEFAULT_CATALOG_CONFIG
+} from '@shared/types'
 
 interface CatalogState {
   products: ProductSearchResult[]
+  modalProducts: ProductSearchResult[]
   categories: Category[]
   suppliers: Supplier[]
   selectedCategory: number | null
   selectedSupplier: number | null
   selectedProductType: 'sellable' | 'simple' | 'variation' | 'variable' | 'all'
   searchQuery: string
+  modalSearchQuery: string
   orderBy: 'name' | 'stock' | 'sale_price'
   orderDir: 'ASC' | 'DESC'
   columnWidths: {
@@ -29,20 +41,26 @@ interface CatalogState {
     stock: number
     actions: number
   }
+  config: CatalogConfig
   isLoading: boolean
+  modalIsLoading: boolean
   isLoadingMore: boolean
+  modalIsLoadingMore: boolean
   hasMore: boolean
+  modalHasMore: boolean
   error: string | null
 
   // Actions
   loadMetadata: () => Promise<void>
-  fetchProducts: (customQuery?: string) => Promise<void>
-  loadMoreProducts: () => Promise<void>
-  setSearchQuery: (query: string) => void
-  setSelectedCategory: (catId: number | null) => void
-  setSelectedSupplier: (supId: number | null) => void
-  setSelectedProductType: (type: 'sellable' | 'simple' | 'variation' | 'variable' | 'all') => void
-  toggleSort: (column: 'name' | 'stock' | 'sale_price') => void
+  loadConfig: () => Promise<void>
+  updateConfig: (newConfig: Partial<CatalogConfig>) => Promise<void>
+  fetchProducts: (customQuery?: string, context?: 'catalog' | 'modal') => Promise<void>
+  loadMoreProducts: (context?: 'catalog' | 'modal') => Promise<void>
+  setSearchQuery: (query: string, context?: 'catalog' | 'modal') => void
+  setSelectedCategory: (catId: number | null, context?: 'catalog' | 'modal') => void
+  setSelectedSupplier: (supId: number | null, context?: 'catalog' | 'modal') => void
+  setSelectedProductType: (type: 'sellable' | 'simple' | 'variation' | 'variable' | 'all', context?: 'catalog' | 'modal') => void
+  toggleSort: (column: 'name' | 'stock' | 'sale_price', context?: 'catalog' | 'modal') => void
   setColumnWidth: (column: string, width: number, context?: 'catalog' | 'modal') => void
   saveProduct: (input: ProductInput) => Promise<Product>
   saveVariableProduct: (parent: ProductInput, variations: ProductInput[]) => Promise<{ parent: Product; variations: Product[] }>
@@ -60,12 +78,14 @@ interface CatalogState {
 
 export const useCatalogStore = create<CatalogState>((set, get) => ({
   products: [],
+  modalProducts: [],
   categories: [],
   suppliers: [],
   selectedCategory: null,
   selectedSupplier: null,
   selectedProductType: 'sellable',
   searchQuery: '',
+  modalSearchQuery: '',
   orderBy: 'name',
   orderDir: 'ASC',
   columnWidths: {
@@ -86,16 +106,66 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     stock: 80,
     actions: 0
   },
+  config: { ...DEFAULT_CATALOG_CONFIG },
   isLoading: false,
+  modalIsLoading: false,
   isLoadingMore: false,
+  modalIsLoadingMore: false,
   hasMore: false,
+  modalHasMore: false,
   error: null,
+
+  loadConfig: async () => {
+    try {
+      const all = await window.api.getAllSettings()
+      set({
+        config: {
+          catalogAutoLoad: all.catalog_autoload !== undefined ? all.catalog_autoload === 'true' : DEFAULT_CATALOG_CONFIG.catalogAutoLoad,
+          catalogInitialLimit: all.catalog_initial_limit ? Math.max(10, parseInt(all.catalog_initial_limit, 10) || 150) : DEFAULT_CATALOG_CONFIG.catalogInitialLimit,
+          catalogScrollBatch: all.catalog_scroll_batch ? Math.max(10, parseInt(all.catalog_scroll_batch, 10) || 150) : DEFAULT_CATALOG_CONFIG.catalogScrollBatch,
+          modalAutoLoad: all.modal_autoload !== undefined ? all.modal_autoload === 'true' : DEFAULT_CATALOG_CONFIG.modalAutoLoad,
+          modalInitialLimit: all.modal_initial_limit ? Math.max(10, parseInt(all.modal_initial_limit, 10) || 150) : DEFAULT_CATALOG_CONFIG.modalInitialLimit,
+          modalScrollBatch: all.modal_scroll_batch ? Math.max(10, parseInt(all.modal_scroll_batch, 10) || 150) : DEFAULT_CATALOG_CONFIG.modalScrollBatch
+        }
+      })
+    } catch (e) {
+      console.error('Error cargando configuración de catálogo:', e)
+    }
+  },
+
+  updateConfig: async (newConfig: Partial<CatalogConfig>) => {
+    const updated = { ...get().config, ...newConfig }
+    set({ config: updated })
+    try {
+      if (newConfig.catalogAutoLoad !== undefined) {
+        await window.api.setSetting('catalog_autoload', String(newConfig.catalogAutoLoad))
+      }
+      if (newConfig.catalogInitialLimit !== undefined) {
+        await window.api.setSetting('catalog_initial_limit', String(newConfig.catalogInitialLimit))
+      }
+      if (newConfig.catalogScrollBatch !== undefined) {
+        await window.api.setSetting('catalog_scroll_batch', String(newConfig.catalogScrollBatch))
+      }
+      if (newConfig.modalAutoLoad !== undefined) {
+        await window.api.setSetting('modal_autoload', String(newConfig.modalAutoLoad))
+      }
+      if (newConfig.modalInitialLimit !== undefined) {
+        await window.api.setSetting('modal_initial_limit', String(newConfig.modalInitialLimit))
+      }
+      if (newConfig.modalScrollBatch !== undefined) {
+        await window.api.setSetting('modal_scroll_batch', String(newConfig.modalScrollBatch))
+      }
+    } catch (e) {
+      console.error('Error guardando configuración de catálogo:', e)
+    }
+  },
 
   loadMetadata: async () => {
     try {
       const [cats, sups] = await Promise.all([
         window.api.catalog.getCategories(),
-        window.api.catalog.getSuppliers()
+        window.api.catalog.getSuppliers(),
+        get().loadConfig()
       ])
       set({ categories: cats, suppliers: sups })
     } catch (err: any) {
@@ -104,130 +174,177 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     }
   },
 
-  fetchProducts: async (customQuery?: string) => {
-    set({ isLoading: true, error: null })
-    const { searchQuery, selectedCategory, selectedSupplier, selectedProductType, orderBy, orderDir } = get()
-    const query = customQuery !== undefined ? customQuery : searchQuery
+  fetchProducts: async (customQuery?: string, context: 'catalog' | 'modal' = 'catalog') => {
+    const isModal = context === 'modal'
+    if (isModal) {
+      set({ modalIsLoading: true, error: null })
+    } else {
+      set({ isLoading: true, error: null })
+    }
+
+    const { searchQuery, modalSearchQuery, selectedCategory, selectedSupplier, selectedProductType, orderBy, orderDir, config } = get()
+    const query = customQuery !== undefined ? customQuery : (isModal ? modalSearchQuery : searchQuery)
 
     try {
       let onlySellable: boolean | undefined = undefined
       let pType: ProductType | undefined = undefined
 
-      if (selectedProductType === 'sellable') {
+      if (isModal) {
         onlySellable = true
-      } else if (selectedProductType === 'all') {
-        onlySellable = false
       } else {
-        pType = selectedProductType as ProductType
+        if (selectedProductType === 'sellable') {
+          onlySellable = true
+        } else if (selectedProductType === 'all') {
+          onlySellable = false
+        } else {
+          pType = selectedProductType as ProductType
+        }
       }
 
-      const PAGE_SIZE = 150
+      const limit = isModal ? (config.modalInitialLimit || 150) : (config.catalogInitialLimit || 150)
       const results = await window.api.catalog.search({
         query,
-        categoryId: selectedCategory,
-        supplierId: selectedSupplier,
+        categoryId: isModal ? null : selectedCategory,
+        supplierId: isModal ? null : selectedSupplier,
         productType: pType,
         onlySellable,
         orderBy,
         orderDir,
-        limit: PAGE_SIZE,
+        limit,
         offset: 0
       })
 
-      set({
-        products: results,
-        hasMore: results.length === PAGE_SIZE,
-        isLoading: false
-      })
+      if (isModal) {
+        set({
+          modalProducts: results,
+          modalHasMore: results.length === limit,
+          modalIsLoading: false
+        })
+      } else {
+        set({
+          products: results,
+          hasMore: results.length === limit,
+          isLoading: false
+        })
+      }
     } catch (err: any) {
       console.error('Error buscando productos:', err)
-      set({ error: err.message, isLoading: false })
+      if (isModal) {
+        set({ error: err.message, modalIsLoading: false })
+      } else {
+        set({ error: err.message, isLoading: false })
+      }
     }
   },
 
-  loadMoreProducts: async () => {
-    const {
-      isLoading,
-      isLoadingMore,
-      hasMore,
-      products,
-      searchQuery,
-      selectedCategory,
-      selectedSupplier,
-      selectedProductType,
-      orderBy,
-      orderDir
-    } = get()
+  loadMoreProducts: async (context: 'catalog' | 'modal' = 'catalog') => {
+    const isModal = context === 'modal'
+    const state = get()
+    const currentLoading = isModal ? state.modalIsLoading : state.isLoading
+    const currentLoadingMore = isModal ? state.modalIsLoadingMore : state.isLoadingMore
+    const currentHasMore = isModal ? state.modalHasMore : state.hasMore
+    const currentProducts = isModal ? state.modalProducts : state.products
+    const currentQuery = isModal ? state.modalSearchQuery : state.searchQuery
 
-    if (isLoading || isLoadingMore || !hasMore) return
+    if (currentLoading || currentLoadingMore || !currentHasMore) return
 
-    set({ isLoadingMore: true })
+    if (isModal) {
+      set({ modalIsLoadingMore: true })
+    } else {
+      set({ isLoadingMore: true })
+    }
+
     try {
       let onlySellable: boolean | undefined = undefined
       let pType: ProductType | undefined = undefined
 
-      if (selectedProductType === 'sellable') {
+      if (isModal) {
         onlySellable = true
-      } else if (selectedProductType === 'all') {
-        onlySellable = false
       } else {
-        pType = selectedProductType as ProductType
+        if (state.selectedProductType === 'sellable') {
+          onlySellable = true
+        } else if (state.selectedProductType === 'all') {
+          onlySellable = false
+        } else {
+          pType = state.selectedProductType as ProductType
+        }
       }
 
-      const PAGE_SIZE = 150
+      const limit = isModal ? (state.config.modalScrollBatch || 150) : (state.config.catalogScrollBatch || 150)
       const results = await window.api.catalog.search({
-        query: searchQuery,
-        categoryId: selectedCategory,
-        supplierId: selectedSupplier,
+        query: currentQuery,
+        categoryId: isModal ? null : state.selectedCategory,
+        supplierId: isModal ? null : state.selectedSupplier,
         productType: pType,
         onlySellable,
-        orderBy,
-        orderDir,
-        limit: PAGE_SIZE,
-        offset: products.length
+        orderBy: state.orderBy,
+        orderDir: state.orderDir,
+        limit,
+        offset: currentProducts.length
       })
 
       if (results.length === 0) {
-        set({ hasMore: false, isLoadingMore: false })
+        if (isModal) {
+          set({ modalHasMore: false, modalIsLoadingMore: false })
+        } else {
+          set({ hasMore: false, isLoadingMore: false })
+        }
         return
       }
 
       // Evitar duplicados por seguridad
-      const existingIds = new Set(products.map((p) => p.id))
+      const existingIds = new Set(currentProducts.map((p) => p.id))
       const newItems = results.filter((p) => !existingIds.has(p.id))
 
-      set({
-        products: [...products, ...newItems],
-        hasMore: results.length === PAGE_SIZE,
-        isLoadingMore: false
-      })
+      if (isModal) {
+        set({
+          modalProducts: [...currentProducts, ...newItems],
+          modalHasMore: results.length === limit,
+          modalIsLoadingMore: false
+        })
+      } else {
+        set({
+          products: [...currentProducts, ...newItems],
+          hasMore: results.length === limit,
+          isLoadingMore: false
+        })
+      }
     } catch (err: any) {
       console.error('Error cargando más productos:', err)
-      set({ error: err.message, isLoadingMore: false })
+      if (isModal) {
+        set({ error: err.message, modalIsLoadingMore: false })
+      } else {
+        set({ error: err.message, isLoadingMore: false })
+      }
     }
   },
 
-  setSearchQuery: (query: string) => {
-    set({ searchQuery: query })
-    get().fetchProducts(query)
+  setSearchQuery: (query: string, context: 'catalog' | 'modal' = 'catalog') => {
+    if (context === 'modal') {
+      set({ modalSearchQuery: query })
+      get().fetchProducts(query, 'modal')
+    } else {
+      set({ searchQuery: query })
+      get().fetchProducts(query, 'catalog')
+    }
   },
 
-  setSelectedCategory: (catId: number | null) => {
+  setSelectedCategory: (catId: number | null, context: 'catalog' | 'modal' = 'catalog') => {
     set({ selectedCategory: catId })
-    get().fetchProducts()
+    get().fetchProducts(undefined, context)
   },
 
-  setSelectedSupplier: (supId: number | null) => {
+  setSelectedSupplier: (supId: number | null, context: 'catalog' | 'modal' = 'catalog') => {
     set({ selectedSupplier: supId })
-    get().fetchProducts()
+    get().fetchProducts(undefined, context)
   },
 
-  setSelectedProductType: (type: 'sellable' | 'simple' | 'variation' | 'variable' | 'all') => {
+  setSelectedProductType: (type: 'sellable' | 'simple' | 'variation' | 'variable' | 'all', context: 'catalog' | 'modal' = 'catalog') => {
     set({ selectedProductType: type })
-    get().fetchProducts()
+    get().fetchProducts(undefined, context)
   },
 
-  toggleSort: (column: 'name' | 'stock' | 'sale_price') => {
+  toggleSort: (column: 'name' | 'stock' | 'sale_price', context: 'catalog' | 'modal' = 'catalog') => {
     const { orderBy, orderDir } = get()
     if (orderBy === column) {
       const newDir = orderDir === 'ASC' ? 'DESC' : 'ASC'
@@ -235,7 +352,7 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     } else {
       set({ orderBy: column, orderDir: 'ASC' })
     }
-    get().fetchProducts()
+    get().fetchProducts(undefined, context)
   },
 
   setColumnWidth: (column: string, width: number, context: 'catalog' | 'modal' = 'catalog') => {

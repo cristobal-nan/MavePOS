@@ -9,9 +9,12 @@ import {
   Info,
   Layers,
   FileText,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Gauge,
+  Search
 } from 'lucide-react'
-import { QuickAdjustmentReason, DEFAULT_QUICK_REASONS } from '@shared/types'
+import { QuickAdjustmentReason, DEFAULT_QUICK_REASONS, CatalogConfig, DEFAULT_CATALOG_CONFIG } from '@shared/types'
+import { useCatalogStore } from '../../store/catalogStore'
 
 export const InventorySettingsTab: React.FC = () => {
   const [reasons, setReasons] = useState<QuickAdjustmentReason[]>([...DEFAULT_QUICK_REASONS])
@@ -20,6 +23,15 @@ export const InventorySettingsTab: React.FC = () => {
   const [exportPrefix, setExportPrefix] = useState('Productos')
   const [isSaving, setIsSaving] = useState(false)
   const [savedMessage, setSavedMessage] = useState<string | null>(null)
+
+  // Opciones de Carga y Rendimiento de Catálogo
+  const [catalogAutoLoad, setCatalogAutoLoad] = useState(DEFAULT_CATALOG_CONFIG.catalogAutoLoad)
+  const [catalogInitialLimit, setCatalogInitialLimit] = useState(DEFAULT_CATALOG_CONFIG.catalogInitialLimit)
+  const [catalogScrollBatch, setCatalogScrollBatch] = useState(DEFAULT_CATALOG_CONFIG.catalogScrollBatch)
+  const [modalAutoLoad, setModalAutoLoad] = useState(DEFAULT_CATALOG_CONFIG.modalAutoLoad)
+  const [modalInitialLimit, setModalInitialLimit] = useState(DEFAULT_CATALOG_CONFIG.modalInitialLimit)
+  const [modalScrollBatch, setModalScrollBatch] = useState(DEFAULT_CATALOG_CONFIG.modalScrollBatch)
+  const [isSavingPerformance, setIsSavingPerformance] = useState(false)
 
   useEffect(() => {
     let isMounted = true
@@ -39,6 +51,24 @@ export const InventorySettingsTab: React.FC = () => {
         }
         if (settings?.excel_export_prefix) {
           setExportPrefix(settings.excel_export_prefix)
+        }
+        if (settings?.catalog_autoload !== undefined) {
+          setCatalogAutoLoad(settings.catalog_autoload === 'true')
+        }
+        if (settings?.catalog_initial_limit) {
+          setCatalogInitialLimit(parseInt(settings.catalog_initial_limit, 10) || 150)
+        }
+        if (settings?.catalog_scroll_batch) {
+          setCatalogScrollBatch(parseInt(settings.catalog_scroll_batch, 10) || 150)
+        }
+        if (settings?.modal_autoload !== undefined) {
+          setModalAutoLoad(settings.modal_autoload === 'true')
+        }
+        if (settings?.modal_initial_limit) {
+          setModalInitialLimit(parseInt(settings.modal_initial_limit, 10) || 150)
+        }
+        if (settings?.modal_scroll_batch) {
+          setModalScrollBatch(parseInt(settings.modal_scroll_batch, 10) || 150)
         }
       })
       .catch((err) => {
@@ -97,6 +127,29 @@ export const InventorySettingsTab: React.FC = () => {
       alert('Error al guardar: ' + err.message)
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleSavePerformance = async (): Promise<void> => {
+    setIsSavingPerformance(true)
+    setSavedMessage(null)
+    try {
+      const newConfig: CatalogConfig = {
+        catalogAutoLoad,
+        catalogInitialLimit: Math.max(10, catalogInitialLimit || 150),
+        catalogScrollBatch: Math.max(10, catalogScrollBatch || 150),
+        modalAutoLoad,
+        modalInitialLimit: Math.max(10, modalInitialLimit || 150),
+        modalScrollBatch: Math.max(10, modalScrollBatch || 150)
+      }
+      await useCatalogStore.getState().updateConfig(newConfig)
+      setSavedMessage('Configuración de rendimiento y carga de productos guardada.')
+      setTimeout(() => setSavedMessage(null), 4000)
+    } catch (err: any) {
+      console.error('Error al guardar configuración de rendimiento:', err)
+      alert('Error al guardar: ' + err.message)
+    } finally {
+      setIsSavingPerformance(false)
     }
   }
 
@@ -316,14 +369,6 @@ export const InventorySettingsTab: React.FC = () => {
           )}
         </div>
 
-        {/* Success Message Banner */}
-        {savedMessage && (
-          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2 text-xs font-semibold text-emerald-800 animate-in fade-in duration-200">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{savedMessage}</span>
-          </div>
-        )}
-
         {/* Save Button */}
         <div className="pt-4 border-t border-slate-100 flex justify-end">
           <button
@@ -386,6 +431,181 @@ export const InventorySettingsTab: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Performance & Pagination Configuration Card */}
+      <div className="bg-white p-6 rounded-3xl border border-lilac-100 shadow-sm flex flex-col gap-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-lilac-50 text-lilac-600 flex items-center justify-center shrink-0">
+            <Gauge className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-slate-800">
+              Rendimiento y Carga de Productos
+            </h3>
+            <p className="text-xs text-slate-500">
+              Optimiza la fluidez y velocidad en computadores de menores recursos configurando la carga automática y el tamaño de los lotes de productos.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-1">
+          {/* Card: Catálogo en Pestaña Productos (F2) */}
+          <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-4 flex flex-col gap-4">
+            <div className="flex items-center gap-2 border-b border-slate-200/60 pb-2.5">
+              <Boxes className="w-4 h-4 text-lilac-600" />
+              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                Catálogo de Productos (Pestaña F2)
+              </h4>
+            </div>
+
+            {/* Checkbox AutoLoad */}
+            <label className="flex items-start gap-3 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={catalogAutoLoad}
+                onChange={(e) => setCatalogAutoLoad(e.target.checked)}
+                className="w-4 h-4 mt-0.5 rounded text-lilac-600 focus:ring-lilac-500 accent-lilac-600 cursor-pointer"
+              />
+              <div className="flex flex-col">
+                <span className="text-xs font-bold text-slate-700 group-hover:text-slate-900 transition-colors">
+                  Cargar productos automáticamente al entrar al catálogo
+                </span>
+                <span className="text-[11px] text-slate-500 mt-0.5">
+                  Si se desactiva, el catálogo no cargará la lista completa al entrar, abriendo de inmediato y esperando a que busques, filtres o presiones "Cargar".
+                </span>
+              </div>
+            </label>
+
+            {/* Initial Limit */}
+            <div className="flex flex-col gap-1.5 pt-1">
+              <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+                <span>Productos a cargar por defecto (inicial):</span>
+                <span className="font-mono font-bold text-lilac-700 text-xs">{catalogInitialLimit} unid.</span>
+              </label>
+              <input
+                type="number"
+                min="10"
+                max="1000"
+                step="10"
+                value={catalogInitialLimit}
+                onChange={(e) => setCatalogInitialLimit(Math.max(10, parseInt(e.target.value, 10) || 10))}
+                className="w-full px-3 py-1.5 bg-white border border-slate-200 focus:border-lilac-500 rounded-xl text-xs font-mono outline-none"
+              />
+              <span className="text-[10px] text-slate-400">
+                Cantidad de productos que se muestran inicialmente en el catálogo (por defecto 150).
+              </span>
+            </div>
+
+            {/* Scroll Batch */}
+            <div className="flex flex-col gap-1.5 pt-1">
+              <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+                <span>Cargar al scrollear hacia abajo (lote):</span>
+                <span className="font-mono font-bold text-lilac-700 text-xs">{catalogScrollBatch} unid.</span>
+              </label>
+              <input
+                type="number"
+                min="10"
+                max="1000"
+                step="10"
+                value={catalogScrollBatch}
+                onChange={(e) => setCatalogScrollBatch(Math.max(10, parseInt(e.target.value, 10) || 10))}
+                className="w-full px-3 py-1.5 bg-white border border-slate-200 focus:border-lilac-500 rounded-xl text-xs font-mono outline-none"
+              />
+              <span className="text-[10px] text-slate-400">
+                De cuánto en cuánto se van cargando más productos al llegar al final del scroll (por defecto 150).
+              </span>
+            </div>
+          </div>
+
+          {/* Card: Modal Emergente de Búsqueda (F10) */}
+          <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-4 flex flex-col gap-4">
+            <div className="flex items-center gap-2 border-b border-slate-200/60 pb-2.5">
+              <Search className="w-4 h-4 text-lilac-600" />
+              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                Ventana de Búsqueda (F10 / Modales)
+              </h4>
+            </div>
+
+            {/* Checkbox AutoLoad */}
+            <label className="flex items-start gap-3 cursor-pointer group">
+              <input
+                type="checkbox"
+                checked={modalAutoLoad}
+                onChange={(e) => setModalAutoLoad(e.target.checked)}
+                className="w-4 h-4 mt-0.5 rounded text-lilac-600 focus:ring-lilac-500 accent-lilac-600 cursor-pointer"
+              />
+              <div className="flex flex-col">
+                <span className="text-xs font-bold text-slate-700 group-hover:text-slate-900 transition-colors">
+                  Cargar productos automáticamente al abrir la ventana
+                </span>
+                <span className="text-[11px] text-slate-500 mt-0.5">
+                  Si se desactiva, la ventana de búsqueda abre al instante sin demora, realizando la consulta únicamente cuando comiences a escribir.
+                </span>
+              </div>
+            </label>
+
+            {/* Initial Limit */}
+            <div className="flex flex-col gap-1.5 pt-1">
+              <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+                <span>Productos a cargar por defecto (inicial):</span>
+                <span className="font-mono font-bold text-lilac-700 text-xs">{modalInitialLimit} unid.</span>
+              </label>
+              <input
+                type="number"
+                min="10"
+                max="1000"
+                step="10"
+                value={modalInitialLimit}
+                onChange={(e) => setModalInitialLimit(Math.max(10, parseInt(e.target.value, 10) || 10))}
+                className="w-full px-3 py-1.5 bg-white border border-slate-200 focus:border-lilac-500 rounded-xl text-xs font-mono outline-none"
+              />
+              <span className="text-[10px] text-slate-400">
+                Cantidad máxima de resultados mostrados inicialmente al abrir o al buscar (por defecto 150).
+              </span>
+            </div>
+
+            {/* Scroll Batch */}
+            <div className="flex flex-col gap-1.5 pt-1">
+              <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+                <span>Cargar al scrollear hacia abajo (lote):</span>
+                <span className="font-mono font-bold text-lilac-700 text-xs">{modalScrollBatch} unid.</span>
+              </label>
+              <input
+                type="number"
+                min="10"
+                max="1000"
+                step="10"
+                value={modalScrollBatch}
+                onChange={(e) => setModalScrollBatch(Math.max(10, parseInt(e.target.value, 10) || 10))}
+                className="w-full px-3 py-1.5 bg-white border border-slate-200 focus:border-lilac-500 rounded-xl text-xs font-mono outline-none"
+              />
+              <span className="text-[10px] text-slate-400">
+                De cuánto en cuánto se van cargando más resultados al deslizar hacia abajo (por defecto 150).
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end pt-2 border-t border-slate-100">
+          <button
+            type="button"
+            onClick={handleSavePerformance}
+            disabled={isSavingPerformance}
+            className="px-5 py-2.5 bg-lilac-600 hover:bg-lilac-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+          >
+            <Save className="w-4 h-4" />
+            <span>{isSavingPerformance ? 'Guardando...' : 'Guardar Configuración de Rendimiento'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Toast Flotante de Guardado Exitoso (Bottom-Right, sin Layout Shift) */}
+      {savedMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-white border border-emerald-300 text-emerald-950 p-3.5 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs animate-in fade-in slide-in-from-bottom-3 duration-200 select-none">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+          <span className="font-bold">{savedMessage}</span>
+        </div>
+      )}
     </div>
   )
 }

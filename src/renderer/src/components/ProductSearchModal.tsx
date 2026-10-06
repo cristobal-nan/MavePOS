@@ -32,15 +32,28 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
   const resizeStartSize = useRef({ width: 0, height: 0 })
 
   const handleClose = (): void => {
-    useCatalogStore.getState().setSearchQuery('')
+    useCatalogStore.getState().setSearchQuery('', 'modal')
+    useCatalogStore.setState({ modalProducts: [], modalHasMore: false, modalIsLoading: false })
     onClose()
   }
 
   useEffect(() => {
     if (isOpen) {
-      useCatalogStore.getState().setSelectedProductType('sellable')
-      useCatalogStore.getState().setSearchQuery('')
-      useCatalogStore.getState().fetchProducts()
+      useCatalogStore.getState().setSelectedProductType('sellable', 'modal')
+      useCatalogStore.getState().setSearchQuery('', 'modal')
+      const cfg = useCatalogStore.getState().config
+      if (cfg.modalAutoLoad) {
+        useCatalogStore.getState().fetchProducts('', 'modal')
+      } else {
+        useCatalogStore.setState({ modalProducts: [], modalHasMore: false, modalIsLoading: false })
+      }
+      // Actualizar config en segundo plano por si fue modificada en Configuración
+      useCatalogStore.getState().loadConfig().then(() => {
+        const updatedCfg = useCatalogStore.getState().config
+        if (updatedCfg.modalAutoLoad && useCatalogStore.getState().modalProducts.length === 0 && !useCatalogStore.getState().modalSearchQuery) {
+          useCatalogStore.getState().fetchProducts('', 'modal')
+        }
+      })
     }
   }, [isOpen])
 
@@ -52,7 +65,8 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
   })
 
   const handleSelect = (product: ProductSearchResult): void => {
-    useCatalogStore.getState().setSearchQuery('')
+    useCatalogStore.getState().setSearchQuery('', 'modal')
+    useCatalogStore.setState({ modalProducts: [], modalHasMore: false, modalIsLoading: false })
     onSelectProduct(product)
     onClose()
   }
@@ -108,26 +122,26 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
           minWidth: '540px',
           minHeight: '400px'
         }}
-        className="bg-white rounded-3xl shadow-2xl border border-lilac-100 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 relative select-none"
+        className="bg-white rounded-3xl shadow-2xl border border-black/60 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 relative select-none"
       >
-        {/* Header */}
-        <div className="px-6 py-3.5 bg-slate-50 border-b border-lilac-100 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2 text-slate-800 font-bold text-sm">
-            <div className="w-7 h-7 rounded-lg bg-lilac-100 text-lilac-600 flex items-center justify-center">
-              <Search className="w-4 h-4" />
+        {/* Header Ultra Compacto */}
+        <div className="px-4 py-1.5 bg-slate-50 border-b border-black/60 flex items-center justify-between shrink-0 h-9">
+          <div className="flex items-center gap-1.5 text-slate-800 font-bold text-xs">
+            <div className="w-5 h-5 rounded-md bg-lilac-100 text-lilac-600 flex items-center justify-center">
+              <Search className="w-3 h-3" />
             </div>
             <span>{title}</span>
           </div>
           <button
             onClick={handleClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors"
+            className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Embedded ProductSearch */}
-        <div className="flex-1 p-4 overflow-hidden flex flex-col">
+        <div className="flex-1 p-2 overflow-hidden flex flex-col">
           <ProductSearch
             onSelectProduct={handleSelect}
             showActions={false}

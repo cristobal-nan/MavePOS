@@ -545,4 +545,22 @@ export interface PrintResult {
   error?: string
 }
 
+export interface CatalogConfig {
+  catalogAutoLoad: boolean
+  catalogInitialLimit: number
+  catalogScrollBatch: number
+  modalAutoLoad: boolean
+  modalInitialLimit: number
+  modalScrollBatch: number
+}
+
+export const DEFAULT_CATALOG_CONFIG: CatalogConfig = {
+  catalogAutoLoad: true,
+  catalogInitialLimit: 150,
+  catalogScrollBatch: 150,
+  modalAutoLoad: true,
+  modalInitialLimit: 150,
+  modalScrollBatch: 150
+}
+
 
