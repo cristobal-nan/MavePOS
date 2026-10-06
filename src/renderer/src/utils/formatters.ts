@@ -37,3 +37,13 @@ export function formatPaymentMethods(payments: { method: string; amount: number 
 
   return active.map((p) => methodNames[p.method] || p.method).join(' + ')
 }
+
+/**
+ * Fuerce la mayúscula en la primera letra de cada palabra (Title Case)
+ * preservando acentos (á, é, í, ó, ú, ñ), delimitadores y caracteres siguientes.
+ */
+export function capitalizeWords(text: string): string {
+  if (!text) return ''
+  return text.replace(/(?:^|[\s([{\-/"'])\p{L}/gu, (match) => match.toUpperCase())
+}
+

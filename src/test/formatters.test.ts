@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatCLP, parseCLP, formatPaymentMethods } from '../renderer/src/utils/formatters'
+import { formatCLP, parseCLP, formatPaymentMethods, capitalizeWords } from '../renderer/src/utils/formatters'
 
 describe('Fase 3: Formateo de Moneda CLP (Reglas de Dominio)', () => {
   it('formatea montos a CLP como enteros sin decimales con punto de miles', () => {
@@ -34,5 +34,16 @@ describe('Fase 3: Formateo de Moneda CLP (Reglas de Dominio)', () => {
       ])
     ).toBe('Efectivo + Tarjeta')
     expect(formatPaymentMethods([])).toBe('Cambio')
+  })
+
+  it('fuerza la mayúscula en la primera letra de cada palabra (capitalizeWords)', () => {
+    expect(capitalizeWords('')).toBe('')
+    expect(capitalizeWords('lana merino')).toBe('Lana Merino')
+    expect(capitalizeWords('algodón rústico grueso')).toBe('Algodón Rústico Grueso')
+    expect(capitalizeWords('crochet 4.0mm (aluminio)')).toBe('Crochet 4.0mm (Aluminio)')
+    expect(capitalizeWords('hilo/poliéster')).toBe('Hilo/Poliéster')
+    expect(capitalizeWords('ñandú')).toBe('Ñandú')
+    expect(capitalizeWords('polera talla xl')).toBe('Polera Talla Xl')
+    expect(capitalizeWords('Talla XL')).toBe('Talla XL')
   })
 })
