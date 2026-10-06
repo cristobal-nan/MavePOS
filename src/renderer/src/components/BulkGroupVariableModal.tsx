@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { X, GitBranch, CheckCircle2, Layers, Tag, Sparkles, Truck, Plus } from 'lucide-react'
+import { X, GitBranch, CheckCircle2, Tag, Sparkles, Truck, Plus } from 'lucide-react'
 import { ProductSearchResult } from '@shared/types'
-import { formatCLP } from '../utils/formatters'
+import { formatCLP, capitalizeWords } from '../utils/formatters'
 import { useCatalogStore } from '../store/catalogStore'
 import { useModalStack } from '../utils/modalStack'
+import { CategorySelectCard } from './CategorySelectCard'
 
 interface BulkGroupVariableModalProps {
   isOpen: boolean
@@ -39,7 +40,7 @@ export const BulkGroupVariableModal: React.FC<BulkGroupVariableModalProps> = ({
   onClose,
   onSuccess
 }) => {
-  const { categories, suppliers, saveSupplier, groupProductsAsVariable } = useCatalogStore()
+  const { suppliers, saveSupplier, groupProductsAsVariable } = useCatalogStore()
 
   useModalStack({
     id: 'bulk-group-variable-modal',
@@ -220,9 +221,9 @@ export const BulkGroupVariableModal: React.FC<BulkGroupVariableModalProps> = ({
           </div>
 
           {/* Parent Product Fields */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="flex flex-col gap-4">
             {/* Parent Name */}
-            <div className="space-y-1.5 md:col-span-2">
+            <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                 <Tag className="w-3.5 h-3.5 text-lilac-600" />
                 <span>Nombre del Producto Principal (Padre Contenedor) *</span>
@@ -231,31 +232,18 @@ export const BulkGroupVariableModal: React.FC<BulkGroupVariableModalProps> = ({
                 type="text"
                 required
                 value={parentName}
-                onChange={(e) => setParentName(e.target.value)}
+                onChange={(e) => setParentName(capitalizeWords(e.target.value))}
                 placeholder="Ej: Algodón Rústico, Lana Merino Gruesa..."
                 className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 focus:border-lilac-500 focus:bg-white rounded-xl text-xs text-slate-800 focus:outline-none font-semibold transition-all select-text cursor-text"
               />
             </div>
 
             {/* Category */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-lilac-600" />
-                <span>Categoría Compartida</span>
-              </label>
-              <select
-                value={categoryId || ''}
-                onChange={(e) => setCategoryId(e.target.value ? Number(e.target.value) : null)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 focus:border-lilac-500 rounded-xl text-xs text-slate-800 focus:outline-none cursor-pointer"
-              >
-                <option value="">-- Sin categoría asignada --</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <CategorySelectCard
+              selectedCategoryId={categoryId}
+              onSelectCategory={setCategoryId}
+              title="Categoría Compartida"
+            />
 
             {/* Attribute Name Selector & Custom */}
             <div className="space-y-1.5">
@@ -299,7 +287,7 @@ export const BulkGroupVariableModal: React.FC<BulkGroupVariableModalProps> = ({
                   type="text"
                   required
                   value={customAttrInput}
-                  onChange={(e) => setCustomAttrInput(e.target.value)}
+                  onChange={(e) => setCustomAttrInput(capitalizeWords(e.target.value))}
                   placeholder="Escribe el nombre del atributo (ej: Material, Formato)..."
                   className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 focus:border-lilac-500 rounded-lg text-xs text-slate-800 focus:outline-none"
                 />
@@ -328,7 +316,7 @@ export const BulkGroupVariableModal: React.FC<BulkGroupVariableModalProps> = ({
                     className="text-xs text-lilac-600 hover:text-lilac-700 font-bold flex items-center gap-1 hover:underline shrink-0"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>+ Nuevo Proveedor</span>
+                    <span>Nuevo Proveedor</span>
                   </button>
                 )}
               </div>

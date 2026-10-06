@@ -91,23 +91,6 @@ export const SalesHistoryModal: React.FC<SalesHistoryModalProps> = ({ isOpen, on
           </div>
         </div>
 
-        {/* Success Banner */}
-        {successBanner && (
-          <div className="bg-emerald-50 border-b border-emerald-200 text-emerald-800 px-6 py-2 text-xs font-bold flex items-center justify-between shrink-0 animate-in fade-in">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              <span>{successBanner}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setSuccessBanner(null)}
-              className="text-emerald-600 hover:text-emerald-900 cursor-pointer"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
-
         {/* Contenido Principal: Tabla y Filtros */}
         <div className="flex-1 flex flex-col overflow-hidden bg-slate-50">
           <SalesHistoryTab
@@ -131,6 +114,21 @@ export const SalesHistoryModal: React.FC<SalesHistoryModalProps> = ({ isOpen, on
             setTimeout(() => setSuccessBanner(null), 5000)
           }}
         />
+
+        {/* Toast Flotante de Éxito (Bottom-Right, sin Layout Shift) */}
+        {successBanner && (
+          <div className="absolute bottom-4 right-4 z-50 bg-white border border-emerald-300 text-emerald-950 p-3.5 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs animate-in fade-in slide-in-from-bottom-3 duration-200 select-none">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <span className="font-bold">{successBanner}</span>
+            <button
+              type="button"
+              onClick={() => setSuccessBanner(null)}
+              className="text-slate-400 hover:text-slate-600 ml-2 p-1 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

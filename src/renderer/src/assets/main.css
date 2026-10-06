@@ -41,3 +41,124 @@ input[type="number"] {
 ::-webkit-scrollbar-thumb:hover {
   background: #A78BFA;
 }
+
+/* Mejora de contraste de grises para paneles VA y monitores de bajo ángulo */
+::placeholder {
+  color: #0f172a !important; /* slate-900 negro nítido para contraste uniforme */
+  opacity: 0.85 !important;
+}
+
+/* Bordes con tonalidad al 60% para todas las tarjetas y paneles grises o negros */
+.border-black,
+.border-slate-100,
+.border-slate-200,
+.border-slate-300,
+.border-lilac-100,
+[class*="border-slate-100"],
+[class*="border-slate-200"],
+[class*="border-slate-300"],
+[class*="border-lilac-100"] {
+  border-color: rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Excepciones de borde lateral activo para items seleccionados en tarjetas y listas */
+[class*="border-l-"][class*="border-lilac-600"],
+[class*="border-l-"][class*="border-lilac-500"],
+.border-l-lilac-600 {
+  border-left-color: #7c3aed !important;
+}
+
+[class*="border-b-"][class*="border-lilac-600"],
+.border-b-lilac-600 {
+  border-bottom-color: #7c3aed !important;
+}
+
+[class*="border-b-"][class*="border-rose-600"],
+.border-b-rose-600 {
+  border-bottom-color: #e11d48 !important;
+}
+
+.divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+.divide-slate-200 > :not([hidden]) ~ :not([hidden]),
+.divide-slate-300 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Bordes de color: mayor contraste y tonalidad oscura */
+.border-amber-100,
+.border-amber-200,
+.border-amber-300,
+.border-amber-400 {
+  border-color: #d97706 !important; /* amber-600 */
+}
+
+.border-emerald-100,
+.border-emerald-200,
+.border-emerald-300,
+.border-emerald-400 {
+  border-color: #059669 !important; /* emerald-600 */
+}
+
+.border-blue-100,
+.border-blue-200,
+.border-blue-300,
+.border-blue-400 {
+  border-color: #2563eb !important; /* blue-600 */
+}
+
+.border-rose-100,
+.border-rose-200,
+.border-rose-300,
+.border-rose-400,
+.border-red-100,
+.border-red-200,
+.border-red-300,
+.border-red-400 {
+  border-color: #e11d48 !important; /* rose-600 */
+}
+
+.border-lilac-200,
+.border-lilac-300,
+.border-lilac-400,
+.border-purple-100,
+.border-purple-200,
+.border-purple-300,
+.border-purple-400 {
+  border-color: #7c3aed !important; /* lilac-600 */
+}
+
+.border-indigo-100,
+.border-indigo-200,
+.border-indigo-300,
+.border-indigo-400 {
+  border-color: #4f46e5 !important; /* indigo-600 */
+}
+
+.text-slate-400 {
+  color: #64748b !important; /* slate-500 para evitar texto invisible */
+}
+
+.text-slate-500 {
+  color: #334155 !important; /* slate-700 para excelente legibilidad */
+}
+
+/* Fila de tabla seleccionada / resaltada: bordes exactamente iguales en los 4 lados sin quedar debajo de la fila siguiente */
+tr.product-row-highlighted td {
+  border-top: 2px solid #8b5cf6 !important;
+  border-bottom: 2px solid #8b5cf6 !important;
+}
+
+tr.product-row-highlighted td:first-child {
+  border-left: 2px solid #8b5cf6 !important;
+}
+
+tr.product-row-highlighted td:last-child {
+  border-right: 2px solid #8b5cf6 !important;
+}
+
+/* Input con error temporal: placeholder y texto en rojo nítido */
+.input-barcode-error::placeholder {
+  color: #e11d48 !important; /* rose-600 */
+  font-weight: 600;
+  opacity: 1 !important;
+}

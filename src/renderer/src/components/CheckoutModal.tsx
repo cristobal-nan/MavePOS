@@ -59,6 +59,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [printStatusMsg, setPrintStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   const cashInputRef = useRef<HTMLInputElement>(null)
+  const METHODS: TabMethod[] = ['cash', 'card', 'transfer', 'mixed']
 
   useEffect(() => {
     if (isOpen) {
@@ -76,8 +77,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
   }, [isOpen, totalAmount])
 
-  if (!isOpen) return null
-
   const parsedCashGiven = parseCLP(cashGiven)
   const { change: cashChange } = calculatePaymentChange(totalAmount, parsedCashGiven)
 
@@ -94,7 +93,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     cashInputRef.current?.focus()
   }
 
-  const handleConfirmPayment = async (): Promise<void> => {
+  const handleConfirmPayment = async (printReceipt: boolean = true): Promise<void> => {
+    if (isSubmitting) return
     setError(null)
 
     if (!currentSession) {
@@ -143,17 +143,19 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       setPrintStatusMsg(null)
       onSuccess(result)
 
-      // Auto-print thermal ticket if enabled in settings
-      try {
-        const pConfig = await window.api.getPrinterConfig()
-        if (pConfig.autoPrintOnSale && pConfig.thermalInterface) {
-          const saleDetail = await window.api.getSaleDetail(result.sale.id)
-          if (saleDetail) {
-            await window.api.printThermalReceipt(saleDetail, result.change)
+      // Imprimir ticket térmico solo si printReceipt es true
+      if (printReceipt) {
+        try {
+          const pConfig = await window.api.getPrinterConfig()
+          if (pConfig.thermalInterface) {
+            const saleDetail = await window.api.getSaleDetail(result.sale.id)
+            if (saleDetail) {
+              await window.api.printThermalReceipt(saleDetail, result.change)
+            }
           }
+        } catch (printErr) {
+          console.warn('Impresión de ticket falló (no crítico):', printErr)
         }
-      } catch (printErr) {
-        console.warn('Auto-print falló (no crítico):', printErr)
       }
     } catch (err: any) {
       console.error('Error al registrar venta:', err)
@@ -162,6 +164,71 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       setIsSubmitting(false)
     }
   }
+
+  // Atajos de teclado en el modal de cobro: Flechas horizontales para alternar método, Enter/Shift+Enter/F11 para cobrar
+  useEffect(() => {
+    if (!isOpen) return
+
+    const handleModalKeyDown = (e: KeyboardEvent): void => {
+      // 1. Pantalla de venta completada: Enter, Escape o Barra espaciadora continúa
+      if (completedResult) {
+        if (e.key === 'Enter' || e.key === 'Escape' || e.key === ' ') {
+          e.preventDefault()
+          onClose()
+        }
+        return
+      }
+
+      // 2. F11 o Shift+Enter -> Cobrar sin imprimir
+      if (e.key === 'F11' || (e.key === 'Enter' && e.shiftKey)) {
+        e.preventDefault()
+        handleConfirmPayment(false)
+        return
+      }
+
+      // 3. Enter normal -> Cobrar e imprimir
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
+        handleConfirmPayment(true)
+        return
+      }
+
+      // 4. Flechas horizontales: navegar entre métodos de pago
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        e.preventDefault()
+        setActiveMethod((prev) => {
+          const currentIndex = METHODS.indexOf(prev)
+          const nextIndex =
+            e.key === 'ArrowRight'
+              ? (currentIndex + 1) % METHODS.length
+              : (currentIndex - 1 + METHODS.length) % METHODS.length
+          const nextMethod = METHODS[nextIndex]
+
+          if (nextMethod === 'cash') {
+            setTimeout(() => {
+              cashInputRef.current?.focus()
+              cashInputRef.current?.select()
+            }, 50)
+          }
+          return nextMethod
+        })
+      }
+    }
+
+    window.addEventListener('keydown', handleModalKeyDown)
+    return () => window.removeEventListener('keydown', handleModalKeyDown)
+  }, [
+    isOpen,
+    completedResult,
+    activeMethod,
+    parsedCashGiven,
+    totalAmount,
+    currentSession,
+    mixedCash,
+    mixedCard,
+    mixedTransfer,
+    isSubmitting
+  ])
 
   const handlePrintThermal = async (): Promise<void> => {
     if (!completedResult) return
@@ -225,6 +292,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       setIsOpeningDrawer(false)
     }
   }
+
+  if (!isOpen) return null
 
   return (
     <div
@@ -558,22 +627,30 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </div>
               )}
 
-              {/* Action Submit Button */}
-              <button
-                type="button"
-                onClick={handleConfirmPayment}
-                disabled={isSubmitting}
-                className="w-full py-4 bg-lilac-600 hover:bg-lilac-700 text-white rounded-2xl font-bold text-base transition-all shadow-lg shadow-lilac-500/25 flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-50"
-              >
-                {isSubmitting ? (
-                  <span>Registrando venta...</span>
-                ) : (
-                  <>
-                    <CheckCircle className="w-5 h-5" />
-                    <span>Confirmar Cobro ({formatCLP(totalAmount)})</span>
-                  </>
-                )}
-              </button>
+              {/* Botones de Acción de Cobro */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => handleConfirmPayment(true)}
+                  disabled={isSubmitting}
+                  className="py-3.5 px-4 bg-lilac-600 hover:bg-lilac-700 text-white rounded-2xl font-bold text-sm transition-all shadow-md shadow-lilac-500/25 flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-50 cursor-pointer"
+                  title="Registrar venta y emitir ticket térmico (Enter)"
+                >
+                  <Printer className="w-5 h-5 shrink-0" />
+                  <span>{isSubmitting ? 'Cobrando...' : 'Cobrar e Imprimir (Enter)'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleConfirmPayment(false)}
+                  disabled={isSubmitting}
+                  className="py-3.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-50 cursor-pointer shadow-xs"
+                  title="Registrar venta sin emitir ticket impreso (Shift+Enter o F11)"
+                >
+                  <CheckCircle className="w-5 h-5 shrink-0 text-emerald-600" />
+                  <span>{isSubmitting ? 'Cobrando...' : 'Cobrar sin Imprimir (F11)'}</span>
+                </button>
+              </div>
             </div>
           </>
         )}

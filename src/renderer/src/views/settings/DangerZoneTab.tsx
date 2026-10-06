@@ -55,22 +55,6 @@ export const DangerZoneTab: React.FC = () => {
 
   return (
     <div className="max-w-2xl space-y-6 animate-in fade-in duration-150">
-      {/* Notifications */}
-      {resetSuccessMessage && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-2xl flex items-center justify-between shadow-sm animate-in fade-in duration-200">
-          <div className="flex items-center gap-2.5">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-            <span className="font-medium">{resetSuccessMessage}</span>
-          </div>
-          <button
-            onClick={() => setResetSuccessMessage(null)}
-            className="text-slate-400 hover:text-slate-600 font-bold ml-4"
-          >
-            ×
-          </button>
-        </div>
-      )}
-
       {/* System Info Card */}
       <div className="bg-white rounded-2xl border border-lilac-100 p-5 shadow-sm space-y-3">
         <div className="flex items-center gap-2 text-slate-800 font-bold text-sm">
@@ -235,6 +219,20 @@ export const DangerZoneTab: React.FC = () => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Toast Flotante de Notificación (Bottom-Right, sin Layout Shift) */}
+      {resetSuccessMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-white border border-emerald-300 text-emerald-950 p-3.5 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs animate-in fade-in slide-in-from-bottom-3 duration-200 select-none">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+          <span className="font-bold">{resetSuccessMessage}</span>
+          <button
+            onClick={() => setResetSuccessMessage(null)}
+            className="text-slate-400 hover:text-slate-600 ml-2 p-1"
+          >
+            ×
+          </button>
         </div>
       )}
     </div>

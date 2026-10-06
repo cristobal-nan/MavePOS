@@ -139,21 +139,6 @@ export const CashWithdrawalModal: React.FC<CashWithdrawalModalProps> = ({
           </div>
         </div>
 
-        {/* Feedback Messages */}
-        {withdrawalSuccessMsg && (
-          <div className="px-6 py-2.5 bg-emerald-50 border-b border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2 animate-in fade-in shrink-0">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{withdrawalSuccessMsg}</span>
-          </div>
-        )}
-
-        {withdrawalErrorMsg && (
-          <div className="px-6 py-2.5 bg-rose-50 border-b border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2 animate-in fade-in shrink-0">
-            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-            <span>{withdrawalErrorMsg}</span>
-          </div>
-        )}
-
         {/* Content Body: Form + History List */}
         <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-12 gap-6 bg-slate-50/50">
           {/* Formulario */}
@@ -296,6 +281,35 @@ export const CashWithdrawalModal: React.FC<CashWithdrawalModalProps> = ({
             Cerrar
           </button>
         </div>
+
+        {/* Floating Toasts (Bottom-Right, sin Layout Shift) */}
+        {withdrawalSuccessMsg && (
+          <div className="absolute bottom-16 right-6 z-50 bg-white border border-emerald-300 text-emerald-950 p-3.5 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs animate-in fade-in slide-in-from-bottom-3 duration-200 select-none">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <span className="font-bold">{withdrawalSuccessMsg}</span>
+            <button
+              type="button"
+              onClick={() => setWithdrawalSuccessMsg(null)}
+              className="text-slate-400 hover:text-slate-600 ml-2 p-1 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
+        {withdrawalErrorMsg && (
+          <div className="absolute bottom-16 right-6 z-50 bg-white border border-rose-300 text-rose-950 p-3.5 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs animate-in fade-in slide-in-from-bottom-3 duration-200 select-none">
+            <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+            <span className="font-bold">{withdrawalErrorMsg}</span>
+            <button
+              type="button"
+              onClick={() => setWithdrawalErrorMsg(null)}
+              className="text-slate-400 hover:text-slate-600 ml-2 p-1 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

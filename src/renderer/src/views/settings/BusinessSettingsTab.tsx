@@ -69,13 +69,6 @@ export const BusinessSettingsTab: React.FC = () => {
           <span className="text-xs text-slate-400">Se imprimirán en el encabezado de boletas y tickets</span>
         </div>
 
-        {savedMessage && (
-          <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center gap-2 animate-in fade-in duration-150">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span className="font-semibold">{savedMessage}</span>
-          </div>
-        )}
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
           <div>
             <label className="block font-bold text-slate-700 mb-1">Nombre Comercial / Razón Social</label>
@@ -166,6 +159,14 @@ export const BusinessSettingsTab: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Toast Flotante de Guardado Exitoso (Bottom-Right, sin Layout Shift) */}
+      {savedMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-white border border-emerald-300 text-emerald-950 p-3.5 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs animate-in fade-in slide-in-from-bottom-3 duration-200 select-none">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+          <span className="font-bold">{savedMessage}</span>
+        </div>
+      )}
     </form>
   )
 }

@@ -92,13 +92,6 @@ export const CashSettingsTab: React.FC = () => {
         </div>
       </div>
 
-      {savedMessage && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center gap-2 text-xs text-emerald-800 animate-in fade-in">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span className="font-semibold">{savedMessage}</span>
-        </div>
-      )}
-
       {/* Tabla de configuración por denominación */}
       <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
         <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
@@ -188,6 +181,14 @@ export const CashSettingsTab: React.FC = () => {
           <span>{isSaving ? 'Guardando...' : 'Guardar Reglas de Retiro'}</span>
         </button>
       </div>
+
+      {/* Toast Flotante de Guardado Exitoso (Bottom-Right, sin Layout Shift) */}
+      {savedMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-white border border-emerald-300 text-emerald-950 p-3.5 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs animate-in fade-in slide-in-from-bottom-3 duration-200 select-none">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+          <span className="font-bold">{savedMessage}</span>
+        </div>
+      )}
     </form>
   )
 }

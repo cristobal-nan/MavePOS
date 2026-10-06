@@ -23,111 +23,127 @@ export const SettingsView: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<SettingsSubTab>('business')
 
   return (
-    <div className="flex-1 p-6 bg-slate-50 flex flex-col gap-6 overflow-y-auto select-none">
-      {/* 1. Header Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-lilac-100 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-lilac-100 text-lilac-600 flex items-center justify-center shrink-0">
-            <Settings className="w-5 h-5" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-slate-800">Configuración del Sistema</h1>
-            <p className="text-xs text-slate-500">
-              Datos comerciales, reglas de retiro de caja, impresoras, copias de seguridad automáticas y mantenimiento.
-            </p>
+    <div className="flex-1 flex flex-col h-full bg-slate-50 overflow-hidden select-none">
+      {/* Top Header & Sub-navigation Tabs */}
+      <div className="bg-white border-b border-lilac-100 px-4 sm:px-6 pt-3 gap-2 pb-0 flex flex-col shrink-0 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 rounded-lg sm:w-10 sm:h-10 sm:rounded-xl bg-lilac-100 text-lilac-600 flex items-center justify-center shadow-inner shrink-0">
+              <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
+            </div>
+            <div>
+              <h1 className="text-base sm:text-lg font-bold text-slate-800 leading-tight">
+                Configuración del Sistema
+              </h1>
+            </div>
           </div>
         </div>
 
-        {/* Sub-tab Navigation */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/60 text-xs font-semibold">
+        {/* Tab Buttons */}
+        <div className="flex items-center gap-1.5 sm:gap-2 border-b border-transparent -mb-px overflow-x-auto">
           <button
+            type="button"
             onClick={() => setActiveSubTab('business')}
-            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3.5 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 ${
               activeSubTab === 'business'
-                ? 'bg-lilac-600 text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                ? 'border-lilac-600 text-lilac-700 bg-lilac-50/50'
+                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
             }`}
           >
-            <Store className="w-3.5 h-3.5" />
+            <Store className="w-4 h-4" />
             <span>Datos del Negocio</span>
           </button>
+
           <button
+            type="button"
             onClick={() => setActiveSubTab('printers')}
-            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3.5 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 ${
               activeSubTab === 'printers'
-                ? 'bg-lilac-600 text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                ? 'border-lilac-600 text-lilac-700 bg-lilac-50/50'
+                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
             }`}
           >
-            <Printer className="w-3.5 h-3.5" />
+            <Printer className="w-4 h-4" />
             <span>Impresoras y Periféricos</span>
           </button>
+
           <button
+            type="button"
             onClick={() => setActiveSubTab('cash')}
-            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3.5 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 ${
               activeSubTab === 'cash'
-                ? 'bg-lilac-600 text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                ? 'border-lilac-600 text-lilac-700 bg-lilac-50/50'
+                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
             }`}
           >
-            <Wallet className="w-3.5 h-3.5" />
+            <Wallet className="w-4 h-4" />
             <span>Fondo y Retiro</span>
           </button>
+
           <button
+            type="button"
             onClick={() => setActiveSubTab('inventory')}
-            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3.5 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 ${
               activeSubTab === 'inventory'
-                ? 'bg-lilac-600 text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                ? 'border-lilac-600 text-lilac-700 bg-lilac-50/50'
+                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
             }`}
           >
-            <Boxes className="w-3.5 h-3.5" />
+            <Boxes className="w-4 h-4" />
             <span>Inventario</span>
           </button>
+
           <button
+            type="button"
             onClick={() => setActiveSubTab('backups')}
-            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3.5 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 ${
               activeSubTab === 'backups'
-                ? 'bg-lilac-600 text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                ? 'border-lilac-600 text-lilac-700 bg-lilac-50/50'
+                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
             }`}
           >
-            <HardDrive className="w-3.5 h-3.5" />
+            <HardDrive className="w-4 h-4" />
             <span>Respaldos</span>
           </button>
+
           <button
+            type="button"
             onClick={() => setActiveSubTab('shortcuts')}
-            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3.5 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 ${
               activeSubTab === 'shortcuts'
-                ? 'bg-lilac-600 text-white shadow-sm'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                ? 'border-lilac-600 text-lilac-700 bg-lilac-50/50'
+                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
             }`}
           >
-            <Keyboard className="w-3.5 h-3.5" />
+            <Keyboard className="w-4 h-4" />
             <span>Atajos de Teclado</span>
           </button>
+
           <button
+            type="button"
             onClick={() => setActiveSubTab('danger')}
-            className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3.5 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 ${
               activeSubTab === 'danger'
-                ? 'bg-red-600 text-white shadow-sm'
-                : 'text-red-600 hover:text-red-700 hover:bg-red-50'
+                ? 'border-rose-600 text-rose-700 bg-rose-50/50'
+                : 'border-transparent text-rose-600 hover:text-rose-800 hover:bg-rose-50/60'
             }`}
           >
-            <AlertTriangle className="w-3.5 h-3.5" />
+            <AlertTriangle className="w-4 h-4" />
             <span>Mantenimiento</span>
           </button>
         </div>
       </div>
 
-      {/* 2. Sub-tab Content Modules */}
-      {activeSubTab === 'business' && <BusinessSettingsTab />}
-      {activeSubTab === 'printers' && <PrinterSettingsTab />}
-      {activeSubTab === 'cash' && <CashSettingsTab />}
-      {activeSubTab === 'inventory' && <InventorySettingsTab />}
-      {activeSubTab === 'backups' && <BackupSettingsTab />}
-      {activeSubTab === 'shortcuts' && <ShortcutsTab />}
-      {activeSubTab === 'danger' && <DangerZoneTab />}
+      {/* Main Content Body */}
+      <div className="flex-1 p-5 sm:p-6 overflow-y-auto">
+        {activeSubTab === 'business' && <BusinessSettingsTab />}
+        {activeSubTab === 'printers' && <PrinterSettingsTab />}
+        {activeSubTab === 'cash' && <CashSettingsTab />}
+        {activeSubTab === 'inventory' && <InventorySettingsTab />}
+        {activeSubTab === 'backups' && <BackupSettingsTab />}
+        {activeSubTab === 'shortcuts' && <ShortcutsTab />}
+        {activeSubTab === 'danger' && <DangerZoneTab />}
+      </div>
     </div>
   )
 }

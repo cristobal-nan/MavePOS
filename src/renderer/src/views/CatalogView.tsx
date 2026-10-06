@@ -14,10 +14,13 @@ import {
   Truck,
   Download,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  Boxes
 } from 'lucide-react'
 import { ProductSearchResult } from '@shared/types'
 import { useCatalogStore } from '../store/catalogStore'
+import { useUIStore } from '../store/uiStore'
+import { useInventoryStore } from '../store/inventoryStore'
 import { ProductSearch } from '../components/ProductSearch'
 import { ProductFormModal } from '../components/ProductFormModal'
 import { CategoryModal } from '../components/CategoryModal'
@@ -56,10 +59,26 @@ export const CatalogView: React.FC = () => {
   const [isExporting, setIsExporting] = useState(false)
   const [exportSuccessInfo, setExportSuccessInfo] = useState<{ filePath: string; totalExported: number } | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false)
 
-  // Modales de confirmación para eliminar productos
+  const { handleBackdropClick: handleBackdropFilterDrawer } = useModalStack({
+    id: 'catalog-filter-drawer',
+    isOpen: isFilterDrawerOpen,
+    onClose: () => setIsFilterDrawerOpen(false),
+    closeOnBackdrop: true
+  })
+
+  // Modales de confirmación para eliminar productos y validación de stock
   const [productToDelete, setProductToDelete] = useState<ProductSearchResult | null>(null)
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false)
+  const [stockBlockedProduct, setStockBlockedProduct] = useState<ProductSearchResult | null>(null)
+
+  const { handleBackdropClick: handleBackdropStockBlocked } = useModalStack({
+    id: 'catalog-stock-blocked-modal',
+    isOpen: !!stockBlockedProduct,
+    onClose: () => setStockBlockedProduct(null),
+    closeOnBackdrop: true
+  })
 
   const { handleBackdropClick: handleBackdropDeleteSingle } = useModalStack({
     id: 'catalog-delete-single-modal',
@@ -76,10 +95,30 @@ export const CatalogView: React.FC = () => {
   })
 
   useEffect(() => {
-    setSelectedProductType('all')
-    loadMetadata()
-    fetchProducts()
+    setSelectedProductType('all', 'catalog')
+    loadMetadata().then(() => {
+      const cfg = useCatalogStore.getState().config
+      if (cfg.catalogAutoLoad) {
+        fetchProducts(undefined, 'catalog')
+      } else {
+        useCatalogStore.setState({ products: [], hasMore: false, isLoading: false })
+      }
+    })
   }, [setSelectedProductType, loadMetadata, fetchProducts])
+
+  useEffect(() => {
+    if (exportSuccessInfo) {
+      const timer = setTimeout(() => setExportSuccessInfo(null), 6000)
+      return () => clearTimeout(timer)
+    }
+  }, [exportSuccessInfo])
+
+  useEffect(() => {
+    if (exportError) {
+      const timer = setTimeout(() => setExportError(null), 6000)
+      return () => clearTimeout(timer)
+    }
+  }, [exportError])
 
   const handleExportExcel = async (): Promise<void> => {
     setIsExporting(true)
@@ -130,7 +169,20 @@ export const CatalogView: React.FC = () => {
   }
 
   const handleDeleteProduct = (product: ProductSearchResult): void => {
+    if (product.stock > 0) {
+      setStockBlockedProduct(product)
+      return
+    }
     setProductToDelete(product)
+  }
+
+  const handleGoToAdjustInventory = (): void => {
+    if (!stockBlockedProduct) return
+    const p = stockBlockedProduct
+    setStockBlockedProduct(null)
+    useInventoryStore.getState().setSelectedProduct(p)
+    useInventoryStore.getState().setActiveTab('adjust')
+    useUIStore.getState().setActiveTab('inventario')
   }
 
   const handleConfirmDeleteProduct = async (): Promise<void> => {
@@ -192,6 +244,11 @@ export const CatalogView: React.FC = () => {
 
   const handleBulkDelete = (): void => {
     if (selectedProductIds.size === 0) return
+    const withStock = selectedProductsList.find((p) => p.stock > 0)
+    if (withStock) {
+      setStockBlockedProduct(withStock)
+      return
+    }
     setIsBulkDeleteModalOpen(true)
   }
 
@@ -206,232 +263,176 @@ export const CatalogView: React.FC = () => {
   const isAllVisibleSelected = products.length > 0 && products.every((p) => p.id && selectedProductIds.has(p.id))
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-slate-50 p-4 gap-3 select-none overflow-hidden">
-      {/* Top Action Toolbar */}
-      <div className="bg-white p-3 rounded-2xl border border-lilac-100 shadow-sm flex flex-wrap items-center justify-between gap-3">
-        {/* Left: Create & Manage Buttons */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleOpenNewProduct}
-            className="px-4 py-2 bg-lilac-600 hover:bg-lilac-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-lilac-500/20 flex items-center gap-1.5"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Nuevo Producto</span>
-          </button>
+    <div className="flex-1 flex flex-col h-full bg-slate-50 overflow-hidden select-none">
+      {/* Top Header & Actions */}
+      <div
+        className={`px-4 sm:px-6 py-3 flex items-center justify-between shrink-0 shadow-sm transition-colors border-b ${
+          selectedProductIds.size > 0
+            ? 'bg-lilac-600 border-lilac-600 text-white'
+            : 'bg-white border-lilac-100 text-slate-800'
+        }`}
+      >
+        {selectedProductIds.size > 0 ? (
+          <>
+            <div className="flex items-center gap-2.5 text-xs font-bold">
+              <span className="bg-white/20 px-2.5 py-1 rounded-full text-white font-extrabold shadow-inner">
+                {selectedProductIds.size}
+              </span>
+              <span className="text-sm tracking-tight font-extrabold">
+                {selectedProductIds.size === 1
+                  ? '1 producto seleccionado'
+                  : `${selectedProductIds.size} productos seleccionados`}
+              </span>
+            </div>
 
-          <button
-            onClick={() => setIsCategoryModalOpen(true)}
-            className="px-3 py-2 bg-slate-100 hover:bg-lilac-50 text-slate-700 hover:text-lilac-800 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-200/60"
-          >
-            <Layers className="w-3.5 h-3.5 text-lilac-600" />
-            <span>Categorías</span>
-          </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsBulkCategoryModalOpen(true)}
+                className="px-3.5 py-1.5 bg-white text-lilac-900 hover:bg-lilac-50 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                title="Asignar Categoría y/o Proveedores a los productos seleccionados"
+              >
+                <FolderInput className="w-4 h-4 text-lilac-600" />
+                <span>Categoría y Proveedores...</span>
+              </button>
 
-          <button
-            onClick={() => setIsSupplierModalOpen(true)}
-            className="px-3 py-2 bg-slate-100 hover:bg-lilac-50 text-slate-700 hover:text-lilac-800 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-200/60"
-          >
-            <Truck className="w-3.5 h-3.5 text-lilac-600" />
-            <span>Proveedores</span>
-          </button>
+              <button
+                onClick={() => setIsBulkGroupModalOpen(true)}
+                className="px-3.5 py-1.5 bg-white/15 hover:bg-white/25 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-white/20 cursor-pointer"
+                title="Agrupar productos seleccionados bajo un producto variable con variaciones"
+              >
+                <GitBranch className="w-4 h-4 text-lilac-200" />
+                <span>Agrupar como Variable...</span>
+              </button>
 
-          <button
-            onClick={() => setIsExcelModalOpen(true)}
-            className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 border border-emerald-200/60"
-            title="Importar o exportar productos en formato Excel (.xlsx)"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Importar / Exportar</span>
-          </button>
+              <button
+                onClick={handleExportSelected}
+                disabled={isExporting}
+                className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+                title="Exportar únicamente los productos seleccionados a un archivo Excel (.xlsx)"
+              >
+                <Download className="w-4 h-4" />
+                <span>{isExporting ? 'Exportando...' : 'Exportar Seleccionados'}</span>
+              </button>
 
-          {products.length === 0 && (
-            <button
-              onClick={() => seedSampleData()}
-              className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 animate-pulse"
-              title="Carga el catálogo de muestra con departamentos, subcategorías, productos simples y variables con variaciones"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Cargar datos de prueba</span>
-            </button>
-          )}
-        </div>
+              <button
+                onClick={handleBulkDelete}
+                className="px-3.5 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                title="Eliminar (soft delete) los productos seleccionados"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>Eliminar</span>
+              </button>
 
-        {/* Right: Filters & Refresh */}
-        <div className="flex items-center gap-2">
-          {/* Category Filter */}
-          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 text-xs">
-            <Filter className="w-3 h-3 text-slate-400" />
-            <select
-              value={selectedCategory || ''}
-              onChange={(e) => setSelectedCategory(e.target.value ? Number(e.target.value) : null)}
-              className="bg-transparent text-slate-700 focus:outline-none cursor-pointer"
-            >
-              <option value="">Todas las categorías</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
+              <div className="h-5 w-px bg-white/25 mx-1" />
 
-          {/* Supplier Filter */}
-          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 text-xs">
-            <Truck className="w-3 h-3 text-slate-400" />
-            <select
-              value={selectedSupplier || ''}
-              onChange={(e) => setSelectedSupplier(e.target.value ? Number(e.target.value) : null)}
-              className="bg-transparent text-slate-700 focus:outline-none cursor-pointer"
-            >
-              <option value="">Todos los proveedores</option>
-              {suppliers.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          </div>
+              <button
+                onClick={handleDeselectAll}
+                className="px-3 py-1.5 hover:bg-white/20 rounded-xl text-white/90 hover:text-white transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+                title="Deseleccionar todos"
+              >
+                <X className="w-4 h-4" />
+                <span>Deseleccionar</span>
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Left: Title & Icon */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 rounded-lg sm:w-10 sm:h-10 sm:rounded-xl bg-lilac-100 text-lilac-600 flex items-center justify-center shadow-inner shrink-0">
+                <Boxes className="w-4 h-4 sm:w-5 sm:h-5" />
+              </div>
+              <div>
+                <h1 className="text-base sm:text-lg font-bold text-slate-800 leading-tight">
+                  Productos
+                </h1>
+              </div>
+            </div>
 
-          {/* Product Type Filter */}
-          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 text-xs">
-            <Box className="w-3 h-3 text-slate-400" />
-            <select
-              value={selectedProductType}
-              onChange={(e) => setSelectedProductType(e.target.value as any)}
-              className="bg-transparent text-slate-700 focus:outline-none cursor-pointer"
-            >
-              <option value="sellable">Productos vendibles (Simples y Variaciones)</option>
-              <option value="simple">Solo Simples</option>
-              <option value="variation">Solo Variaciones</option>
-              <option value="variable">Solo Variables (Padres)</option>
-              <option value="all">Ver todo el catálogo (incluyendo padres)</option>
-            </select>
-          </div>
+            {/* Right: Actions in Header (Same placement as Reports) */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={handleOpenNewProduct}
+                className="px-3.5 py-2 bg-lilac-600 hover:bg-lilac-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-lilac-500/20 flex items-center gap-1.5 cursor-pointer active:scale-95"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Nuevo Producto</span>
+              </button>
 
-          {/* Refresh Button */}
-          <button
-            onClick={() => fetchProducts()}
-            title="Recargar catálogo"
-            className="p-2 text-slate-400 hover:text-lilac-600 hover:bg-lilac-50 rounded-xl transition-colors"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-        </div>
+              <button
+                onClick={() => setIsCategoryModalOpen(true)}
+                className="px-3 py-2 bg-slate-100 hover:bg-lilac-50 text-slate-700 hover:text-lilac-800 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-200/60 cursor-pointer"
+              >
+                <Layers className="w-3.5 h-3.5 text-lilac-600" />
+                <span>Categorías</span>
+              </button>
+
+              <button
+                onClick={() => setIsSupplierModalOpen(true)}
+                className="px-3 py-2 bg-slate-100 hover:bg-lilac-50 text-slate-700 hover:text-lilac-800 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-200/60 cursor-pointer"
+              >
+                <Truck className="w-3.5 h-3.5 text-lilac-600" />
+                <span>Proveedores</span>
+              </button>
+
+              {/* Botón de Filtros para abrir menú lateral */}
+              <button
+                onClick={() => setIsFilterDrawerOpen(true)}
+                className={`px-3 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5 border cursor-pointer ${
+                  selectedCategory || selectedSupplier || selectedProductType !== 'all'
+                    ? 'bg-lilac-50 text-lilac-700 border-lilac-300 font-semibold shadow-2xs'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200/60'
+                }`}
+                title="Abrir panel de filtros"
+              >
+                <Filter className={`w-3.5 h-3.5 ${selectedCategory || selectedSupplier || selectedProductType !== 'all' ? 'text-lilac-600' : 'text-slate-500'}`} />
+                <span>Filtros</span>
+                {(selectedCategory || selectedSupplier || selectedProductType !== 'all') && (
+                  <span className="w-2 h-2 rounded-full bg-lilac-600" />
+                )}
+              </button>
+
+              {products.length === 0 && (
+                <button
+                  onClick={() => seedSampleData()}
+                  className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 animate-pulse cursor-pointer"
+                  title="Carga el catálogo de muestra con departamentos, subcategorías, productos simples y variables con variaciones"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Cargar datos de prueba</span>
+                </button>
+              )}
+
+              {/* Refresh Button */}
+              <button
+                onClick={() => fetchProducts(undefined, 'catalog')}
+                title="Recargar catálogo"
+                className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-colors border border-slate-200/60 flex items-center justify-center cursor-pointer"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+
+              {/* Excel Button con estilo unificado a Reportes */}
+              <button
+                onClick={() => setIsExcelModalOpen(true)}
+                disabled={isExporting}
+                title="Importar o exportar productos en formato Excel (.xlsx)"
+                className="flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50 active:scale-95 cursor-pointer"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                <span>Importar / Exportar</span>
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Export Success Notification Banner */}
-      {exportSuccessInfo && (
-        <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 px-4 py-2.5 rounded-2xl flex items-center justify-between text-xs animate-in fade-in duration-150">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>
-              ¡Catálogo exportado con éxito! Se exportaron{' '}
-              <strong>{exportSuccessInfo.totalExported} productos</strong> en{' '}
-              <code className="bg-white/80 px-1.5 py-0.5 rounded border border-emerald-200 text-[11px] font-mono">
-                {exportSuccessInfo.filePath}
-              </code>
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => window.api.openContainingFolder(exportSuccessInfo.filePath)}
-              className="px-2.5 py-1 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg font-bold text-xs transition-colors flex items-center gap-1 cursor-pointer"
-            >
-              <FolderInput className="w-3 h-3 text-emerald-600" />
-              <span>Abrir carpeta</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setExportSuccessInfo(null)}
-              className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Export Error Notification Banner */}
-      {exportError && (
-        <div className="bg-rose-50 border border-rose-200 text-rose-900 px-4 py-2.5 rounded-2xl flex items-center justify-between text-xs animate-in fade-in duration-150">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-            <span>{exportError}</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setExportError(null)}
-            className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-
-      {/* Bulk Selection Floating Action Bar */}
-      {selectedProductIds.size > 0 && (
-        <div className="bg-lilac-600 text-white px-4 py-2.5 rounded-2xl shadow-md flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-150">
-          <div className="flex items-center gap-2 text-xs font-bold">
-            <span className="bg-white/20 px-2.5 py-1 rounded-full text-white font-extrabold">
-              {selectedProductIds.size}
-            </span>
-            <span>producto(s) seleccionado(s)</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsBulkCategoryModalOpen(true)}
-              className="px-3 py-1.5 bg-white text-lilac-800 hover:bg-lilac-50 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5"
-              title="Asignar Categoría y/o Proveedores a los productos seleccionados"
-            >
-              <FolderInput className="w-3.5 h-3.5 text-lilac-600" />
-              <span>Categoría y Proveedores...</span>
-            </button>
-
-            <button
-              onClick={() => setIsBulkGroupModalOpen(true)}
-              className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-white/20"
-              title="Agrupar productos seleccionados bajo un producto variable con variaciones"
-            >
-              <GitBranch className="w-3.5 h-3.5 text-lilac-200" />
-              <span>Agrupar como Variable...</span>
-            </button>
-
-            <button
-              onClick={handleExportSelected}
-              disabled={isExporting}
-              className="px-3 py-1.5 bg-emerald-500/90 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
-              title="Exportar únicamente los productos seleccionados a un archivo Excel (.xlsx)"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>{isExporting ? 'Exportando...' : 'Exportar Seleccionados'}</span>
-            </button>
-
-            <button
-              onClick={handleBulkDelete}
-              className="px-3 py-1.5 bg-red-500/80 hover:bg-red-600 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
-              title="Eliminar (soft delete) los productos seleccionados"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>Eliminar</span>
-            </button>
-
-            <div className="h-4 w-px bg-white/20 mx-1" />
-
-            <button
-              onClick={handleDeselectAll}
-              className="p-1.5 hover:bg-white/20 rounded-lg text-white/80 hover:text-white transition-colors"
-              title="Deseleccionar todos"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col p-4 overflow-hidden">
 
       {/* Main Content: Reusable ProductSearch Table with multi-select */}
       <div className="flex-1 overflow-hidden">
+
         <ProductSearch
           onEditProduct={handleEditProduct}
           onDeleteProduct={handleDeleteProduct}
@@ -503,6 +504,80 @@ export const CatalogView: React.FC = () => {
           loadMetadata()
         }}
       />
+      {/* Modal de Advertencia: No se puede eliminar si tiene stock */}
+      {stockBlockedProduct && (
+        <div
+          onClick={handleBackdropStockBlocked}
+          className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 select-none animate-in fade-in duration-150"
+        >
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
+            <div className="px-6 py-4 bg-amber-50 border-b border-amber-200/80 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">
+                    No es posible eliminar
+                  </h4>
+                  <p className="text-[11px] text-amber-800 font-mono">
+                    {stockBlockedProduct.code || stockBlockedProduct.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStockBlockedProduct(null)}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-6 flex flex-col gap-4">
+              <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl space-y-1.5 text-xs">
+                <span className="font-bold text-amber-950 block">
+                  {stockBlockedProduct.name}
+                </span>
+                <p className="text-amber-900 leading-relaxed">
+                  Para eliminar este producto del catálogo, <strong className="font-black text-amber-950">no debe tener stock disponible</strong> (su existencia debe ser 0).
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs">
+                <span className="font-semibold text-slate-600">Existencia actual registrada:</span>
+                <span className="font-mono font-black text-rose-600 text-sm bg-rose-50 px-2.5 py-0.5 rounded-lg border border-rose-200">
+                  {stockBlockedProduct.stock} {stockBlockedProduct.stock === 1 ? 'unidad' : 'unidades'}
+                </span>
+              </div>
+
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                Debes rebajar o ajustar la existencia a 0 antes de poder dar de baja este producto del catálogo.
+              </p>
+            </div>
+
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setStockBlockedProduct(null)}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+              >
+                Volver
+              </button>
+              <button
+                type="button"
+                autoFocus
+                onClick={handleGoToAdjustInventory}
+                className="px-5 py-2.5 rounded-xl bg-lilac-600 hover:bg-lilac-700 text-white text-xs font-black shadow-md flex items-center gap-2 transition-all cursor-pointer"
+              >
+                <Boxes className="w-4 h-4" />
+                <span>Ir a Ajustar Inventario</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal de confirmación para eliminar un producto individual */}
       {productToDelete && (
         <div
@@ -638,6 +713,177 @@ export const CatalogView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Toast Flotante de Éxito de Exportación (Bottom-Right, sin Layout Shift) */}
+      {exportSuccessInfo && (
+        <div className="fixed bottom-6 right-6 z-50 bg-white border border-emerald-300 text-emerald-950 p-3.5 rounded-2xl shadow-2xl flex items-center gap-3 text-xs animate-in fade-in slide-in-from-bottom-3 duration-200 max-w-lg select-none">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+          <div className="flex flex-col">
+            <span className="font-bold">¡Catálogo exportado con éxito!</span>
+            <span className="text-slate-600 text-[11px]">
+              Se exportaron <strong>{exportSuccessInfo.totalExported} productos</strong> en{' '}
+              <code className="bg-slate-100 px-1 py-0.5 rounded font-mono text-[10px] text-slate-800">
+                {exportSuccessInfo.filePath}
+              </code>
+            </span>
+          </div>
+          <div className="flex items-center gap-2 ml-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => window.api.openContainingFolder(exportSuccessInfo.filePath)}
+              className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg font-bold text-xs transition-colors flex items-center gap-1 cursor-pointer"
+            >
+              <FolderInput className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Abrir</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setExportSuccessInfo(null)}
+              className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Toast Flotante de Error de Exportación (Bottom-Right, sin Layout Shift) */}
+      {exportError && (
+        <div className="fixed bottom-6 right-6 z-50 bg-white border border-rose-300 text-rose-950 p-3.5 rounded-2xl shadow-2xl flex items-center gap-3 text-xs animate-in fade-in slide-in-from-bottom-3 duration-200 max-w-md select-none">
+          <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+          <div className="flex flex-col flex-1">
+            <span className="font-bold">Error al exportar</span>
+            <span className="text-slate-600 text-[11px]">{exportError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setExportError(null)}
+            className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Drawer / Menú Lateral de Filtros (Aparece desde la derecha) */}
+      {isFilterDrawerOpen && (
+        <div
+          onClick={handleBackdropFilterDrawer}
+          className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex justify-end select-none animate-in fade-in duration-200"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-80 sm:w-96 bg-white h-full shadow-2xl flex flex-col border-l border-slate-200 animate-in slide-in-from-right duration-200"
+          >
+            {/* Header del Drawer */}
+            <div className="p-4 sm:p-5 border-b border-lilac-100 flex items-center justify-between bg-slate-50/70">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-lilac-100 text-lilac-600 flex items-center justify-center shrink-0">
+                  <Filter className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 leading-tight">Filtros del Catálogo</h3>
+                  <p className="text-[11px] text-slate-500">Ajusta los criterios de búsqueda</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsFilterDrawerOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
+                title="Cerrar panel (Esc)"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Contenido / Opciones de Filtro */}
+            <div className="p-5 flex-1 flex flex-col gap-5 overflow-y-auto">
+              {/* 1. Categoría */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-lilac-600" />
+                  <span>Categoría</span>
+                </label>
+                <select
+                  value={selectedCategory || ''}
+                  onChange={(e) => setSelectedCategory(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-lilac-500 cursor-pointer"
+                >
+                  <option value="">Todas las categorías</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 2. Proveedor */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <Truck className="w-3.5 h-3.5 text-lilac-600" />
+                  <span>Proveedor</span>
+                </label>
+                <select
+                  value={selectedSupplier || ''}
+                  onChange={(e) => setSelectedSupplier(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-lilac-500 cursor-pointer"
+                >
+                  <option value="">Todos los proveedores</option>
+                  {suppliers.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* 3. Tipo de Producto */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <Box className="w-3.5 h-3.5 text-lilac-600" />
+                  <span>Tipo de Producto</span>
+                </label>
+                <select
+                  value={selectedProductType}
+                  onChange={(e) => setSelectedProductType(e.target.value as any)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-lilac-500 cursor-pointer"
+                >
+                  <option value="sellable">Productos vendibles (Simples y Variaciones)</option>
+                  <option value="simple">Solo Simples</option>
+                  <option value="variation">Solo Variaciones</option>
+                  <option value="variable">Solo Variables (Padres)</option>
+                  <option value="all">Ver todo el catálogo (incluyendo padres)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Footer con botón de Limpiar filtros */}
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCategory(null)
+                  setSelectedSupplier(null)
+                  setSelectedProductType('all', 'catalog')
+                }}
+                disabled={!selectedCategory && !selectedSupplier && selectedProductType === 'all'}
+                className="text-xs text-slate-600 hover:text-slate-900 font-semibold px-3 py-2 rounded-xl hover:bg-slate-200/60 transition-colors disabled:opacity-40 cursor-pointer"
+              >
+                Limpiar filtros
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsFilterDrawerOpen(false)}
+                className="px-4 py-2 bg-lilac-600 hover:bg-lilac-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+              >
+                Aplicar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      </div>
     </div>
   )
 }

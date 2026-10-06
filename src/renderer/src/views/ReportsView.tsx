@@ -169,22 +169,21 @@ export const ReportsView: React.FC = () => {
   }
 
   return (
-    <div className="flex-1 p-6 bg-slate-50 flex flex-col gap-6 overflow-y-auto select-none">
-      {/* 1. Header Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-lilac-100 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-lilac-100 text-lilac-600 flex items-center justify-center shrink-0">
-            <BarChart3 className="w-5 h-5" />
+    <div className="flex-1 flex flex-col h-full bg-slate-50 overflow-hidden select-none">
+      {/* Top Header */}
+      <div className="bg-white border-b border-lilac-100 px-4 sm:px-6 py-3 flex items-center justify-between shrink-0 shadow-sm">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="w-8 h-8 rounded-lg sm:w-10 sm:h-10 sm:rounded-xl bg-lilac-100 text-lilac-600 flex items-center justify-center shadow-inner shrink-0">
+            <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-slate-800">Panel de Inteligencia y Reportes</h1>
-            <p className="text-xs text-slate-500">
-              Métricas operativas, gráficos de tendencia y exportación en formato Excel.
-            </p>
+            <h1 className="text-base sm:text-lg font-bold text-slate-800 leading-tight">
+              Reportes
+            </h1>
           </div>
         </div>
 
-        {/* Period Selector Tabs */}
+        {/* Period Selector Tabs and Actions */}
         <div className="flex flex-wrap items-center gap-2">
           <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1 border border-slate-200/60">
             <button
@@ -260,8 +259,10 @@ export const ReportsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Custom Date Pickers (if periodType === 'custom') */}
-      {periodType === 'custom' && (
+      {/* Main Content Body */}
+      <div className="flex-1 p-5 sm:p-6 flex flex-col gap-6 overflow-y-auto">
+        {/* Custom Date Pickers (if periodType === 'custom') */}
+        {periodType === 'custom' && (
         <div className="bg-white p-3.5 rounded-2xl border border-lilac-100 shadow-sm flex flex-wrap items-center gap-4 text-xs animate-in fade-in duration-200">
           <div className="flex items-center gap-2 text-slate-600 font-semibold">
             <Calendar className="w-4 h-4 text-lilac-600" />
@@ -872,6 +873,7 @@ export const ReportsView: React.FC = () => {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }
