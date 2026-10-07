@@ -1217,14 +1217,14 @@ export const InventoryView: React.FC = () => {
                     calculateEffectiveDelta() === 0 ||
                     calculateNewStock() < 0
                   }
-                  className={`${isCompactHeight ? 'px-5 py-1.5 text-xs' : 'px-7 py-2.5 text-sm'} bg-lilac-600 hover:bg-lilac-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl font-bold transition-all shadow-sm hover:shadow-md active:scale-98 flex items-center gap-2 cursor-pointer disabled:cursor-not-allowed`}
+                  className={`${isCompactHeight ? 'px-5 py-1.5 text-xs' : 'px-7 py-2.5 text-sm'} bg-lilac-600 hover:bg-lilac-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 dark:disabled:border dark:disabled:border-slate-700 text-white rounded-xl font-bold transition-all shadow-sm hover:shadow-md active:scale-98 flex items-center gap-2 cursor-pointer disabled:cursor-not-allowed`}
                   title="Shift + Clic (o Shift+Enter) para mantener el producto tras ajustar"
                 >
                   <CheckCircle2 className={isCompactHeight ? 'w-4 h-4' : 'w-5 h-5'} />
                   <span>Realizar ajuste de inventario</span>
                 </button>
-                <p className={`${isCompactHeight ? 'text-[10px]' : 'text-[11px]'} text-slate-400 text-center`}>
-                  Consejo: Presiona <kbd className="px-1 py-0.2 bg-slate-100 rounded border border-slate-300 font-mono font-semibold text-slate-600">Shift</kbd> al hacer clic o presionar Enter para mantener el producto seleccionado tras ajustar.
+                <p className={`${isCompactHeight ? 'text-[10px]' : 'text-[11px]'} text-slate-400 dark:text-slate-500 text-center`}>
+                  Consejo: Presiona <kbd className="px-1 py-0.2 bg-slate-100 dark:bg-slate-800 rounded border border-slate-300 dark:border-slate-700 font-mono font-semibold text-slate-600 dark:text-slate-300">Shift</kbd> al hacer clic o presionar Enter para mantener el producto seleccionado tras ajustar.
                 </p>
               </div>
             </div>
@@ -1436,7 +1436,7 @@ export const InventoryView: React.FC = () => {
                     type="button"
                     onClick={() => handleExportMovements(filteredMovements)}
                     disabled={isExportingMovements || filteredMovements.length === 0}
-                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed active:scale-95"
+                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 dark:disabled:border dark:disabled:border-slate-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed active:scale-95"
                     title={
                       filteredMovements.length === 0
                         ? 'No hay movimientos para exportar'
@@ -1498,10 +1498,10 @@ export const InventoryView: React.FC = () => {
                   </p>
                 </div>
               ) : (
-                <div className="bg-white rounded-3xl border border-black/60 shadow-sm overflow-hidden">
+                <div className="bg-white dark:bg-slate-800 rounded-3xl border border-black/60 dark:border-slate-700 shadow-sm overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
-                      <thead className="bg-slate-50 border-b border-black/60 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
+                      <thead className="bg-slate-50 dark:bg-slate-850 border-b border-black/60 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[10px]">
                         <tr>
                           <th className="py-3 px-4">Hora</th>
                           <th className="py-3 px-4">Tipo</th>
@@ -1513,14 +1513,14 @@ export const InventoryView: React.FC = () => {
                           <th className="py-3 px-4">Motivo / Referencia</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-black/60">
+                      <tbody className="divide-y divide-black/60 dark:divide-slate-700">
                         {filteredMovements.map((m) => {
                           const badge = getMovementBadge(m.type)
                           const isPositive = m.delta > 0
 
                           return (
-                            <tr key={m.id} className="hover:bg-lilac-50/30 transition-colors border-b border-black/60">
-                              <td className="py-3 px-4 font-mono text-slate-500">
+                            <tr key={m.id} className="hover:bg-lilac-50/30 dark:hover:bg-slate-750/50 transition-colors border-b border-black/60 dark:border-slate-700">
+                              <td className="py-3 px-4 font-mono text-slate-500 dark:text-slate-400">
                                 {formatTime(m.created_at)}
                               </td>
                               <td className="py-3 px-4">
@@ -1530,21 +1530,21 @@ export const InventoryView: React.FC = () => {
                                   {badge.label}
                                 </span>
                               </td>
-                              <td className="py-3 px-4 font-mono font-bold text-slate-700">
+                              <td className="py-3 px-4 font-mono font-bold text-slate-700 dark:text-slate-300">
                                 {m.product_code}
                               </td>
-                              <td className="py-3 px-4 font-bold text-slate-800">
+                              <td className="py-3 px-4 font-bold text-slate-800 dark:text-slate-100">
                                 {getProductDisplayName(m.product_name, m.parent_name)}
                               </td>
                               <td className="py-3 px-4 text-center">
-                                <span className="font-mono font-semibold text-slate-600 text-xs">
+                                <span className="font-mono font-semibold text-slate-600 dark:text-slate-300 text-xs">
                                   {m.stock_before !== undefined ? m.stock_before : '—'}
                                 </span>
                               </td>
                               <td className="py-3 px-4 text-center">
                                 <span
                                   className={`inline-flex items-center gap-0.5 font-black text-xs ${
-                                    isPositive ? 'text-emerald-600' : 'text-rose-600'
+                                    isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                                   }`}
                                 >
                                   {isPositive ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
@@ -1552,11 +1552,11 @@ export const InventoryView: React.FC = () => {
                                 </span>
                               </td>
                               <td className="py-3 px-4 text-center">
-                                <span className="font-mono font-bold text-slate-800 text-xs bg-slate-100/80 px-2 py-0.5 rounded-md">
+                                <span className="font-mono font-bold text-slate-800 dark:text-slate-100 text-xs bg-slate-100/80 dark:bg-slate-700 dark:border dark:border-slate-600 px-2 py-0.5 rounded-md">
                                   {m.stock_after !== undefined ? m.stock_after : '—'}
                                 </span>
                               </td>
-                              <td className="py-3 px-4 text-slate-600">
+                              <td className="py-3 px-4 text-slate-600 dark:text-slate-300">
                                 {m.type === 'venta' && m.sale_folio
                                   ? `Venta #${m.sale_folio}`
                                   : m.reason || '—'}
@@ -1668,7 +1668,7 @@ export const InventoryView: React.FC = () => {
                       type="button"
                       onClick={handleExportKardex}
                       disabled={isExportingKardex || kardexMovements.length === 0}
-                      className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed active:scale-95"
+                      className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 dark:disabled:border dark:disabled:border-slate-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed active:scale-95"
                       title={
                         kardexMovements.length === 0
                           ? 'No hay movimientos en el kardex para exportar'
@@ -1702,10 +1702,10 @@ export const InventoryView: React.FC = () => {
                     </p>
                   </div>
                 ) : (
-                  <div className="bg-white rounded-3xl border border-black/60 shadow-sm overflow-hidden">
+                  <div className="bg-white dark:bg-slate-800 rounded-3xl border border-black/60 dark:border-slate-700 shadow-sm overflow-hidden">
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-xs border-collapse">
-                        <thead className="bg-slate-50 border-b border-black/60 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
+                        <thead className="bg-slate-50 dark:bg-slate-850 border-b border-black/60 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[10px]">
                           <tr>
                             <th className="py-3 px-4">Fecha y Hora</th>
                             <th className="py-3 px-4">Tipo</th>
@@ -1715,14 +1715,14 @@ export const InventoryView: React.FC = () => {
                             <th className="py-3 px-4">Motivo / Referencia</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-black/60">
+                        <tbody className="divide-y divide-black/60 dark:divide-slate-700">
                           {kardexMovements.map((m) => {
                             const badge = getMovementBadge(m.type)
                             const isPositive = m.delta > 0
 
                             return (
-                              <tr key={m.id} className="hover:bg-lilac-50/30 transition-colors border-b border-black/60">
-                                <td className="py-3 px-4 font-mono text-slate-600">
+                              <tr key={m.id} className="hover:bg-lilac-50/30 dark:hover:bg-slate-750/50 transition-colors border-b border-black/60 dark:border-slate-700">
+                                <td className="py-3 px-4 font-mono text-slate-600 dark:text-slate-400">
                                   {formatDateTime(m.created_at)}
                                 </td>
                                 <td className="py-3 px-4">
@@ -1733,14 +1733,14 @@ export const InventoryView: React.FC = () => {
                                   </span>
                                 </td>
                                 <td className="py-3 px-4 text-center">
-                                  <span className="font-mono font-semibold text-slate-600 text-xs">
+                                  <span className="font-mono font-semibold text-slate-600 dark:text-slate-300 text-xs">
                                     {m.stock_before !== undefined ? m.stock_before : '—'}
                                   </span>
                                 </td>
                                 <td className="py-3 px-4 text-center">
                                   <span
                                     className={`inline-flex items-center gap-0.5 font-black text-xs ${
-                                      isPositive ? 'text-emerald-600' : 'text-rose-600'
+                                      isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                                     }`}
                                   >
                                     {isPositive ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
@@ -1748,11 +1748,11 @@ export const InventoryView: React.FC = () => {
                                   </span>
                                 </td>
                                 <td className="py-3 px-4 text-center">
-                                  <span className="font-mono font-bold text-slate-800 text-xs bg-slate-100/80 px-2 py-0.5 rounded-md">
+                                  <span className="font-mono font-bold text-slate-800 dark:text-slate-100 text-xs bg-slate-100/80 dark:bg-slate-700 dark:border dark:border-slate-600 px-2 py-0.5 rounded-md">
                                     {m.stock_after !== undefined ? m.stock_after : '—'}
                                   </span>
                                 </td>
-                                <td className="py-3 px-4 text-slate-600">
+                                <td className="py-3 px-4 text-slate-600 dark:text-slate-300">
                                   {m.type === 'venta' && m.sale_folio
                                     ? `Venta #${m.sale_folio}`
                                     : m.reason || '—'}

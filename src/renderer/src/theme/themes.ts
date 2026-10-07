@@ -128,6 +128,11 @@ export function applyTheme(themeId: ThemeId): void {
   const root = document.documentElement
 
   root.setAttribute('data-theme', theme.id)
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('app_theme', theme.id)
+    }
+  } catch {}
 
   const shades: (keyof ThemeColors)[] = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]
   shades.forEach((shade) => {
@@ -172,6 +177,11 @@ export function applySurfaceMode(mode: SurfaceMode): void {
 
   root.setAttribute('data-surface-mode', mode)
   root.setAttribute('data-surface', resolved)
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('app_surface_mode', mode)
+    }
+  } catch {}
 
   if (resolved === 'dark') {
     root.classList.add('dark')

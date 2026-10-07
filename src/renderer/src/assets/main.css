@@ -28,6 +28,11 @@
   --color-theme-950-rgb: 46 16 101;
 }
 
+html.dark, html.dark body {
+  background-color: #0f172a;
+  color: #f8fafc;
+}
+
 @layer utilities {
   .titlebar-drag {
     -webkit-app-region: drag;

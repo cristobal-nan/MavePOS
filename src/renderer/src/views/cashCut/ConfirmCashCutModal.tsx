@@ -168,7 +168,7 @@ export const ConfirmCashCutModal: React.FC<ConfirmCashCutModalProps> = ({
           )}
 
           {(withdrawalAmount !== undefined || nextOpeningFund !== undefined) && (
-            <div className="border-t border-slate-200 dark:border-slate-700 pt-2 mt-1 flex flex-col gap-1.5 bg-lilac-50/50 dark:bg-slate-750 -mx-4 -mb-4 p-3 rounded-b-2xl">
+            <div className="border-t border-slate-200 dark:border-slate-700 pt-2 mt-1 flex flex-col gap-1.5 bg-lilac-50/50 dark:bg-slate-850 -mx-4 -mb-4 p-3 rounded-b-2xl">
               {withdrawalAmount !== undefined && (
                 <div className="flex justify-between font-bold text-slate-900 dark:text-white">
                   <span className="text-amber-800 dark:text-amber-300">Retiro de Efectivo:</span>

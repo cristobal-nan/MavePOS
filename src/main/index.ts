@@ -10,6 +10,7 @@ function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
+    backgroundColor: '#0F172A',
     show: false,
     autoHideMenuBar: true,
     frame: false, // frameless window as requested

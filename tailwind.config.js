@@ -8,6 +8,10 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        slate: {
+          750: '#253347',
+          850: '#162032'
+        },
         lilac: {
           50: 'rgb(var(--color-theme-50-rgb, 245 243 255) / <alpha-value>)',
           100: 'rgb(var(--color-theme-100-rgb, 237 233 254) / <alpha-value>)',
