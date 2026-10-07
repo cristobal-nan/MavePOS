@@ -1,12 +1,15 @@
-import React, { useState, useEffect } from 'react'
-import { Wallet, Save, RotateCcw, CheckCircle2, Info } from 'lucide-react'
+import React, { useState, useEffect, useCallback } from 'react'
+import { Wallet, RotateCcw, Info } from 'lucide-react'
 import { CHILEAN_DENOMINATIONS, DEFAULT_WITHDRAWAL_RULES, WithdrawalRules } from '@shared/finance'
-import { formatCLP } from '../../utils/formatters'
+import { useSettingsStore, DirtyFieldChange } from '../../store/settingsStore'
 
 export const CashSettingsTab: React.FC = () => {
+  const [initialRules, setInitialRules] = useState<WithdrawalRules>({ ...DEFAULT_WITHDRAWAL_RULES })
   const [rules, setRules] = useState<WithdrawalRules>({ ...DEFAULT_WITHDRAWAL_RULES })
-  const [isSaving, setIsSaving] = useState(false)
-  const [savedMessage, setSavedMessage] = useState<string | null>(null)
+  const [isLoaded, setIsLoaded] = useState(false)
+
+  const registerSubTabState = useSettingsStore((s) => s.registerSubTabState)
+  const clearSubTabState = useSettingsStore((s) => s.clearSubTabState)
 
   useEffect(() => {
     let isMounted = true
@@ -14,14 +17,18 @@ export const CashSettingsTab: React.FC = () => {
       .getAllSettings()
       .then((settings) => {
         if (!isMounted) return
+        let loadedRules = { ...DEFAULT_WITHDRAWAL_RULES }
         if (settings?.cash_cut_withdrawal_rules) {
           try {
             const parsed = JSON.parse(settings.cash_cut_withdrawal_rules)
-            setRules({ ...DEFAULT_WITHDRAWAL_RULES, ...parsed })
+            loadedRules = { ...DEFAULT_WITHDRAWAL_RULES, ...parsed }
           } catch (e) {
             console.error('Error parseando cash_cut_withdrawal_rules:', e)
           }
         }
+        setInitialRules(loadedRules)
+        setRules(loadedRules)
+        setIsLoaded(true)
       })
       .catch((err) => {
         console.error('Error al cargar configuración de retiro:', err)
@@ -29,8 +36,9 @@ export const CashSettingsTab: React.FC = () => {
 
     return () => {
       isMounted = false
+      clearSubTabState()
     }
-  }, [])
+  }, [clearSubTabState])
 
   const handleLimitChange = (denomValue: number, rawValue: string): void => {
     const trimmed = rawValue.trim()
@@ -51,24 +59,45 @@ export const CashSettingsTab: React.FC = () => {
     setRules({ ...DEFAULT_WITHDRAWAL_RULES })
   }
 
-  const handleSave = async (e: React.FormEvent): Promise<void> => {
-    e.preventDefault()
-    setIsSaving(true)
-    setSavedMessage(null)
-
+  const handleSave = useCallback(async (): Promise<boolean> => {
     try {
       await window.api.setSetting('cash_cut_withdrawal_rules', JSON.stringify(rules))
-      setSavedMessage('¡Reglas de fondo y retiro guardadas correctamente!')
-      setTimeout(() => setSavedMessage(null), 4000)
+      setInitialRules({ ...rules })
+      return true
     } catch (err: any) {
       console.error('Error guardando reglas de retiro:', err)
-    } finally {
-      setIsSaving(false)
+      return false
     }
-  }
+  }, [rules])
+
+  const handleDiscard = useCallback((): void => {
+    setRules({ ...initialRules })
+  }, [initialRules])
+
+  // Track dirty changes
+  useEffect(() => {
+    if (!isLoaded) return
+
+    const changes: DirtyFieldChange[] = []
+    for (const denom of CHILEAN_DENOMINATIONS) {
+      const currentVal = rules[denom.value]
+      const initVal = initialRules[denom.value]
+
+      if (currentVal !== initVal) {
+        const descCurrent = currentVal === null ? 'Ilimitado (dejar todo)' : `${currentVal} unidades`
+        changes.push({
+          field: `Fondo Billete/Moneda ${denom.label}`,
+          value: descCurrent
+        })
+      }
+    }
+
+    const isDirty = changes.length > 0
+    registerSubTabState(isDirty, changes, handleSave, handleDiscard)
+  }, [rules, initialRules, isLoaded, handleSave, handleDiscard, registerSubTabState])
 
   return (
-    <form onSubmit={handleSave} className="flex flex-col gap-6 max-w-4xl">
+    <div className="max-w-4xl mx-auto flex flex-col gap-6 animate-in fade-in duration-150">
       {/* Resumen explicativo */}
       <div className="bg-lilac-50/60 border border-lilac-200/80 rounded-2xl p-5 flex items-start gap-4 shadow-sm">
         <div className="w-10 h-10 rounded-xl bg-lilac-100 text-lilac-700 flex items-center justify-center shrink-0">
@@ -101,14 +130,14 @@ export const CashSettingsTab: React.FC = () => {
           <button
             type="button"
             onClick={handleRestoreDefaults}
-            className="text-xs font-semibold text-lilac-600 hover:text-lilac-800 flex items-center gap-1.5 transition-colors"
+            className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-lilac-700 font-semibold px-2.5 py-1 rounded-lg hover:bg-white transition-colors"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Restaurar valores sugeridos</span>
+            <span>Restablecer valores por defecto</span>
           </button>
         </div>
 
-        <div className="divide-y divide-slate-100 text-xs">
+        <div className="divide-y divide-slate-100">
           {CHILEAN_DENOMINATIONS.map((denom) => {
             const limit = rules[denom.value]
             const isUnlimited = limit === null || limit === undefined
@@ -116,46 +145,51 @@ export const CashSettingsTab: React.FC = () => {
             return (
               <div
                 key={denom.value}
-                className="p-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors"
+                className="px-5 py-3 flex items-center justify-between hover:bg-slate-50/70 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-[11px] ${
-                    denom.type === 'bill'
-                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                      : 'bg-amber-50 text-amber-700 border border-amber-200'
-                  }`}>
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs ${
+                      denom.type === 'bill'
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                        : 'bg-amber-100 text-amber-900 border border-amber-200'
+                    }`}
+                  >
                     {denom.type === 'bill' ? 'B' : 'M'}
                   </div>
                   <div>
-                    <span className="font-bold text-slate-900 block text-xs">{denom.label}</span>
-                    <span className="text-[11px] text-slate-400">
-                      {denom.type === 'bill' ? 'Billete' : 'Moneda'} ({formatCLP(denom.value)})
+                    <span className="text-sm font-bold text-slate-900">{denom.label}</span>
+                    <span className="text-[11px] text-slate-500 block">
+                      {denom.type === 'bill' ? 'Billete' : 'Moneda'}
                     </span>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-4">
-                  {/* Selector: Ilimitado vs Límite numérico */}
-                  <label className="flex items-center gap-2 cursor-pointer select-none text-slate-600">
-                    <input
-                      type="checkbox"
-                      checked={isUnlimited}
-                      onChange={(e) => handleToggleUnlimited(denom.value, e.target.checked)}
-                      className="rounded border-slate-300 text-lilac-600 focus:ring-lilac-500 w-4 h-4 cursor-pointer"
-                    />
-                    <span className="text-xs">Dejar todas (sin retirar)</span>
-                  </label>
-
+                  {/* Selector de Ilimitado vs Límite Fijo */}
                   <div className="flex items-center gap-2">
-                    <span className="text-slate-500 text-xs">Dejar máximo:</span>
+                    <label className="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={isUnlimited}
+                        onChange={(e) => handleToggleUnlimited(denom.value, e.target.checked)}
+                        className="rounded border-slate-300 text-lilac-600 focus:ring-lilac-500 cursor-pointer"
+                      />
+                      <span>Dejar todas (sin límite)</span>
+                    </label>
+                  </div>
+
+                  {/* Input de cantidad si no es ilimitado */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-slate-500">Dejar máx:</span>
                     <input
                       type="number"
                       min={0}
                       disabled={isUnlimited}
-                      value={isUnlimited ? '' : limit}
+                      value={isUnlimited ? '' : limit ?? 0}
                       onChange={(e) => handleLimitChange(denom.value, e.target.value)}
                       placeholder={isUnlimited ? '∞' : '0'}
-                      className={`w-20 px-2 py-1.5 text-center text-xs font-bold rounded-lg border focus:outline-none transition-colors ${
+                      className={`w-16 px-2.5 py-1 text-center font-black text-xs rounded-lg border transition-all ${
                         isUnlimited
                           ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
                           : 'bg-white text-slate-900 border-slate-300 focus:border-lilac-500 focus:ring-1 focus:ring-lilac-500'
@@ -169,26 +203,6 @@ export const CashSettingsTab: React.FC = () => {
           })}
         </div>
       </div>
-
-      {/* Botones de acción */}
-      <div className="flex justify-end gap-3 pt-2">
-        <button
-          type="submit"
-          disabled={isSaving}
-          className="px-6 py-2.5 rounded-xl bg-lilac-600 hover:bg-lilac-700 text-white font-bold text-xs shadow-md shadow-lilac-200 flex items-center gap-2 transition-all disabled:opacity-50"
-        >
-          <Save className="w-4 h-4" />
-          <span>{isSaving ? 'Guardando...' : 'Guardar Reglas de Retiro'}</span>
-        </button>
-      </div>
-
-      {/* Toast Flotante de Guardado Exitoso (Bottom-Right, sin Layout Shift) */}
-      {savedMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-white border border-emerald-300 text-emerald-950 p-3.5 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs animate-in fade-in slide-in-from-bottom-3 duration-200 select-none">
-          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-          <span className="font-bold">{savedMessage}</span>
-        </div>
-      )}
-    </form>
+    </div>
   )
 }

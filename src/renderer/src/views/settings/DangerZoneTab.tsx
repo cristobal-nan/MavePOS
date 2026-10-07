@@ -54,7 +54,7 @@ export const DangerZoneTab: React.FC = () => {
   }
 
   return (
-    <div className="max-w-2xl space-y-6 animate-in fade-in duration-150">
+    <div className="max-w-4xl mx-auto flex flex-col gap-6 animate-in fade-in duration-150">
       {/* System Info Card */}
       <div className="bg-white rounded-2xl border border-lilac-100 p-5 shadow-sm space-y-3">
         <div className="flex items-center gap-2 text-slate-800 font-bold text-sm">

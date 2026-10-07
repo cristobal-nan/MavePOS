@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
   HardDrive,
   FolderOpen,
@@ -8,7 +8,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   X,
-  RefreshCw
+  RefreshCw,
+  Loader2
 } from 'lucide-react'
 import { BackupInfo } from '@shared/types'
 import { formatDateTime } from '../../utils/formatters'
@@ -22,9 +23,11 @@ export const BackupSettingsTab: React.FC = () => {
   const [backupDir, setBackupDir] = useState<string>('')
   const [backupsList, setBackupsList] = useState<BackupInfo[]>([])
   const [isCreatingBackup, setIsCreatingBackup] = useState(false)
+  const [backupButtonState, setBackupButtonState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [backupMessage, setBackupMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [restoreModalFile, setRestoreModalFile] = useState<BackupInfo | null>(null)
   const [isRestoring, setIsRestoring] = useState(false)
+  const backupSuccessTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const loadBackupData = useCallback(async () => {
     try {
@@ -39,6 +42,11 @@ export const BackupSettingsTab: React.FC = () => {
 
   useEffect(() => {
     loadBackupData()
+    return () => {
+      if (backupSuccessTimerRef.current) {
+        clearTimeout(backupSuccessTimerRef.current)
+      }
+    }
   }, [loadBackupData])
 
   const formatFileSize = (bytes: number): string => {
@@ -47,22 +55,34 @@ export const BackupSettingsTab: React.FC = () => {
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
   }
 
+  const showToast = (type: 'success' | 'error', text: string): void => {
+    setBackupMessage({ type, text })
+    setTimeout(() => {
+      setBackupMessage(null)
+    }, 4000)
+  }
+
   const handleCreateBackup = async (): Promise<void> => {
+    if (backupSuccessTimerRef.current) {
+      clearTimeout(backupSuccessTimerRef.current)
+    }
     setIsCreatingBackup(true)
+    setBackupButtonState('loading')
     setBackupMessage(null)
     try {
-      const filePath = await window.api.createBackup()
+      await window.api.createBackup()
       const list = await window.api.listBackups()
       setBackupsList(list)
-      setBackupMessage({
-        type: 'success',
-        text: `Respaldo manual creado con éxito: ${filePath}`
-      })
+      setBackupButtonState('success')
+      backupSuccessTimerRef.current = setTimeout(() => {
+        setBackupButtonState('idle')
+      }, 3000)
     } catch (err: any) {
-      setBackupMessage({
-        type: 'error',
-        text: err.message || 'Error al generar respaldo manual.'
-      })
+      showToast('error', err.message || 'Error al generar respaldo manual.')
+      setBackupButtonState('error')
+      backupSuccessTimerRef.current = setTimeout(() => {
+        setBackupButtonState('idle')
+      }, 3500)
     } finally {
       setIsCreatingBackup(false)
     }
@@ -75,10 +95,7 @@ export const BackupSettingsTab: React.FC = () => {
         setBackupDir(chosen)
         const list = await window.api.listBackups()
         setBackupsList(list)
-        setBackupMessage({
-          type: 'success',
-          text: `Carpeta de respaldos actualizada a: ${chosen}`
-        })
+        showToast('success', `Carpeta de respaldos actualizada a: ${chosen}`)
       }
     } catch (err: any) {
       console.error('Error seleccionando carpeta de respaldos:', err)
@@ -105,49 +122,17 @@ export const BackupSettingsTab: React.FC = () => {
       await checkCurrentSession()
       await loadBackupData()
 
-      setBackupMessage({
-        type: 'success',
-        text: `Base de datos restaurada con éxito desde: ${restoreModalFile.filename}`
-      })
+      showToast('success', `Base de datos restaurada con éxito desde: ${restoreModalFile.filename}`)
       setRestoreModalFile(null)
     } catch (err: any) {
-      setBackupMessage({
-        type: 'error',
-        text: err.message || 'Error al restaurar el archivo de respaldo.'
-      })
+      showToast('error', err.message || 'Error al restaurar el archivo de respaldo.')
     } finally {
       setIsRestoring(false)
     }
   }
 
   return (
-    <div className="max-w-4xl space-y-6 animate-in fade-in duration-150">
-      {/* Notification banner */}
-      {backupMessage && (
-        <div
-          className={`p-3.5 rounded-2xl border text-xs flex items-center justify-between shadow-sm animate-in fade-in duration-200 ${
-            backupMessage.type === 'success'
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-              : 'bg-red-50 border-red-200 text-red-800'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            {backupMessage.type === 'success' ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            ) : (
-              <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
-            )}
-            <span className="font-semibold">{backupMessage.text}</span>
-          </div>
-          <button
-            onClick={() => setBackupMessage(null)}
-            className="text-slate-400 hover:text-slate-600 font-bold ml-4"
-          >
-            ×
-          </button>
-        </div>
-      )}
-
+    <div className="max-w-4xl mx-auto flex flex-col gap-6 animate-in fade-in duration-150">
       {/* Directory & Create Card */}
       <div className="bg-white rounded-2xl border border-lilac-100 p-6 shadow-sm space-y-5">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -196,10 +181,37 @@ export const BackupSettingsTab: React.FC = () => {
           <button
             onClick={handleCreateBackup}
             disabled={isCreatingBackup}
-            className="px-5 py-2.5 bg-lilac-600 hover:bg-lilac-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 active:scale-95 shrink-0"
+            className={`px-5 py-2.5 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 shrink-0 ${
+              backupButtonState === 'loading'
+                ? 'bg-lilac-700 cursor-wait opacity-90'
+                : backupButtonState === 'success'
+                ? 'bg-emerald-600 hover:bg-emerald-600 shadow-emerald-200'
+                : backupButtonState === 'error'
+                ? 'bg-rose-600 hover:bg-rose-700'
+                : 'bg-lilac-600 hover:bg-lilac-700 active:scale-95 cursor-pointer'
+            }`}
           >
-            <Archive className="w-4 h-4" />
-            <span>{isCreatingBackup ? 'Generando copia...' : 'Crear Respaldo Ahora'}</span>
+            {backupButtonState === 'loading' ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+                <span>Generando respaldo...</span>
+              </>
+            ) : backupButtonState === 'success' ? (
+              <>
+                <CheckCircle2 className="w-4 h-4 animate-in zoom-in-75 duration-200 text-white" />
+                <span>¡Respaldo Realizado!</span>
+              </>
+            ) : backupButtonState === 'error' ? (
+              <>
+                <AlertTriangle className="w-4 h-4 text-white" />
+                <span>Error al respaldar</span>
+              </>
+            ) : (
+              <>
+                <Archive className="w-4 h-4" />
+                <span>Crear Respaldo Ahora</span>
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -325,6 +337,31 @@ export const BackupSettingsTab: React.FC = () => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Toast Flotante Fijo (Bottom-Right, Cero Layout Shift) */}
+      {backupMessage && (
+        <div
+          className={`fixed bottom-6 right-6 z-50 p-3.5 rounded-2xl border text-xs flex items-center gap-2.5 shadow-2xl animate-in fade-in slide-in-from-bottom-3 duration-200 select-none max-w-md ${
+            backupMessage.type === 'success'
+              ? 'bg-white border-emerald-300 text-emerald-950'
+              : 'bg-white border-rose-300 text-rose-950'
+          }`}
+        >
+          {backupMessage.type === 'success' ? (
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+          ) : (
+            <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+          )}
+          <span className="font-semibold">{backupMessage.text}</span>
+          <button
+            onClick={() => setBackupMessage(null)}
+            className="text-slate-400 hover:text-slate-600 font-bold ml-2 shrink-0 cursor-pointer text-base leading-none"
+            title="Cerrar"
+          >
+            ×
+          </button>
         </div>
       )}
     </div>

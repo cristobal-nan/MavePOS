@@ -1,16 +1,34 @@
-import React, { useState, useEffect } from 'react'
-import { Store, CheckCircle2, Save } from 'lucide-react'
+import React, { useState, useEffect, useCallback } from 'react'
+import { Store } from 'lucide-react'
+import { useSettingsStore, DirtyFieldChange } from '../../store/settingsStore'
+
+interface BusinessFormValues {
+  businessName: string
+  businessRut: string
+  businessActivity: string
+  businessAddress: string
+  businessPhone: string
+  businessEmail: string
+  ticketFooter: string
+}
+
+const EMPTY_VALUES: BusinessFormValues = {
+  businessName: '',
+  businessRut: '',
+  businessActivity: '',
+  businessAddress: '',
+  businessPhone: '',
+  businessEmail: '',
+  ticketFooter: ''
+}
 
 export const BusinessSettingsTab: React.FC = () => {
-  const [businessName, setBusinessName] = useState('')
-  const [businessRut, setBusinessRut] = useState('')
-  const [businessActivity, setBusinessActivity] = useState('')
-  const [businessAddress, setBusinessAddress] = useState('')
-  const [businessPhone, setBusinessPhone] = useState('')
-  const [businessEmail, setBusinessEmail] = useState('')
-  const [ticketFooter, setTicketFooter] = useState('')
-  const [isSaving, setIsSaving] = useState(false)
-  const [savedMessage, setSavedMessage] = useState<string | null>(null)
+  const [initialValues, setInitialValues] = useState<BusinessFormValues>(EMPTY_VALUES)
+  const [formValues, setFormValues] = useState<BusinessFormValues>(EMPTY_VALUES)
+  const [isLoaded, setIsLoaded] = useState(false)
+
+  const registerSubTabState = useSettingsStore((s) => s.registerSubTabState)
+  const clearSubTabState = useSettingsStore((s) => s.clearSubTabState)
 
   useEffect(() => {
     let isMounted = true
@@ -18,13 +36,18 @@ export const BusinessSettingsTab: React.FC = () => {
       .getAllSettings()
       .then((all) => {
         if (!isMounted) return
-        setBusinessName(all.business_name || '')
-        setBusinessRut(all.business_rut || '')
-        setBusinessActivity(all.business_activity || '')
-        setBusinessAddress(all.business_address || '')
-        setBusinessPhone(all.business_phone || '')
-        setBusinessEmail(all.business_email || '')
-        setTicketFooter(all.ticket_footer_message || '')
+        const loaded: BusinessFormValues = {
+          businessName: all.business_name || '',
+          businessRut: all.business_rut || '',
+          businessActivity: all.business_activity || '',
+          businessAddress: all.business_address || '',
+          businessPhone: all.business_phone || '',
+          businessEmail: all.business_email || '',
+          ticketFooter: all.ticket_footer_message || ''
+        }
+        setInitialValues(loaded)
+        setFormValues(loaded)
+        setIsLoaded(true)
       })
       .catch((err) => {
         console.error('Error cargando configuración del negocio:', err)
@@ -32,34 +55,75 @@ export const BusinessSettingsTab: React.FC = () => {
 
     return () => {
       isMounted = false
+      clearSubTabState()
     }
-  }, [])
+  }, [clearSubTabState])
 
-  const handleSaveBusinessData = async (e: React.FormEvent): Promise<void> => {
-    e.preventDefault()
-    setIsSaving(true)
-    setSavedMessage(null)
-
+  const handleSave = useCallback(async (): Promise<boolean> => {
     try {
-      await window.api.setSetting('business_name', businessName.trim())
-      await window.api.setSetting('business_rut', businessRut.trim())
-      await window.api.setSetting('business_activity', businessActivity.trim())
-      await window.api.setSetting('business_address', businessAddress.trim())
-      await window.api.setSetting('business_phone', businessPhone.trim())
-      await window.api.setSetting('business_email', businessEmail.trim())
-      await window.api.setSetting('ticket_footer_message', ticketFooter.trim())
+      await window.api.setSetting('business_name', formValues.businessName.trim())
+      await window.api.setSetting('business_rut', formValues.businessRut.trim())
+      await window.api.setSetting('business_activity', formValues.businessActivity.trim())
+      await window.api.setSetting('business_address', formValues.businessAddress.trim())
+      await window.api.setSetting('business_phone', formValues.businessPhone.trim())
+      await window.api.setSetting('business_email', formValues.businessEmail.trim())
+      await window.api.setSetting('ticket_footer_message', formValues.ticketFooter.trim())
 
-      setSavedMessage('¡Datos del negocio guardados correctamente!')
-      setTimeout(() => setSavedMessage(null), 4000)
-    } catch (err: any) {
+      const savedValues: BusinessFormValues = {
+        businessName: formValues.businessName.trim(),
+        businessRut: formValues.businessRut.trim(),
+        businessActivity: formValues.businessActivity.trim(),
+        businessAddress: formValues.businessAddress.trim(),
+        businessPhone: formValues.businessPhone.trim(),
+        businessEmail: formValues.businessEmail.trim(),
+        ticketFooter: formValues.ticketFooter.trim()
+      }
+      setInitialValues(savedValues)
+      setFormValues(savedValues)
+      return true
+    } catch (err) {
       console.error('Error guardando datos del negocio:', err)
-    } finally {
-      setIsSaving(false)
+      return false
     }
-  }
+  }, [formValues])
+
+  const handleDiscard = useCallback((): void => {
+    setFormValues(initialValues)
+  }, [initialValues])
+
+  // Detectar cambios y registrar en el store
+  useEffect(() => {
+    if (!isLoaded) return
+
+    const changes: DirtyFieldChange[] = []
+    if (formValues.businessName !== initialValues.businessName) {
+      changes.push({ field: 'Razón Social / Nombre', value: formValues.businessName })
+    }
+    if (formValues.businessRut !== initialValues.businessRut) {
+      changes.push({ field: 'RUT del Negocio', value: formValues.businessRut })
+    }
+    if (formValues.businessActivity !== initialValues.businessActivity) {
+      changes.push({ field: 'Giro Comercial', value: formValues.businessActivity })
+    }
+    if (formValues.businessAddress !== initialValues.businessAddress) {
+      changes.push({ field: 'Dirección Comercial', value: formValues.businessAddress })
+    }
+    if (formValues.businessPhone !== initialValues.businessPhone) {
+      changes.push({ field: 'Teléfono / WhatsApp', value: formValues.businessPhone })
+    }
+    if (formValues.businessEmail !== initialValues.businessEmail) {
+      changes.push({ field: 'Correo Electrónico', value: formValues.businessEmail })
+    }
+    if (formValues.ticketFooter !== initialValues.ticketFooter) {
+      changes.push({ field: 'Pie de Ticket', value: formValues.ticketFooter })
+    }
+
+    const isDirty = changes.length > 0
+    registerSubTabState(isDirty, changes, handleSave, handleDiscard)
+  }, [formValues, initialValues, isLoaded, handleSave, handleDiscard, registerSubTabState])
 
   return (
-    <form onSubmit={handleSaveBusinessData} className="max-w-3xl space-y-6 animate-in fade-in duration-150">
+    <div className="max-w-4xl mx-auto flex flex-col gap-6 animate-in fade-in duration-150">
       <div className="bg-white rounded-2xl border border-lilac-100 p-6 shadow-sm space-y-5">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2">
@@ -74,8 +138,8 @@ export const BusinessSettingsTab: React.FC = () => {
             <label className="block font-bold text-slate-700 mb-1">Nombre Comercial / Razón Social</label>
             <input
               type="text"
-              value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
+              value={formValues.businessName}
+              onChange={(e) => setFormValues((prev) => ({ ...prev, businessName: e.target.value }))}
               placeholder="Ej: Lanas & Tejidos Mave"
               className="w-full px-3.5 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500 focus:ring-2 focus:ring-lilac-100 font-medium text-slate-800"
             />
@@ -85,8 +149,8 @@ export const BusinessSettingsTab: React.FC = () => {
             <label className="block font-bold text-slate-700 mb-1">RUT del Negocio</label>
             <input
               type="text"
-              value={businessRut}
-              onChange={(e) => setBusinessRut(e.target.value)}
+              value={formValues.businessRut}
+              onChange={(e) => setFormValues((prev) => ({ ...prev, businessRut: e.target.value }))}
               placeholder="Ej: 76.123.456-7"
               className="w-full px-3.5 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500 focus:ring-2 focus:ring-lilac-100 font-medium text-slate-800"
             />
@@ -96,8 +160,8 @@ export const BusinessSettingsTab: React.FC = () => {
             <label className="block font-bold text-slate-700 mb-1">Giro Comercial</label>
             <input
               type="text"
-              value={businessActivity}
-              onChange={(e) => setBusinessActivity(e.target.value)}
+              value={formValues.businessActivity}
+              onChange={(e) => setFormValues((prev) => ({ ...prev, businessActivity: e.target.value }))}
               placeholder="Ej: Venta de Lanas, Hilos y Artículos de Costura"
               className="w-full px-3.5 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500 focus:ring-2 focus:ring-lilac-100 font-medium text-slate-800"
             />
@@ -107,8 +171,8 @@ export const BusinessSettingsTab: React.FC = () => {
             <label className="block font-bold text-slate-700 mb-1">Dirección del Local</label>
             <input
               type="text"
-              value={businessAddress}
-              onChange={(e) => setBusinessAddress(e.target.value)}
+              value={formValues.businessAddress}
+              onChange={(e) => setFormValues((prev) => ({ ...prev, businessAddress: e.target.value }))}
               placeholder="Ej: Av. Providencia 1234, Local 5, Santiago"
               className="w-full px-3.5 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500 focus:ring-2 focus:ring-lilac-100 font-medium text-slate-800"
             />
@@ -118,8 +182,8 @@ export const BusinessSettingsTab: React.FC = () => {
             <label className="block font-bold text-slate-700 mb-1">Teléfono / WhatsApp</label>
             <input
               type="text"
-              value={businessPhone}
-              onChange={(e) => setBusinessPhone(e.target.value)}
+              value={formValues.businessPhone}
+              onChange={(e) => setFormValues((prev) => ({ ...prev, businessPhone: e.target.value }))}
               placeholder="Ej: +56 9 1234 5678"
               className="w-full px-3.5 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500 focus:ring-2 focus:ring-lilac-100 font-medium text-slate-800"
             />
@@ -129,8 +193,8 @@ export const BusinessSettingsTab: React.FC = () => {
             <label className="block font-bold text-slate-700 mb-1">Correo Electrónico de Contacto</label>
             <input
               type="email"
-              value={businessEmail}
-              onChange={(e) => setBusinessEmail(e.target.value)}
+              value={formValues.businessEmail}
+              onChange={(e) => setFormValues((prev) => ({ ...prev, businessEmail: e.target.value }))}
               placeholder="Ej: contacto@lanasmave.cl"
               className="w-full px-3.5 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500 focus:ring-2 focus:ring-lilac-100 font-medium text-slate-800"
             />
@@ -140,33 +204,14 @@ export const BusinessSettingsTab: React.FC = () => {
             <label className="block font-bold text-slate-700 mb-1">Mensaje de Pie de Ticket</label>
             <textarea
               rows={2}
-              value={ticketFooter}
-              onChange={(e) => setTicketFooter(e.target.value)}
+              value={formValues.ticketFooter}
+              onChange={(e) => setFormValues((prev) => ({ ...prev, ticketFooter: e.target.value }))}
               placeholder="Ej: ¡Muchas gracias por su preferencia! Cambios dentro de 30 días presentando este comprobante."
               className="w-full px-3.5 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-lilac-500 focus:ring-2 focus:ring-lilac-100 font-medium text-slate-800 resize-none"
             />
           </div>
         </div>
-
-        <div className="pt-2 flex justify-end">
-          <button
-            type="submit"
-            disabled={isSaving}
-            className="px-5 py-2.5 bg-lilac-600 hover:bg-lilac-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 active:scale-95 disabled:opacity-50"
-          >
-            <Save className="w-4 h-4" />
-            <span>{isSaving ? 'Guardando...' : 'Guardar Datos del Negocio'}</span>
-          </button>
-        </div>
       </div>
-
-      {/* Toast Flotante de Guardado Exitoso (Bottom-Right, sin Layout Shift) */}
-      {savedMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-white border border-emerald-300 text-emerald-950 p-3.5 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs animate-in fade-in slide-in-from-bottom-3 duration-200 select-none">
-          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-          <span className="font-bold">{savedMessage}</span>
-        </div>
-      )}
-    </form>
+    </div>
   )
 }
