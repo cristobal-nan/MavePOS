@@ -46,47 +46,47 @@ export const SalesHistoryTab: React.FC<SalesHistoryTabProps> = () => {
     <div className="flex-1 flex flex-col overflow-hidden p-4 gap-4">
       {/* Quick Metrics Bar */}
       <div className="grid grid-cols-4 gap-3 shrink-0">
-        <div className="bg-white border border-lilac-100 rounded-xl p-3 shadow-sm flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-lilac-50 text-lilac-600 flex items-center justify-center shrink-0">
+        <div className="bg-white dark:bg-slate-900 border border-lilac-100 dark:border-slate-800 rounded-xl p-3 shadow-sm flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-lilac-50 dark:bg-slate-800 text-lilac-600 dark:text-lilac-400 flex items-center justify-center shrink-0">
             <ShoppingBag className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-[11px] font-medium text-slate-500">Ventas Completadas</p>
-            <p className="text-lg font-black text-slate-800">{completedSales.length}</p>
+            <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Ventas Completadas</p>
+            <p className="text-lg font-black text-slate-800 dark:text-white">{completedSales.length}</p>
           </div>
         </div>
 
-        <div className="bg-white border border-lilac-100 rounded-xl p-3 shadow-sm flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+        <div className="bg-white dark:bg-slate-900 border border-lilac-100 dark:border-slate-800 rounded-xl p-3 shadow-sm flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
             <DollarSign className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-[11px] font-medium text-slate-500">Total Facturado</p>
-            <p className="text-lg font-black text-emerald-600">
+            <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Total Facturado</p>
+            <p className="text-lg font-black text-emerald-600 dark:text-emerald-400">
               {formatCLP(totalCompletedAmount)}
             </p>
           </div>
         </div>
 
-        <div className="bg-white border border-lilac-100 rounded-xl p-3 shadow-sm flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+        <div className="bg-white dark:bg-slate-900 border border-lilac-100 dark:border-slate-800 rounded-xl p-3 shadow-sm flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
             <Package className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-[11px] font-medium text-slate-500">Artículos Vendidos</p>
-            <p className="text-lg font-black text-slate-800">{totalItemsSold} un.</p>
+            <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Artículos Vendidos</p>
+            <p className="text-lg font-black text-slate-800 dark:text-white">{totalItemsSold} un.</p>
           </div>
         </div>
 
-        <div className="bg-white border border-lilac-100 rounded-xl p-3 shadow-sm flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+        <div className="bg-white dark:bg-slate-900 border border-lilac-100 dark:border-slate-800 rounded-xl p-3 shadow-sm flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
             <CornerDownLeft className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-[11px] font-medium text-slate-500">Devoluciones / Anuladas</p>
-            <p className="text-lg font-black text-rose-600">
+            <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">Devoluciones / Anuladas</p>
+            <p className="text-lg font-black text-rose-600 dark:text-rose-400">
               {cancelledSales.length}{' '}
-              <span className="text-xs font-normal text-slate-400">
+              <span className="text-xs font-normal text-slate-400 dark:text-slate-500">
                 ({totalItemsReturned} un. devueltas)
               </span>
             </p>
@@ -95,24 +95,24 @@ export const SalesHistoryTab: React.FC<SalesHistoryTabProps> = () => {
       </div>
 
       {/* Filters Bar */}
-      <div className="bg-white border border-lilac-100 rounded-xl p-3 shadow-sm flex items-center gap-3 shrink-0">
+      <div className="bg-white dark:bg-slate-900 border border-lilac-100 dark:border-slate-800 rounded-xl p-3 shadow-sm flex items-center gap-3 shrink-0">
         <div className="flex items-center gap-3 flex-wrap">
           {/* Fecha */}
-          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs">
+          <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs">
             <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             <input
               type="date"
               value={filter.date}
               onChange={(e) => setDateFilter(e.target.value)}
-              className="bg-transparent font-medium text-slate-700 focus:outline-none"
+              className="bg-transparent font-medium text-slate-700 dark:text-slate-200 focus:outline-none"
             />
             <button
               type="button"
               onClick={() => setDateFilter(getTodayString())}
-              className={`px-1.5 py-0.5 rounded text-[11px] font-semibold transition-colors ${
+              className={`px-1.5 py-0.5 rounded text-[11px] font-semibold transition-colors cursor-pointer ${
                 filter.date === getTodayString()
                   ? 'bg-lilac-600 text-white'
-                  : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                  : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
               }`}
               title="Ver ventas de hoy"
             >
@@ -122,7 +122,7 @@ export const SalesHistoryTab: React.FC<SalesHistoryTabProps> = () => {
               <button
                 type="button"
                 onClick={() => setDateFilter('')}
-                className="text-[11px] text-slate-500 hover:text-slate-800 ml-1 underline"
+                className="text-[11px] text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 ml-1 underline cursor-pointer"
                 title="Mostrar todas las fechas"
               >
                 Todas
@@ -131,20 +131,20 @@ export const SalesHistoryTab: React.FC<SalesHistoryTabProps> = () => {
           </div>
 
           {/* Búsqueda por Folio */}
-          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs w-48">
+          <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 text-xs w-48">
             <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             <input
               type="text"
               placeholder="Buscar por Folio #..."
               value={filter.folioStr}
               onChange={(e) => setFolioFilter(e.target.value)}
-              className="bg-transparent font-medium text-slate-700 w-full focus:outline-none placeholder:text-slate-400"
+              className="bg-transparent font-medium text-slate-700 dark:text-slate-200 w-full focus:outline-none placeholder:text-slate-400"
             />
             {filter.folioStr && (
               <button
                 type="button"
                 onClick={() => setFolioFilter('')}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
               >
                 <X className="w-3 h-3" />
               </button>
@@ -154,10 +154,10 @@ export const SalesHistoryTab: React.FC<SalesHistoryTabProps> = () => {
       </div>
 
       {/* Sales Table */}
-      <div className="flex-1 bg-white border border-lilac-100 rounded-xl shadow-sm overflow-hidden flex flex-col">
+      <div className="flex-1 bg-white dark:bg-slate-900 border border-lilac-100 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden flex flex-col">
         <div className="flex-1 overflow-auto">
           <table className="w-full text-left border-collapse">
-            <thead className="bg-slate-100 sticky top-0 z-10 text-xs font-semibold text-slate-600 border-b border-slate-200">
+            <thead className="bg-slate-100 dark:bg-slate-800 sticky top-0 z-10 text-xs font-semibold text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">
               <tr>
                 <th className="py-2.5 px-4 w-28">Folio</th>
                 <th className="py-2.5 px-4 w-44">Fecha / Hora</th>
@@ -168,14 +168,14 @@ export const SalesHistoryTab: React.FC<SalesHistoryTabProps> = () => {
                 <th className="py-2.5 px-4 text-center w-28">Acciones</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-xs">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
               {sales.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-20 text-center text-slate-400">
                     <div className="flex flex-col items-center justify-center">
-                      <FileText className="w-10 h-10 text-slate-300 mb-2" />
-                      <p className="font-semibold text-slate-600">No se encontraron ventas</p>
-                      <p className="text-xs text-slate-400">
+                      <FileText className="w-10 h-10 text-slate-300 dark:text-slate-600 mb-2" />
+                      <p className="font-semibold text-slate-600 dark:text-slate-300">No se encontraron ventas</p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500">
                         Prueba ajustando la fecha o los filtros de búsqueda
                       </p>
                     </div>
@@ -190,17 +190,17 @@ export const SalesHistoryTab: React.FC<SalesHistoryTabProps> = () => {
                   return (
                     <tr
                       key={s.id}
-                      className="hover:bg-slate-50/80 transition-colors"
+                      className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors"
                     >
                       {/* Folio */}
                       <td className="py-2.5 px-4 whitespace-nowrap">
-                        <span className="font-mono font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                        <span className="font-mono font-bold text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
                           #{s.folio}
                         </span>
                       </td>
 
                       {/* Fecha / Hora */}
-                      <td className="py-2.5 px-4 text-slate-600 font-medium whitespace-nowrap">
+                      <td className="py-2.5 px-4 text-slate-600 dark:text-slate-300 font-medium whitespace-nowrap">
                         {formatDateTime(s.created_at)}
                       </td>
 
@@ -262,7 +262,7 @@ export const SalesHistoryTab: React.FC<SalesHistoryTabProps> = () => {
 
                       {/* Artículos */}
                       <td className="py-2.5 px-4 text-center whitespace-nowrap">
-                        <span className="font-bold text-slate-700">
+                        <span className="font-bold text-slate-700 dark:text-slate-300">
                           {s.total_items} un.
                         </span>
                       </td>
@@ -271,7 +271,7 @@ export const SalesHistoryTab: React.FC<SalesHistoryTabProps> = () => {
                       <td className="py-2.5 px-4 text-right whitespace-nowrap">
                         <span
                           className={`font-black text-sm ${
-                            isCancelled ? 'line-through text-slate-400' : 'text-slate-900'
+                            isCancelled ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'
                           }`}
                         >
                           {formatCLP(s.total)}

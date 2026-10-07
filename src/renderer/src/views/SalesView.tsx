@@ -45,10 +45,18 @@ export const SalesView: React.FC = () => {
   const [barcodeError, setBarcodeError] = useState<string | null>(null)
   const barcodeErrorTimerRef = useRef<NodeJS.Timeout | null>(null)
 
+  // Detección de escaneo y animación progresiva rápida
+  const scanIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const scanTimestampsRef = useRef<number[]>([])
+  const isAnimatingScanRef = useRef(false)
+
   useEffect(() => {
     return () => {
       if (barcodeErrorTimerRef.current) {
         clearTimeout(barcodeErrorTimerRef.current)
+      }
+      if (scanIntervalRef.current) {
+        clearInterval(scanIntervalRef.current)
       }
     }
   }, [])
@@ -57,6 +65,10 @@ export const SalesView: React.FC = () => {
     if (barcodeErrorTimerRef.current) {
       clearTimeout(barcodeErrorTimerRef.current)
     }
+    if (scanIntervalRef.current) {
+      clearInterval(scanIntervalRef.current)
+    }
+    isAnimatingScanRef.current = false
     setBarcodeInput('')
     setBarcodeError(msg)
     barcodeErrorTimerRef.current = setTimeout(() => {
@@ -496,15 +508,8 @@ export const SalesView: React.FC = () => {
     isWithdrawalModalOpen
   ])
 
-  const handleBarcodeSubmit = async (e: React.FormEvent): Promise<void> => {
-    e.preventDefault()
-    if (barcodeErrorTimerRef.current) {
-      clearTimeout(barcodeErrorTimerRef.current)
-      barcodeErrorTimerRef.current = null
-    }
-    setBarcodeError(null)
-
-    const rawCode = barcodeInput.trim()
+  const processProductCode = async (codeToSearch: string): Promise<void> => {
+    const rawCode = codeToSearch.trim()
     if (!rawCode) return
 
     try {
@@ -531,6 +536,66 @@ export const SalesView: React.FC = () => {
       console.error('Error buscando código:', err)
       triggerBarcodeError('Error al consultar código de barras')
     }
+  }
+
+  const animateAndSubmitScan = (fullCode: string): void => {
+    if (scanIntervalRef.current) {
+      clearInterval(scanIntervalRef.current)
+      scanIntervalRef.current = null
+    }
+
+    if (!fullCode) {
+      isAnimatingScanRef.current = false
+      return
+    }
+
+    // Si es muy corto (menos de 3 caracteres), agregar directo sin animación
+    if (fullCode.length <= 2) {
+      isAnimatingScanRef.current = false
+      setBarcodeInput(fullCode)
+      void processProductCode(fullCode)
+      return
+    }
+
+    isAnimatingScanRef.current = true
+    let currentIndex = 0
+    setBarcodeInput('')
+
+    // Velocidad: ~14ms por carácter (un código EAN-13 toma ~180ms total)
+    const intervalTime = 14
+    scanIntervalRef.current = setInterval(() => {
+      currentIndex++
+      setBarcodeInput(fullCode.slice(0, currentIndex))
+
+      if (currentIndex >= fullCode.length) {
+        if (scanIntervalRef.current) {
+          clearInterval(scanIntervalRef.current)
+          scanIntervalRef.current = null
+        }
+        isAnimatingScanRef.current = false
+        void processProductCode(fullCode)
+      }
+    }, intervalTime)
+  }
+
+  const handleBarcodeSubmit = async (e?: React.FormEvent): Promise<void> => {
+    if (e) e.preventDefault()
+
+    // Si ya está corriendo la animación de escaneo, no duplicar
+    if (isAnimatingScanRef.current) {
+      return
+    }
+
+    if (barcodeErrorTimerRef.current) {
+      clearTimeout(barcodeErrorTimerRef.current)
+      barcodeErrorTimerRef.current = null
+    }
+    setBarcodeError(null)
+
+    const rawCode = barcodeInput.trim()
+    if (!rawCode) return
+
+    await processProductCode(rawCode)
   }
 
   const handleSelectFromSearch = (product: ProductSearchResult): void => {
@@ -588,9 +653,9 @@ export const SalesView: React.FC = () => {
   }
 
   return (
-    <div onClick={handleContainerClick} className="flex-1 flex flex-col h-full bg-slate-100 select-none overflow-hidden">
+    <div onClick={handleContainerClick} className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-900 select-none overflow-hidden">
       {/* Top Bar: Barcode Input + Simultaneous Tickets */}
-      <div className="bg-white border-b border-lilac-200 px-4 py-2 flex flex-col gap-2 shadow-xs">
+      <div className="bg-white dark:bg-slate-900 border-b border-lilac-200 px-4 py-2 flex flex-col gap-2 shadow-xs">
         {/* Ticket mini-tabs */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 overflow-x-auto">
@@ -695,25 +760,88 @@ export const SalesView: React.FC = () => {
                 if (barcodeError) {
                   setBarcodeError(null)
                 }
-                setBarcodeInput(e.target.value.replace(/[+\-]/g, '').toUpperCase())
+
+                // Si se está ejecutando la animación, no sobrescribir desde onChange
+                if (isAnimatingScanRef.current) {
+                  return
+                }
+
+                const cleaned = e.target.value.replace(/[+\-]/g, '').toUpperCase()
+                setBarcodeInput(cleaned)
               }}
               onKeyDown={(e) => {
                 if (e.key === '+' || e.key === '-' || e.key === 'Add' || e.key === 'Subtract' || (e.key === '=' && e.shiftKey)) {
                   e.preventDefault()
+                  return
+                }
+
+                // Si está animando y se presiona otra tecla o Enter, prevenir conflicto
+                if (isAnimatingScanRef.current) {
+                  e.preventDefault()
+                  return
+                }
+
+                const now = performance.now()
+
+                if (e.key === 'Enter') {
+                  const timestamps = scanTimestampsRef.current
+                  const count = timestamps.length
+
+                  // Evaluamos si los últimos caracteres llegaron en ráfaga rápida de escáner
+                  // (al menos 3 caracteres con un promedio entre pulsaciones < 40ms)
+                  if (count >= 3) {
+                    let totalDiff = 0
+                    for (let i = 1; i < count; i++) {
+                      totalDiff += timestamps[i] - timestamps[i - 1]
+                    }
+                    const avgDiff = totalDiff / (count - 1)
+                    scanTimestampsRef.current = []
+
+                    if (avgDiff < 45) {
+                      // Fue un escaneo con lector de código de barras
+                      e.preventDefault()
+                      const codeToAnimate = barcodeInput.trim()
+                      if (codeToAnimate) {
+                        animateAndSubmitScan(codeToAnimate)
+                      }
+                      return
+                    }
+                  }
+
+                  // Si fue escrito manualmente a velocidad humana (> 45ms), Enter procesa directo
+                  scanTimestampsRef.current = []
+                  return
+                }
+
+                // Guardar timestamps solo de teclas de caracteres regulares
+                if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                  // Si pasó más de 500ms desde la última tecla, reiniciar lista de timestamps
+                  if (
+                    scanTimestampsRef.current.length > 0 &&
+                    now - scanTimestampsRef.current[scanTimestampsRef.current.length - 1] > 500
+                  ) {
+                    scanTimestampsRef.current = [now]
+                  } else {
+                    scanTimestampsRef.current.push(now)
+                    // Mantener solo los últimos 40 timestamps para evitar acumulación
+                    if (scanTimestampsRef.current.length > 40) {
+                      scanTimestampsRef.current.shift()
+                    }
+                  }
                 }
               }}
               placeholder={barcodeError || 'Escanear código de barras o escribir código y presionar Enter...'}
-              className={`w-full pl-9 pr-4 py-2 rounded-xl text-sm font-mono placeholder:font-sans focus:outline-none uppercase shadow-inner transition-all border-[1.5px] ${
+              className={`w-full pl-9 pr-4 py-2 rounded-xl text-sm font-mono placeholder:font-sans focus:outline-none uppercase shadow-inner transition-all border ${
                 barcodeError
-                  ? 'input-barcode-error border-rose-500 bg-rose-50/50 text-rose-700 duration-100'
-                  : 'bg-slate-50 border-slate-300 focus:border-lilac-500 focus:bg-white text-slate-800 placeholder:text-slate-400 duration-700 ease-out'
+                  ? 'input-barcode-error border-rose-500 bg-rose-50 text-rose-700 duration-100'
+                  : 'bg-slate-50 border-slate-200 focus:border-lilac-500 focus:bg-white text-slate-800 placeholder:text-slate-400 duration-700 ease-out'
               }`}
             />
           </div>
 
           <button
             type="submit"
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-colors shadow-xs"
+            className="px-4 py-2 bg-lilac-600 hover:bg-lilac-700 text-white rounded-xl text-xs font-bold transition-colors shadow-xs cursor-pointer border border-lilac-600 dark:border-lilac-500"
           >
             Agregar (Enter)
           </button>
@@ -721,7 +849,7 @@ export const SalesView: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsSearchModalOpen(true)}
-            className="px-4 py-2 bg-lilac-100 hover:bg-lilac-200 text-lilac-800 border border-lilac-300 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs"
+            className="px-4 py-2 bg-lilac-100 hover:bg-lilac-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-lilac-800 dark:text-lilac-300 border border-lilac-300 dark:border-slate-600 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
           >
             <Search className="w-3.5 h-3.5" />
             <span>Buscar (F10)</span>
@@ -1013,24 +1141,24 @@ export const SalesView: React.FC = () => {
       </div>
 
       {/* Bottom Footer Bar: Totals & Action Buttons */}
-      <div className="bg-white border-t border-lilac-200 px-6 py-3 flex items-center justify-between shadow-lg">
+      <div className="bg-white dark:bg-slate-800 border-t border-lilac-200 dark:border-slate-700 px-6 py-3 flex items-center justify-between shadow-lg">
         {/* Left Side Buttons & Hint */}
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => setIsHistoryModalOpen(true)}
-            className="px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-lilac-50 hover:border-lilac-300 text-xs font-bold text-slate-700 hover:text-lilac-700 flex items-center gap-2 transition-all shadow-sm cursor-pointer"
+            className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/80 hover:bg-lilac-50 dark:hover:bg-slate-700 hover:border-lilac-300 dark:hover:border-slate-600 text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-lilac-700 dark:hover:text-lilac-300 flex items-center gap-2 transition-all shadow-sm cursor-pointer"
           >
-            <History className="w-4 h-4 text-lilac-600" />
+            <History className="w-4 h-4 text-lilac-600 dark:text-lilac-400" />
             <span>Historial de Ventas</span>
           </button>
 
           <button
             type="button"
             onClick={() => setIsWithdrawalModalOpen(true)}
-            className="px-3.5 py-2 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-xs font-bold text-amber-850 hover:text-amber-900 flex items-center gap-2 transition-all shadow-sm cursor-pointer"
+            className="px-3.5 py-2 rounded-xl border border-amber-200 dark:border-amber-700/60 bg-amber-50 dark:bg-slate-700/80 hover:bg-amber-100 dark:hover:bg-slate-700 text-xs font-bold text-amber-850 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-200 flex items-center gap-2 transition-all shadow-sm cursor-pointer"
           >
-            <ArrowUpRight className="w-4 h-4 text-amber-600" />
+            <ArrowUpRight className="w-4 h-4 text-amber-600 dark:text-amber-400" />
             <span>Salida de Dinero</span>
           </button>
         </div>
@@ -1040,31 +1168,31 @@ export const SalesView: React.FC = () => {
           <div className="flex items-center gap-6">
             <div className="text-right">
               <span className="text-xs text-slate-400 font-medium">Nuevos artículos:</span>
-              <div className="text-sm font-bold text-slate-700">{totalItemsCount} unidades</div>
-              <div className="text-xs text-slate-500 font-semibold">{formatCLP(totalAmount)}</div>
+              <div className="text-sm font-bold text-slate-700 dark:text-slate-200">{totalItemsCount} unidades</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 font-semibold">{formatCLP(totalAmount)}</div>
             </div>
 
             <div className="text-right">
               <span className="text-xs text-slate-400 font-medium">Crédito aplicado:</span>
-              <div className="text-sm font-bold text-amber-700">− {formatCLP(exchangeInfo.exchangeCredit)}</div>
+              <div className="text-sm font-bold text-amber-700 dark:text-amber-400">− {formatCLP(exchangeInfo.exchangeCredit)}</div>
             </div>
 
             {exchangeBalance.status === 'insufficient' ? (
               <div className="text-right">
                 <span className="text-xs text-rose-500 font-bold block">Falta por cubrir:</span>
-                <span className="text-2xl font-black text-rose-600">
+                <span className="text-2xl font-black text-rose-600 dark:text-rose-400">
                   {formatCLP(exchangeBalance.remainingCredit)}
                 </span>
               </div>
             ) : exchangeBalance.status === 'exact' ? (
               <div className="text-right">
-                <span className="text-xs text-emerald-600 font-bold block">Cambio Exacto:</span>
-                <span className="text-2xl font-black text-emerald-700">$ 0</span>
+                <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold block">Cambio Exacto:</span>
+                <span className="text-2xl font-black text-emerald-700 dark:text-emerald-400">$ 0</span>
               </div>
             ) : (
               <div className="text-right">
-                <span className="text-xs text-amber-600 font-bold block">Diferencia a Pagar:</span>
-                <span className="text-3xl font-black text-slate-900">
+                <span className="text-xs text-amber-600 dark:text-amber-400 font-bold block">Diferencia a Pagar:</span>
+                <span className="text-3xl font-black text-slate-900 dark:text-white">
                   {formatCLP(exchangeBalance.differenceToPay)}
                 </span>
               </div>
@@ -1075,10 +1203,10 @@ export const SalesView: React.FC = () => {
                 type="button"
                 onClick={handleCobrarClick}
                 disabled={activeTicket.items.length === 0}
-                className="px-8 py-3.5 rounded-2xl font-black text-base transition-all shadow-md bg-slate-200 text-slate-500 cursor-not-allowed flex items-center gap-2 active:scale-[0.99] disabled:opacity-50"
+                className="px-8 py-3.5 rounded-2xl font-black text-base transition-all shadow-md bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed flex items-center gap-2 active:scale-[0.99] disabled:opacity-50"
                 title={`No es posible cobrar: Faltan ${formatCLP(exchangeBalance.remainingCredit)} por cubrir.`}
               >
-                <AlertTriangle className="w-5 h-5 text-amber-600" />
+                <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                 <span>Cobrar (Faltan {formatCLP(exchangeBalance.remainingCredit)})</span>
               </button>
             ) : exchangeBalance.status === 'exact' ? (
@@ -1107,12 +1235,12 @@ export const SalesView: React.FC = () => {
           <div className="flex items-center gap-6">
             <div className="text-right">
               <span className="text-xs text-slate-400 font-medium">Artículos en ticket:</span>
-              <div className="text-sm font-bold text-slate-700">{totalItemsCount} unidades</div>
+              <div className="text-sm font-bold text-slate-700 dark:text-slate-200">{totalItemsCount} unidades</div>
             </div>
 
             <div className="text-right">
               <span className="text-xs text-slate-400 font-medium">Total a Pagar:</span>
-              <div className="text-3xl font-black text-slate-900 tracking-tight">
+              <div className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
                 {formatCLP(totalAmount)}
               </div>
             </div>

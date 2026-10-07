@@ -1083,11 +1083,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl border border-lilac-100 max-w-3xl w-full overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150 select-text">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-lilac-100 dark:border-slate-800 max-w-3xl w-full overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150 select-text">
         {/* Modal Header */}
-        <div className="px-6 py-4 bg-slate-50 border-b border-lilac-100 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2 text-slate-800 font-bold text-base">
-            <div className="w-8 h-8 rounded-lg bg-lilac-100 text-lilac-600 flex items-center justify-center">
+        <div className="px-6 py-4 bg-white dark:bg-slate-850 border-b border-lilac-100 dark:border-slate-800 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2 text-slate-800 dark:text-slate-100 font-bold text-base">
+            <div className="w-8 h-8 rounded-lg bg-lilac-100 dark:bg-slate-800 text-lilac-600 dark:text-lilac-400 flex items-center justify-center">
               <Package className="w-4 h-4" />
             </div>
             <span>
@@ -1100,7 +1100,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200 transition-colors"
+            className="text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -1109,21 +1109,21 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         {/* Modal Body */}
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5">
           {error && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium">
+            <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-xl text-xs text-rose-700 dark:text-rose-300 font-medium">
               {error}
             </div>
           )}
 
           {/* Selector de Tipo (Simple vs Variable) - Solo al crear nuevo producto */}
           {!product && (
-            <div className="flex items-center gap-3 bg-slate-100/80 p-1.5 rounded-xl border border-slate-200/60">
+            <div className="flex items-center gap-3 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-xl border border-slate-200/60 dark:border-slate-700">
               <button
                 type="button"
                 onClick={() => setProductType('simple')}
                 className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                   productType === 'simple'
-                    ? 'bg-white text-lilac-700 shadow-sm border border-lilac-200'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-white dark:bg-slate-700 text-lilac-700 dark:text-lilac-300 shadow-sm border border-lilac-200 dark:border-slate-600'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
                 <Package className="w-3.5 h-3.5" />
@@ -1134,8 +1134,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 onClick={() => setProductType('variable')}
                 className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                   productType === 'variable'
-                    ? 'bg-white text-lilac-700 shadow-sm border border-lilac-200'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-white dark:bg-slate-700 text-lilac-700 dark:text-lilac-300 shadow-sm border border-lilac-200 dark:border-slate-600'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
                 <GitBranch className="w-3.5 h-3.5" />
@@ -1148,21 +1148,21 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           {isEditingVariation ? (
             <div className="space-y-5">
               {/* Parte 1: Producto Padre */}
-              <div className="bg-slate-200/80 border border-slate-300 rounded-2xl p-4 space-y-4 shadow-sm">
-                <div className="flex items-center justify-between border-b border-slate-300 pb-2">
-                  <span className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                    <Package className="w-3.5 h-3.5 text-lilac-600" />
+              <div className="bg-slate-200/80 dark:bg-slate-800/60 border border-slate-300 dark:border-slate-700 rounded-2xl p-4 space-y-4 shadow-sm">
+                <div className="flex items-center justify-between border-b border-slate-300 dark:border-slate-700 pb-2">
+                  <span className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-1.5">
+                    <Package className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
                     <span>1. Datos del Producto Padre</span>
                   </span>
-                  <span className="text-[11px] text-slate-700 font-medium">Contenedor General</span>
+                  <span className="text-[11px] text-slate-700 dark:text-slate-400 font-medium">Contenedor General</span>
                 </div>
 
                 {/* Banner de Aviso */}
-                <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-950 flex items-start gap-2.5">
-                  <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                <div className="p-3 bg-amber-50 dark:bg-slate-800/90 border border-amber-300 dark:border-amber-700/60 rounded-xl text-xs text-amber-950 dark:text-amber-200 flex items-start gap-2.5">
+                  <AlertTriangle className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
                   <div>
                     <p className="font-bold">Aviso importante:</p>
-                    <p className="text-[11px] text-amber-900 mt-0.5 font-medium">
+                    <p className="text-[11px] text-amber-900 dark:text-amber-300/90 mt-0.5 font-medium">
                       Al modificar cualquier dato del producto padre (nombre, categoría, proveedores, precios o inv. mínimo), se abrirá una confirmación para aplicar y sincronizar los cambios en todas las variaciones.
                     </p>
                   </div>
@@ -1171,7 +1171,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 {/* Nombre Padre y Atributo */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-bold text-slate-900 mb-1">
+                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1">
                       Nombre del Producto Padre *
                     </label>
                     <input
@@ -1179,11 +1179,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       value={parentName}
                       onChange={(e) => setParentName(capitalizeWords(e.target.value))}
                       placeholder="Ej: Algodón Rústico"
-                      className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-lilac-500 font-bold text-slate-900 placeholder:text-slate-900"
+                      className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-900 mb-1">
+                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1">
                       Atributo General
                     </label>
                     <input
@@ -1191,7 +1191,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       value={attributeName}
                       onChange={(e) => setAttributeName(capitalizeWords(e.target.value))}
                       placeholder="Ej: Color, Talla"
-                      className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-lilac-500 font-medium text-slate-900 placeholder:text-slate-900"
+                      className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-medium text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
                   </div>
                 </div>
@@ -1211,10 +1211,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 />
 
                 {/* Precios e Inventario Mínimo Generales del Padre */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-white p-3.5 rounded-xl border border-slate-300">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-slate-300 dark:border-slate-700">
                   <div>
-                    <label className="block text-xs font-bold text-slate-900 mb-1 flex items-center gap-1">
-                      <DollarSign className="w-3.5 h-3.5 text-lilac-600" />
+                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
+                      <DollarSign className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
                       <span>Precio de Venta Base (CLP)</span>
                     </label>
                     <input
@@ -1222,16 +1222,16 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       value={parentSalePrice}
                       onChange={(e) => handleParentSalePriceChange(e.target.value)}
                       placeholder="Ej: 3.500"
-                      className="w-full px-3 py-2 text-sm font-bold text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-900"
+                      className="w-full px-3 py-2 text-sm font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
-                    <span className="text-[10px] text-slate-600 mt-1 block font-medium">
+                    <span className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 block font-medium">
                       Precio general para las variaciones.
                     </span>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-900 mb-1 flex items-center gap-1">
-                      <DollarSign className="w-3.5 h-3.5 text-slate-500" />
+                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
+                      <DollarSign className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                       <span>Precio de Costo Base (CLP)</span>
                     </label>
                     <input
@@ -1239,16 +1239,16 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       value={parentCostPrice}
                       onChange={(e) => handleParentCostPriceChange(e.target.value)}
                       placeholder="Opcional"
-                      className="w-full px-3 py-2 text-sm font-medium text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-900"
+                      className="w-full px-3 py-2 text-sm font-medium text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
-                    <span className="text-[10px] text-slate-600 mt-1 block font-medium">
+                    <span className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 block font-medium">
                       Costo base general.
                     </span>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-900 mb-1 flex items-center gap-1">
-                      <AlertTriangle className="w-3.5 h-3.5 text-slate-500" />
+                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
+                      <AlertTriangle className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                       <span>Inv. Mínimo General</span>
                     </label>
                     <input
@@ -1257,9 +1257,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       value={parentMinStock}
                       onChange={(e) => handleParentMinStockChange(e.target.value)}
                       placeholder="5"
-                      className="w-full px-3 py-2 text-sm font-medium text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-900"
+                      className="w-full px-3 py-2 text-sm font-medium text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
-                    <span className="text-[10px] text-slate-600 mt-1 block font-medium">
+                    <span className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 block font-medium">
                       Alerta stock bajo para variaciones.
                     </span>
                   </div>
@@ -1267,13 +1267,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               </div>
 
               {/* Parte 2: Variación Específica Seleccionada */}
-              <div className="bg-slate-200/80 border border-slate-300 rounded-2xl p-4 space-y-4 shadow-sm">
-                <div className="flex items-center justify-between border-b border-slate-300 pb-2">
-                  <span className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                    <GitBranch className="w-3.5 h-3.5 text-lilac-600" />
+              <div className="bg-slate-200/80 dark:bg-slate-800/60 border border-slate-300 dark:border-slate-700 rounded-2xl p-4 space-y-4 shadow-sm">
+                <div className="flex items-center justify-between border-b border-slate-300 dark:border-slate-700 pb-2">
+                  <span className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-1.5">
+                    <GitBranch className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
                     <span>2. Valores Específicos de la Variación</span>
                   </span>
-                  <span className="text-xs font-bold text-lilac-900 bg-lilac-200 px-2.5 py-0.5 rounded-full">
+                  <span className="text-xs font-bold text-lilac-900 dark:text-lilac-300 bg-lilac-200 dark:bg-slate-700 dark:border dark:border-slate-600 px-2.5 py-0.5 rounded-full">
                     {attributeValue || 'Sin valor'}
                   </span>
                 </div>
@@ -1281,7 +1281,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   {/* Código de barras / SKU (Editable) */}
                   <div>
-                    <label className="block text-xs font-bold text-slate-900 mb-1">
+                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1">
                       Código de Barras / SKU *
                     </label>
                     <input
@@ -1297,16 +1297,16 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         }
                       }}
                       placeholder="Ej: 780123456"
-                      className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-xl font-mono text-slate-900 font-bold focus:outline-none focus:border-lilac-500 uppercase placeholder:text-slate-900 shadow-2xs"
+                      className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl font-mono text-slate-900 dark:text-white font-bold focus:outline-none focus:border-lilac-500 uppercase placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-2xs"
                     />
-                    <span className="text-[10px] text-slate-600 mt-1 block font-medium">
+                    <span className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 block font-medium">
                       Conserva historial en el kardex.
                     </span>
                   </div>
 
                   {/* Valor del Atributo */}
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-bold text-slate-900 mb-1">
+                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1">
                       Valor de la Variación ({attributeName || 'Atributo'}) *
                     </label>
                     <input
@@ -1315,16 +1315,16 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       value={attributeValue}
                       onChange={(e) => setAttributeValue(capitalizeWords(e.target.value))}
                       placeholder="Ej: Azul Marino, Rojo, XL..."
-                      className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-lilac-500 placeholder:text-slate-900 shadow-2xs"
+                      className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-slate-900 dark:text-white focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-2xs"
                     />
                   </div>
                 </div>
 
                 {/* Precios e Inventario (4 Columnas) */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white p-3.5 rounded-xl border border-slate-300 shadow-2xs">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-slate-300 dark:border-slate-700 shadow-2xs">
                   <div>
-                    <label className="block text-xs font-bold text-slate-900 mb-1 flex items-center gap-1">
-                      <DollarSign className="w-3.5 h-3.5 text-lilac-600" />
+                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
+                      <DollarSign className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
                       <span>Precio de Venta (CLP) *</span>
                     </label>
                     <input
@@ -1335,12 +1335,12 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         setSalePrice(val === 0 && !e.target.value.trim() ? '' : val.toLocaleString('es-CL'))
                       }}
                       placeholder="0"
-                      className="w-full px-3 py-2 text-sm font-bold text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-900"
+                      className="w-full px-3 py-2 text-sm font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-900 mb-1 flex items-center gap-1">
-                      <DollarSign className="w-3.5 h-3.5 text-slate-500" />
+                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
+                      <DollarSign className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                       <span>Precio Costo (CLP)</span>
                     </label>
                     <input
@@ -1351,23 +1351,23 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         setCostPrice(val === 0 && !e.target.value.trim() ? '' : val.toLocaleString('es-CL'))
                       }}
                       placeholder="Opcional"
-                      className="w-full px-3 py-2 text-sm font-medium text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-900"
+                      className="w-full px-3 py-2 text-sm font-medium text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-900 mb-1 flex items-center gap-1">
-                      <Boxes className="w-3.5 h-3.5 text-lilac-600" />
+                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
+                      <Boxes className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
                       <span>Existencia (Stock)</span>
                     </label>
                     {product ? (
                       <div
                         onClick={handleVariationStockFieldClick}
-                        className="w-full px-3 py-2 text-sm bg-slate-100 hover:bg-slate-200/80 border border-slate-300 rounded-xl font-bold text-slate-700 flex items-center justify-between cursor-pointer transition-colors group shadow-2xs"
+                        className="w-full px-3 py-2 text-sm bg-slate-100 dark:bg-slate-900 hover:bg-slate-200/80 dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-slate-700 dark:text-slate-200 flex items-center justify-between cursor-pointer transition-colors group shadow-2xs"
                         title="La existencia no se puede editar directamente. Haz clic para ir a Ajustar Inventario."
                       >
-                        <span className="font-mono text-slate-900">{product.stock ?? 0}</span>
-                        <div className="flex items-center gap-1 text-[11px] text-lilac-700 font-semibold group-hover:underline">
-                          <Lock className="w-3.5 h-3.5 text-slate-400 group-hover:text-lilac-600" />
+                        <span className="font-mono text-slate-900 dark:text-white">{product.stock ?? 0}</span>
+                        <div className="flex items-center gap-1 text-[11px] text-lilac-700 dark:text-lilac-300 font-semibold group-hover:underline">
+                          <Lock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 group-hover:text-lilac-600 dark:group-hover:text-lilac-400" />
                           <span>Ajustar</span>
                         </div>
                       </div>
@@ -1378,13 +1378,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         onChange={(e) => setStock(e.target.value)}
                         min="0"
                         placeholder="Stock inicial"
-                        className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-lilac-500 font-bold text-slate-900 placeholder:text-slate-900"
+                        className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                       />
                     )}
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-900 mb-1 flex items-center gap-1">
-                      <AlertTriangle className="w-3.5 h-3.5 text-slate-500" />
+                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
+                      <AlertTriangle className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                       <span>Inv. Mínimo (Alerta)</span>
                     </label>
                     <input
@@ -1392,7 +1392,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       value={minStock}
                       onChange={(e) => setMinStock(e.target.value)}
                       min="0"
-                      className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-lilac-500 font-medium text-slate-900 placeholder:text-slate-900"
+                      className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-medium text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
                   </div>
                 </div>
@@ -1400,20 +1400,20 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             </div>
           ) : productType === 'simple' ? (
             /* CASO B: PRODUCTO SIMPLE (UNA SOLA TARJETA) */
-            <div className="bg-slate-200/80 border border-slate-300 rounded-2xl p-4 space-y-4 shadow-sm">
+            <div className="bg-slate-200/80 dark:bg-slate-800/60 border border-slate-300 dark:border-slate-700 rounded-2xl p-4 space-y-4 shadow-sm">
               {/* Cabecera de la Tarjeta */}
-              <div className="flex items-center justify-between border-b border-slate-300 pb-2">
-                <span className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                  <Package className="w-3.5 h-3.5 text-lilac-600" />
+              <div className="flex items-center justify-between border-b border-slate-300 dark:border-slate-700 pb-2">
+                <span className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-1.5">
+                  <Package className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
                   <span>Datos del Producto Simple</span>
                 </span>
-                <span className="text-[11px] text-slate-700 font-medium">SKU Único</span>
+                <span className="text-[11px] text-slate-700 dark:text-slate-400 font-medium">SKU Único</span>
               </div>
 
               {/* Fila 1: Código (1/3) + Nombre (2/3) */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-900 mb-1">
+                  <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1">
                     Código de Barras / SKU * (Editable)
                   </label>
                   <input
@@ -1429,17 +1429,17 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       }
                     }}
                     placeholder="Ej: 780123456"
-                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-xl font-mono font-bold focus:outline-none focus:border-lilac-500 uppercase text-slate-900 placeholder:text-slate-900 shadow-2xs"
+                    className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl font-mono font-bold focus:outline-none focus:border-lilac-500 uppercase text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-2xs"
                   />
                   {product && (
-                    <span className="text-[10px] text-slate-600 mt-1 block font-medium">
+                    <span className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 block font-medium">
                       Si modificas el código, se mantendrán intactos los movimientos en el kardex y ventas pasadas.
                     </span>
                   )}
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-bold text-slate-900 mb-1">
+                  <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1">
                     Nombre del Producto *
                   </label>
                   <input
@@ -1448,7 +1448,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     value={name}
                     onChange={(e) => setName(capitalizeWords(e.target.value))}
                     placeholder="Ej: Crochet Aluminio 4.0mm"
-                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-lilac-500 font-bold text-slate-900 placeholder:text-slate-900 shadow-2xs"
+                    className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-2xs"
                   />
                 </div>
               </div>
@@ -1458,7 +1458,6 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 selectedCategoryId={selectedCategoryId}
                 onSelectCategory={setSelectedCategoryId}
                 title="Categoría"
-                className="bg-white"
               />
 
               {/* Fila 3: Proveedores Asociados */}
@@ -1469,10 +1468,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               />
 
               {/* Fila 4: Bloque Unificado de 4 Columnas: Precios e Inventario */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white p-3.5 rounded-xl border border-slate-300 shadow-2xs">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-slate-300 dark:border-slate-700 shadow-2xs">
                 <div>
-                  <label className="block text-xs font-bold text-slate-900 mb-1 flex items-center gap-1">
-                    <DollarSign className="w-3.5 h-3.5 text-lilac-600" />
+                  <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
+                    <DollarSign className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
                     <span>Precio de Venta (CLP) *</span>
                   </label>
                   <input
@@ -1483,13 +1482,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       setSalePrice(val === 0 && !e.target.value.trim() ? '' : val.toLocaleString('es-CL'))
                     }}
                     placeholder="0"
-                    className="w-full px-3 py-2 text-sm font-bold text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-900"
+                    className="w-full px-3 py-2 text-sm font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-900 mb-1 flex items-center gap-1">
-                    <DollarSign className="w-3.5 h-3.5 text-slate-500" />
+                  <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
+                    <DollarSign className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                     <span>Precio Costo (CLP)</span>
                   </label>
                   <input
@@ -1500,24 +1499,24 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       setCostPrice(val === 0 && !e.target.value.trim() ? '' : val.toLocaleString('es-CL'))
                     }}
                     placeholder="Opcional"
-                    className="w-full px-3 py-2 text-sm font-medium text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-900"
+                    className="w-full px-3 py-2 text-sm font-medium text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-900 mb-1 flex items-center gap-1">
-                    <Boxes className="w-3.5 h-3.5 text-lilac-600" />
+                  <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
+                    <Boxes className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
                     <span>Existencia (Stock)</span>
                   </label>
                   {product ? (
                     <div
                       onClick={handleStockFieldClick}
-                      className="w-full px-3 py-2 text-sm bg-slate-100 hover:bg-slate-200/80 border border-slate-300 rounded-xl font-bold text-slate-700 flex items-center justify-between cursor-pointer transition-colors group shadow-2xs"
+                      className="w-full px-3 py-2 text-sm bg-slate-100 dark:bg-slate-900 hover:bg-slate-200/80 dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-slate-700 dark:text-slate-200 flex items-center justify-between cursor-pointer transition-colors group shadow-2xs"
                       title="La existencia no se puede editar directamente. Haz clic para ir a Ajustar Inventario."
                     >
-                      <span className="font-mono text-slate-900">{product.stock ?? 0}</span>
-                      <div className="flex items-center gap-1 text-[11px] text-lilac-700 font-semibold group-hover:underline">
-                        <Lock className="w-3.5 h-3.5 text-slate-400 group-hover:text-lilac-600" />
+                      <span className="font-mono text-slate-900 dark:text-white">{product.stock ?? 0}</span>
+                      <div className="flex items-center gap-1 text-[11px] text-lilac-700 dark:text-lilac-300 font-semibold group-hover:underline">
+                        <Lock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 group-hover:text-lilac-600 dark:group-hover:text-lilac-400" />
                         <span>Ajustar</span>
                       </div>
                     </div>
@@ -1528,14 +1527,14 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       onChange={(e) => setStock(e.target.value)}
                       min="0"
                       placeholder="Stock inicial"
-                      className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-lilac-500 font-bold text-slate-900 placeholder:text-slate-900"
+                      className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-900 mb-1 flex items-center gap-1">
-                    <AlertTriangle className="w-3.5 h-3.5 text-slate-500" />
+                  <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                     <span>Inv. Mínimo (Alerta)</span>
                   </label>
                   <input
@@ -1543,7 +1542,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     value={minStock}
                     onChange={(e) => setMinStock(e.target.value)}
                     min="0"
-                    className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-lilac-500 font-medium text-slate-900 placeholder:text-slate-900"
+                    className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-medium text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                   />
                 </div>
               </div>
@@ -1552,19 +1551,19 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             /* CASO C: NUEVO PRODUCTO VARIABLE (DOS TARJETAS: PADRE Y VARIACIONES) */
             <div className="space-y-5">
               {/* Tarjeta 1: Datos del Producto Padre */}
-              <div className="bg-slate-200/80 border border-slate-300 rounded-2xl p-4 space-y-4 shadow-sm">
-                <div className="flex items-center justify-between border-b border-slate-300 pb-2">
-                  <span className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                    <Package className="w-3.5 h-3.5 text-lilac-600" />
+              <div className="bg-slate-200/80 dark:bg-slate-800/60 border border-slate-300 dark:border-slate-700 rounded-2xl p-4 space-y-4 shadow-sm">
+                <div className="flex items-center justify-between border-b border-slate-300 dark:border-slate-700 pb-2">
+                  <span className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-1.5">
+                    <Package className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
                     <span>1. Datos del Producto Padre</span>
                   </span>
-                  <span className="text-[11px] text-slate-700 font-medium">Contenedor General</span>
+                  <span className="text-[11px] text-slate-700 dark:text-slate-400 font-medium">Contenedor General</span>
                 </div>
 
                 {/* Nombre General y Atributo */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-bold text-slate-900 mb-1">
+                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1">
                       Nombre General del Producto Variable *
                     </label>
                     <input
@@ -1573,11 +1572,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       value={name}
                       onChange={(e) => setName(capitalizeWords(e.target.value))}
                       placeholder="Ej: Algodón Rústico"
-                      className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-lilac-500 font-bold text-slate-900 placeholder:text-slate-900 shadow-2xs"
+                      className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-2xs"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-900 mb-1">
+                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1">
                       Atributo Diferenciador *
                     </label>
                     <input
@@ -1585,7 +1584,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       value={attributeName}
                       onChange={(e) => setAttributeName(capitalizeWords(e.target.value))}
                       placeholder="Ej: Color, Talla, Grosor"
-                      className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-lilac-500 font-medium text-slate-900 placeholder:text-slate-900 shadow-2xs"
+                      className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-medium text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-2xs"
                     />
                   </div>
                 </div>
@@ -1595,7 +1594,6 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   selectedCategoryId={selectedCategoryId}
                   onSelectCategory={setSelectedCategoryId}
                   title="Categoría Compartida"
-                  className="bg-white"
                 />
 
                 {/* Proveedores Compartidos */}
@@ -1606,21 +1604,21 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 />
 
                 {/* Valores por defecto para las Variaciones */}
-                <div className="bg-white border border-slate-300 rounded-xl p-3.5 space-y-2.5 shadow-2xs">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
-                    <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                      <DollarSign className="w-3.5 h-3.5 text-lilac-600" />
+                <div className="bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl p-3.5 space-y-2.5 shadow-2xs">
+                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-1.5">
+                    <span className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                      <DollarSign className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
                       <span>Valores Base / por Defecto para las Variaciones</span>
                     </span>
-                    <span className="text-[11px] text-slate-600 font-medium">
+                    <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">
                       Se asignarán por defecto al agregar nuevas variaciones
                     </span>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
                     <div>
-                      <label className="block text-xs font-bold text-slate-900 mb-1 flex items-center gap-1">
-                        <DollarSign className="w-3.5 h-3.5 text-lilac-600" />
+                      <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
+                        <DollarSign className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
                         <span>Precio Venta Base (CLP)</span>
                       </label>
                       <input
@@ -1631,12 +1629,12 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                           setSalePrice(val === 0 && !e.target.value.trim() ? '' : val.toLocaleString('es-CL'))
                         }}
                         placeholder="Ej: 3.500"
-                        className="w-full px-3 py-2 text-sm font-bold text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-900"
+                        className="w-full px-3 py-2 text-sm font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-900 mb-1 flex items-center gap-1">
-                        <DollarSign className="w-3.5 h-3.5 text-slate-500" />
+                      <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
+                        <DollarSign className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                         <span>Precio Costo Base (CLP)</span>
                       </label>
                       <input
@@ -1647,21 +1645,21 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                           setCostPrice(val === 0 && !e.target.value.trim() ? '' : val.toLocaleString('es-CL'))
                         }}
                         placeholder="Opcional"
-                        className="w-full px-3 py-2 text-sm font-medium text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-900"
+                        className="w-full px-3 py-2 text-sm font-medium text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-900 mb-1 flex items-center gap-1">
-                        <AlertTriangle className="w-3.5 h-3.5 text-slate-500" />
+                      <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
+                        <AlertTriangle className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                         <span>Inv. Mínimo General</span>
                       </label>
                       <input
                         type="number"
-                        min="0"
+                        min={0}
                         value={minStock}
                         onChange={(e) => setMinStock(e.target.value)}
                         placeholder="5"
-                        className="w-full px-3 py-2 text-sm font-medium text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-900"
+                        className="w-full px-3 py-2 text-sm font-medium text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                       />
                     </div>
                   </div>
@@ -1669,14 +1667,14 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               </div>
 
               {/* Tarjeta 2: Variaciones */}
-              <div className="bg-slate-200/80 border border-slate-300 rounded-2xl p-4 space-y-4 shadow-sm">
-                <div className="flex items-center justify-between border-b border-slate-300 pb-2">
+              <div className="bg-slate-200/80 dark:bg-slate-800/60 border border-slate-300 dark:border-slate-700 rounded-2xl p-4 space-y-4 shadow-sm">
+                <div className="flex items-center justify-between border-b border-slate-300 dark:border-slate-700 pb-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                      <GitBranch className="w-3.5 h-3.5 text-lilac-600" />
+                    <span className="text-xs font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider flex items-center gap-1.5">
+                      <GitBranch className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
                       <span>2. Variaciones del Producto</span>
                     </span>
-                    <span className="text-xs font-bold text-lilac-900 bg-lilac-200 px-2.5 py-0.5 rounded-full">
+                    <span className="text-xs font-bold text-lilac-900 dark:text-lilac-300 bg-lilac-200 dark:bg-slate-700 dark:border dark:border-slate-600 px-2.5 py-0.5 rounded-full">
                       {variations.length} {variations.length === 1 ? 'variación' : 'variaciones'}
                     </span>
                   </div>
@@ -1685,7 +1683,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     <button
                       type="button"
                       onClick={handleAddVariation}
-                      className="text-xs text-lilac-700 hover:text-lilac-800 font-bold flex items-center gap-1 hover:underline cursor-pointer"
+                      className="text-xs text-lilac-700 hover:text-lilac-800 dark:text-lilac-400 dark:hover:text-lilac-300 font-bold flex items-center gap-1 hover:underline cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Agregar Variación</span>
@@ -1694,14 +1692,14 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 </div>
 
                 {variations.length === 0 ? (
-                  <div className="p-8 border-2 border-dashed border-slate-300 rounded-xl bg-white flex flex-col items-center justify-center text-center shadow-2xs">
-                    <div className="w-12 h-12 rounded-2xl bg-lilac-100 text-lilac-600 flex items-center justify-center mb-3 shadow-inner">
+                  <div className="p-8 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 flex flex-col items-center justify-center text-center shadow-2xs">
+                    <div className="w-12 h-12 rounded-2xl bg-lilac-100 dark:bg-slate-700 text-lilac-600 dark:text-lilac-400 flex items-center justify-center mb-3 shadow-inner">
                       <GitBranch className="w-6 h-6" />
                     </div>
-                    <h4 className="text-sm font-bold text-slate-900 mb-1">
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-1">
                       Aún no hay variaciones registradas
                     </h4>
-                    <p className="text-xs text-slate-600 max-w-sm mb-4 font-medium">
+                    <p className="text-xs text-slate-600 dark:text-slate-400 max-w-sm mb-4 font-medium">
                       Crea las distintas variantes (por {attributeName || 'atributo'}, código propio y existencias) para este producto variable.
                     </p>
                     <button
@@ -1718,7 +1716,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     {variations.map((v, idx) => (
                       <div
                         key={idx}
-                        className="p-3.5 bg-white border border-slate-300 rounded-xl space-y-2.5 shadow-2xs hover:border-slate-400 transition-colors"
+                        className="p-3.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl space-y-2.5 shadow-2xs hover:border-slate-400 dark:hover:border-slate-600 transition-colors"
                       >
                         {/* Fila 1: Código (1/6), Nombre / Atributo (4/6), Precio Venta (1/6) */}
                         <div className="grid grid-cols-6 gap-2">
@@ -1742,7 +1740,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                                 }
                               }}
                               placeholder="Código *"
-                              className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold focus:outline-none focus:border-lilac-500 uppercase placeholder:normal-case placeholder:font-sans placeholder:text-slate-900 text-slate-900 text-left shadow-2xs"
+                              className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono font-bold focus:outline-none focus:border-lilac-500 uppercase placeholder:normal-case placeholder:font-sans placeholder:text-slate-400 dark:placeholder:text-slate-500 text-slate-900 dark:text-white text-left shadow-2xs"
                             />
                           </div>
                           <div className="col-span-4">
@@ -1754,7 +1752,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                               value={v.attributeValue}
                               onChange={(e) => handleVariationChange(idx, 'attributeValue', e.target.value)}
                               placeholder={`Nombre / Valor (${attributeName || 'Atributo'}) * (Ej: Negro, Azul, XL)`}
-                              className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs focus:outline-none focus:border-lilac-500 font-bold text-slate-900 placeholder:text-slate-900 text-left shadow-2xs"
+                              className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs focus:outline-none focus:border-lilac-500 font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 text-left shadow-2xs"
                             />
                           </div>
                           <div className="col-span-1">
@@ -1770,7 +1768,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                                 )
                               }}
                               placeholder="P. Venta *"
-                              className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-900 focus:outline-none focus:border-lilac-500 placeholder:text-slate-900 placeholder:font-normal text-left shadow-2xs"
+                              className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500 placeholder:font-normal text-left shadow-2xs"
                             />
                           </div>
                         </div>
@@ -1790,18 +1788,18 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                                 )
                               }}
                               placeholder="P. Costo (opcional)"
-                              className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:border-lilac-500 placeholder:text-slate-900 text-left shadow-2xs"
+                              className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-left shadow-2xs"
                             />
                           </div>
                           <div className="flex-1">
                             {v.id ? (
                               <div
                                 onClick={() => handleVariationRowStockClick(v, idx)}
-                                className="w-full px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200/80 border border-slate-300 rounded-lg text-xs font-bold text-slate-700 flex items-center justify-between cursor-pointer transition-colors group shadow-2xs"
+                                className="w-full px-2.5 py-1.5 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200/80 dark:hover:bg-slate-750 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center justify-between cursor-pointer transition-colors group shadow-2xs"
                                 title="Existencia protegida. Haz clic para ir a Ajustar Inventario."
                               >
-                                <span className="font-mono text-slate-900">{v.stock}</span>
-                                <Lock className="w-3 h-3 text-slate-400 group-hover:text-lilac-600 shrink-0" />
+                                <span className="font-mono text-slate-900 dark:text-white">{v.stock}</span>
+                                <Lock className="w-3 h-3 text-slate-400 dark:text-slate-500 group-hover:text-lilac-600 dark:group-hover:text-lilac-400 shrink-0" />
                               </div>
                             ) : (
                               <input
@@ -1810,7 +1808,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                                 onChange={(e) => handleVariationChange(idx, 'stock', e.target.value)}
                                 min="0"
                                 placeholder="Stock"
-                                className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-900 focus:outline-none focus:border-lilac-500 placeholder:text-slate-900 text-left shadow-2xs"
+                                className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-left shadow-2xs"
                               />
                             )}
                           </div>
@@ -1821,13 +1819,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                               onChange={(e) => handleVariationChange(idx, 'minStock', e.target.value)}
                               min="0"
                               placeholder="Stock Mínimo"
-                              className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-900 focus:outline-none focus:border-lilac-500 placeholder:text-slate-900 text-left shadow-2xs"
+                              className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-left shadow-2xs"
                             />
                           </div>
                           <button
                             type="button"
                             onClick={() => handleRemoveVariation(idx)}
-                            className="p-1.5 text-slate-700 hover:text-rose-600 hover:bg-rose-50 rounded-lg border border-transparent hover:border-rose-200 transition-colors cursor-pointer shrink-0"
+                            className="p-1.5 text-slate-700 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-slate-700 rounded-lg border border-transparent hover:border-rose-200 dark:hover:border-rose-900/50 transition-colors cursor-pointer shrink-0"
                             title="Eliminar variación"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -1841,9 +1839,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       <button
                         type="button"
                         onClick={handleAddVariation}
-                        className="w-full py-2.5 bg-white hover:bg-slate-50 text-slate-900 border border-slate-300 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer hover:border-slate-400 active:scale-[0.99]"
+                        className="w-full py-2.5 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-900 dark:text-slate-100 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer hover:border-slate-400 dark:hover:border-slate-600 active:scale-[0.99]"
                       >
-                        <Plus className="w-4 h-4 text-lilac-600" />
+                        <Plus className="w-4 h-4 text-lilac-600 dark:text-lilac-400" />
                         <span>Agregar Otra Variación</span>
                       </button>
                     </div>
@@ -1854,13 +1852,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           )}
 
           {/* Footer buttons */}
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-2 shrink-0">
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 shrink-0">
             {product ? (
               <button
                 type="button"
                 onClick={handleAttemptDeleteProduct}
                 disabled={isSubmitting}
-                className="px-3.5 py-2 text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200 hover:border-rose-300 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                className="px-3.5 py-2 text-xs font-bold text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 <Trash2 className="w-4 h-4" />
                 <span>Eliminar {isEditingVariation ? 'Variación' : 'Producto'}</span>
@@ -1873,7 +1871,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
               >
                 Cancelar
               </button>
@@ -1893,15 +1891,15 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       {/* Modal de Advertencia: No se puede eliminar si tiene stock */}
       {isStockBlockedModalOpen && stockBlockedInfo && (
         <div className="fixed inset-0 z-60 bg-black/60 flex items-center justify-center p-4 animate-in fade-in duration-150 select-none">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-150">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-amber-50">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-150">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-amber-50 dark:bg-slate-850">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-slate-800 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
                   <AlertTriangle className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-black text-slate-800 text-sm">No es posible eliminar</h3>
-                  <p className="text-[11px] text-amber-800 font-mono truncate max-w-[260px]">
+                  <h3 className="font-black text-slate-800 dark:text-white text-sm">No es posible eliminar</h3>
+                  <p className="text-[11px] text-amber-800 dark:text-amber-300 font-mono truncate max-w-[260px]">
                     {stockBlockedInfo.code || stockBlockedInfo.name}
                   </p>
                 </div>
@@ -1909,39 +1907,39 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               <button
                 type="button"
                 onClick={() => setIsStockBlockedModalOpen(false)}
-                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 flex items-center justify-center cursor-pointer transition-colors"
+                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800 flex items-center justify-center cursor-pointer transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="p-5 space-y-4">
-              <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl space-y-1.5">
-                <span className="font-bold text-amber-950 text-xs block">
+              <div className="p-3.5 bg-amber-50/80 dark:bg-slate-800/80 border border-amber-200 dark:border-amber-800/60 rounded-xl space-y-1.5">
+                <span className="font-bold text-amber-950 dark:text-amber-200 text-xs block">
                   {stockBlockedInfo.name}
                 </span>
-                <p className="text-xs text-amber-900 leading-relaxed">
-                  Para eliminar este producto o variación, <strong className="font-black text-amber-950">no debe tener stock disponible</strong> (su existencia debe ser 0).
+                <p className="text-xs text-amber-900 dark:text-amber-300/90 leading-relaxed">
+                  Para eliminar este producto o variación, <strong className="font-black text-amber-950 dark:text-amber-200">no debe tener stock disponible</strong> (su existencia debe ser 0).
                 </p>
               </div>
 
-              <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs">
-                <span className="font-semibold text-slate-600">Existencia actual registrada:</span>
-                <span className="font-mono font-black text-rose-600 text-sm bg-rose-50 px-2.5 py-0.5 rounded-lg border border-rose-200">
+              <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs">
+                <span className="font-semibold text-slate-600 dark:text-slate-300">Existencia actual registrada:</span>
+                <span className="font-mono font-black text-rose-600 dark:text-rose-300 text-sm bg-rose-50 dark:bg-slate-700 px-2.5 py-0.5 rounded-lg border border-rose-200 dark:border-rose-900/60">
                   {stockBlockedInfo.stock} {stockBlockedInfo.stock === 1 ? 'unidad' : 'unidades'}
                 </span>
               </div>
 
-              <p className="text-[11px] text-slate-500 leading-relaxed">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
                 Debes rebajar o ajustar la existencia a 0 antes de poder dar de baja este producto del catálogo.
               </p>
             </div>
 
-            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+            <div className="p-4 bg-white dark:bg-slate-850 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setIsStockBlockedModalOpen(false)}
-                className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs cursor-pointer transition-colors"
+                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-bold text-xs cursor-pointer transition-colors"
               >
                 Volver
               </button>
@@ -1961,17 +1959,17 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       {/* Modal de Confirmación para Eliminar Producto / Variación Editada (cuando stock es 0) */}
       {isConfirmDeleteProductModalOpen && product && (
         <div className="fixed inset-0 z-60 bg-black/60 flex items-center justify-center p-4 animate-in fade-in duration-150 select-none">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-150">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-rose-50">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-150">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-rose-50 dark:bg-slate-850">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-rose-100 dark:bg-slate-800 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
                   <Trash2 className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-black text-slate-800 text-sm">
+                  <h3 className="font-black text-slate-800 dark:text-white text-sm">
                     {isEditingVariation ? '¿Eliminar variación?' : '¿Eliminar producto?'}
                   </h3>
-                  <p className="text-[11px] text-slate-500 font-mono">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                     {code || product.code || 'Sin código'}
                   </p>
                 </div>
@@ -1980,34 +1978,34 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 type="button"
                 disabled={isSubmitting}
                 onClick={() => setIsConfirmDeleteProductModalOpen(false)}
-                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 flex items-center justify-center cursor-pointer transition-colors"
+                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800 flex items-center justify-center cursor-pointer transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="p-5 space-y-3">
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs space-y-1">
-                <span className="font-bold text-rose-950 block">
+              <div className="p-3 bg-rose-50 dark:bg-slate-800/80 border border-rose-200 dark:border-rose-900/60 rounded-xl text-xs space-y-1">
+                <span className="font-bold text-rose-950 dark:text-rose-200 block">
                   {isEditingVariation
                     ? `${parentName || product.parent_name || ''} ${attributeValue || product.attribute_value || ''}`.trim() || product.name
                     : (name || product.name)}
                 </span>
-                <span className="text-rose-700 text-[11px] block">
+                <span className="text-rose-700 dark:text-rose-300 text-[11px] block">
                   Se realizará un soft delete (se mantendrá en el historial y kardex, pero ya no aparecerá en el catálogo ni en ventas).
                 </span>
               </div>
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
                 ¿Confirmas que deseas eliminar {isEditingVariation ? 'esta variación' : 'este producto'} definitivamente del catálogo activo?
               </p>
             </div>
 
-            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+            <div className="p-4 bg-white dark:bg-slate-850 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2">
               <button
                 type="button"
                 disabled={isSubmitting}
                 onClick={() => setIsConfirmDeleteProductModalOpen(false)}
-                className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs cursor-pointer transition-colors"
+                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-bold text-xs cursor-pointer transition-colors"
               >
                 Cancelar
               </button>
@@ -2028,15 +2026,15 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       {/* Modal de Confirmación para Eliminar Variación de la Lista (si no está vacía) */}
       {variationIndexToDelete !== null && variations[variationIndexToDelete] && (
         <div className="fixed inset-0 z-60 bg-black/60 flex items-center justify-center p-4 animate-in fade-in duration-150 select-none">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-sm w-full overflow-hidden animate-in zoom-in-95 duration-150">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-rose-50">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-sm w-full overflow-hidden animate-in zoom-in-95 duration-150">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-rose-50 dark:bg-slate-850">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-rose-100 dark:bg-slate-800 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
                   <Trash2 className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-800 text-xs">¿Eliminar variación?</h3>
-                  <p className="text-[11px] text-slate-500 font-mono truncate max-w-[200px]">
+                  <h3 className="font-bold text-slate-800 dark:text-white text-xs">¿Eliminar variación?</h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono truncate max-w-[200px]">
                     {variations[variationIndexToDelete].code || `Variación #${variationIndexToDelete + 1}`}
                   </p>
                 </div>
@@ -2044,30 +2042,30 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               <button
                 type="button"
                 onClick={() => setVariationIndexToDelete(null)}
-                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 flex items-center justify-center cursor-pointer transition-colors"
+                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800 flex items-center justify-center cursor-pointer transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="p-4 space-y-2">
-              <p className="text-xs text-slate-700">
+              <p className="text-xs text-slate-700 dark:text-slate-300">
                 ¿Estás seguro de que deseas eliminar la variación{' '}
-                <strong className="font-bold text-slate-900">
+                <strong className="font-bold text-slate-900 dark:text-white">
                   "{variations[variationIndexToDelete].attributeValue || variations[variationIndexToDelete].code || `Variación #${variationIndexToDelete + 1}`}"
                 </strong>
                 ?
               </p>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
                 Se quitará de la lista de variaciones del producto.
               </p>
             </div>
 
-            <div className="p-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+            <div className="p-3.5 bg-white dark:bg-slate-850 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setVariationIndexToDelete(null)}
-                className="px-3.5 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs cursor-pointer transition-colors"
+                className="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-bold text-xs cursor-pointer transition-colors"
               >
                 Cancelar
               </button>
@@ -2087,40 +2085,40 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       {/* Modal de Confirmación para Cambios en Producto Padre */}
       {isConfirmParentModalOpen && (
         <div className="fixed inset-0 z-60 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-amber-50">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-amber-50 dark:bg-slate-850">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-slate-800 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
                   <AlertTriangle className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-black text-slate-800 text-sm">Confirmar Modificación Masiva</h3>
-                  <p className="text-[11px] text-amber-800 font-medium">Producto Padre: {parentName}</p>
+                  <h3 className="font-black text-slate-800 dark:text-white text-sm">Confirmar Modificación Masiva</h3>
+                  <p className="text-[11px] text-amber-800 dark:text-amber-300 font-medium">Producto Padre: {parentName}</p>
                 </div>
               </div>
               <button
                 type="button"
                 disabled={isSubmitting}
                 onClick={() => setIsConfirmParentModalOpen(false)}
-                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 flex items-center justify-center cursor-pointer transition-colors"
+                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800 flex items-center justify-center cursor-pointer transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="p-5 space-y-4">
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Has modificado los datos del producto padre. Los siguientes cambios se aplicarán y sincronizarán para <strong className="text-slate-900 font-bold">todas las variaciones</strong> de este producto:
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                Has modificado los datos del producto padre. Los siguientes cambios se aplicarán y sincronizarán para <strong className="text-slate-900 dark:text-white font-bold">todas las variaciones</strong> de este producto:
               </p>
 
-              <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 bg-slate-50 max-h-56 overflow-y-auto">
+              <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden divide-y divide-slate-100 dark:divide-slate-700/60 bg-slate-50 dark:bg-slate-800 max-h-56 overflow-y-auto">
                 {detectedParentChanges.map((change, idx) => (
                   <div key={idx} className="p-3 text-xs flex items-center justify-between gap-3">
-                    <span className="font-bold text-slate-700 shrink-0">{change.field}</span>
+                    <span className="font-bold text-slate-700 dark:text-slate-200 shrink-0">{change.field}</span>
                     <div className="flex items-center gap-2 text-right">
-                      <span className="text-slate-400 line-through text-[11px]">{change.from}</span>
-                      <span className="text-slate-400">→</span>
-                      <span className="font-black text-lilac-700 bg-lilac-50 px-2 py-0.5 rounded border border-lilac-200">
+                      <span className="text-slate-400 dark:text-slate-500 line-through text-[11px]">{change.from}</span>
+                      <span className="text-slate-400 dark:text-slate-500">→</span>
+                      <span className="font-black text-lilac-700 dark:text-lilac-300 bg-lilac-50 dark:bg-slate-700 px-2 py-0.5 rounded border border-lilac-200 dark:border-slate-600">
                         {change.to}
                       </span>
                     </div>
@@ -2128,20 +2126,20 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 ))}
               </div>
 
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 leading-relaxed flex items-start gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="p-3 bg-amber-50 dark:bg-slate-800/80 border border-amber-200 dark:border-amber-800/60 rounded-xl text-[11px] text-amber-900 dark:text-amber-200 leading-relaxed flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                 <span>
                   ¿Confirmas que deseas guardar y aplicar estos cambios a <strong>todas las variaciones</strong>?
                 </span>
               </div>
             </div>
 
-            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+            <div className="p-4 bg-white dark:bg-slate-850 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2">
               <button
                 type="button"
                 disabled={isSubmitting}
                 onClick={() => setIsConfirmParentModalOpen(false)}
-                className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs cursor-pointer transition-colors"
+                className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-bold text-xs cursor-pointer transition-colors"
               >
                 Cancelar y Revisar
               </button>
@@ -2161,17 +2159,17 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       {/* Modal de Advertencia: Existencia Protegida y Redirección a Inventario */}
       {isStockEditBlockedModalOpen && stockEditBlockedTarget && (
         <div className="fixed inset-0 z-60 bg-black/60 flex items-center justify-center p-4 animate-in fade-in duration-150 select-none">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-150">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-lilac-50">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-150">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-lilac-50 dark:bg-slate-850">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-lilac-100 text-lilac-700 flex items-center justify-center shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-lilac-100 dark:bg-slate-800 text-lilac-700 dark:text-lilac-400 flex items-center justify-center shrink-0">
                   <Lock className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-black text-slate-800 text-sm">
+                  <h3 className="font-black text-slate-800 dark:text-white text-sm">
                     Ajustar Existencia en Inventario
                   </h3>
-                  <p className="text-[11px] text-lilac-800 font-mono truncate max-w-[260px]">
+                  <p className="text-[11px] text-lilac-800 dark:text-lilac-300 font-mono truncate max-w-[260px]">
                     {stockEditBlockedTarget.code || 'Sin código'}
                   </p>
                 </div>
@@ -2180,35 +2178,35 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 type="button"
                 onClick={handleCancelStockBlockedModal}
                 disabled={isSubmitting}
-                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 flex items-center justify-center cursor-pointer transition-colors"
+                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800 flex items-center justify-center cursor-pointer transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="p-5 space-y-4">
-              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
-                <span className="font-bold text-slate-900 text-xs block">
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl space-y-1.5">
+                <span className="font-bold text-slate-900 dark:text-white text-xs block">
                   {stockEditBlockedTarget.name}
                 </span>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  La existencia de un producto ya creado <strong className="text-slate-800">no se puede editar directamente desde el catálogo</strong>.
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  La existencia de un producto ya creado <strong className="text-slate-800 dark:text-slate-100">no se puede editar directamente desde el catálogo</strong>.
                 </p>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Para mantener la trazabilidad y el kardex de movimientos al día, los cambios de inventario deben realizarse desde la pestaña <strong className="text-lilac-700 font-semibold">Inventario → Ajustar existencia</strong>.
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                  Para mantener la trazabilidad y el kardex de movimientos al día, los cambios de inventario deben realizarse desde la pestaña <strong className="text-lilac-700 dark:text-lilac-400 font-semibold">Inventario → Ajustar existencia</strong>.
                 </p>
               </div>
 
-              <div className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl text-xs shadow-2xs">
-                <span className="font-semibold text-slate-600">Existencia actual registrada:</span>
-                <span className="font-mono font-black text-slate-900 text-sm bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200">
+              <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs shadow-2xs">
+                <span className="font-semibold text-slate-600 dark:text-slate-300">Existencia actual registrada:</span>
+                <span className="font-mono font-black text-slate-900 dark:text-white text-sm bg-slate-100 dark:bg-slate-700 px-2.5 py-0.5 rounded-lg border border-slate-200 dark:border-slate-600">
                   {stockEditBlockedTarget.stock} {stockEditBlockedTarget.stock === 1 ? 'unidad' : 'unidades'}
                 </span>
               </div>
 
               {checkHasUnsavedChanges() && (
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 leading-relaxed flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="p-3 bg-amber-50 dark:bg-slate-800/80 border border-amber-200 dark:border-amber-800/60 rounded-xl text-[11px] text-amber-900 dark:text-amber-200 leading-relaxed flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                   <div>
                     <span className="font-bold block">Tienes cambios sin guardar en el formulario.</span>
                     <span>¿Deseas guardar los cambios antes de ir a Inventario o prefieres descartarlos?</span>
@@ -2217,19 +2215,19 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               )}
 
               {editBlockedError && (
-                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <div className="p-3 bg-rose-50 dark:bg-slate-800/80 border border-rose-200 dark:border-rose-900/60 rounded-xl text-xs text-rose-700 dark:text-rose-300 flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                   <span>{editBlockedError}</span>
                 </div>
               )}
             </div>
 
-            <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-end gap-2">
+            <div className="p-4 bg-white dark:bg-slate-850 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={handleCancelStockBlockedModal}
                 disabled={isSubmitting}
-                className="px-3.5 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs cursor-pointer transition-colors"
+                className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-bold text-xs cursor-pointer transition-colors"
               >
                 Cancelar
               </button>
@@ -2240,7 +2238,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     type="button"
                     onClick={handleDiscardAndRedirectToInventory}
                     disabled={isSubmitting}
-                    className="px-3.5 py-2 rounded-xl bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 font-bold text-xs cursor-pointer transition-colors shadow-2xs"
+                    className="px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-900/60 font-bold text-xs cursor-pointer transition-colors shadow-2xs"
                   >
                     Descartar e Ir a Inventario
                   </button>

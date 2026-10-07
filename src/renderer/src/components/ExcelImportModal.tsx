@@ -129,7 +129,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
     <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl shadow-2xl border border-lilac-100 max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
-        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
+        <div className="px-6 py-4 bg-white dark:bg-slate-850 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-lilac-100 text-lilac-700 flex items-center justify-center shadow-xs">
               <FileSpreadsheet className="w-5 h-5" />
@@ -175,7 +175,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
                 className={`border-2 border-dashed rounded-3xl p-10 flex flex-col items-center justify-center text-center transition-all ${
                   isDragOver
                     ? 'border-lilac-500 bg-lilac-50/70 scale-[0.99]'
-                    : 'border-slate-200 hover:border-lilac-300 bg-slate-50/50'
+                    : 'border-slate-200 dark:border-slate-700 hover:border-lilac-300 dark:hover:border-lilac-500 bg-white dark:bg-slate-800/40 hover:bg-slate-50 dark:hover:bg-slate-800/80'
                 }`}
               >
                 <div className="w-16 h-16 rounded-2xl bg-lilac-100 text-lilac-600 flex items-center justify-center mb-3.5 shadow-sm">
@@ -470,7 +470,7 @@ export const ExcelImportModal: React.FC<ExcelImportModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2.5 shrink-0">
+        <div className="px-6 py-4 bg-white dark:bg-slate-850 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2.5 shrink-0">
           {step === 'select' && (
             <button
               type="button"

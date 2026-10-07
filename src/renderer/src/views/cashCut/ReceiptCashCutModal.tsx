@@ -27,21 +27,21 @@ export const ReceiptCashCutModal: React.FC<ReceiptCashCutModalProps> = ({
 
   return (
     <div onClick={handleBackdropClick} className="fixed inset-0 z-50 bg-slate-900/70 flex items-center justify-center p-4">
-      <div className="bg-white rounded-3xl shadow-2xl border border-lilac-200 w-full max-w-lg p-6 flex flex-col gap-4 animate-in fade-in zoom-in-95">
-        <div className="text-center pb-2 border-b border-slate-100">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-2">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-lilac-200 dark:border-slate-800 w-full max-w-lg p-6 flex flex-col gap-4 animate-in fade-in zoom-in-95">
+        <div className="text-center pb-2 border-b border-slate-100 dark:border-slate-800">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto mb-2">
             <CheckCircle2 className="w-6 h-6" />
           </div>
-          <h3 className="text-lg font-black text-slate-900">
+          <h3 className="text-lg font-black text-slate-900 dark:text-white">
             ¡Corte de Caja Realizado con Éxito!
           </h3>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             Sesión #{data.sessionId} cerrada el {formatDateTime(data.closedAt)}
           </p>
         </div>
 
-        {/* Recibo Formateado */}
-        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 font-mono text-xs flex flex-col gap-2 text-slate-800">
+        {/* Recibo Formateado (Protegido como papel blanco físico) */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 font-mono text-xs flex flex-col gap-2 text-slate-800 thermal-ticket-paper shadow-sm">
           <div className="flex justify-between">
             <span>Fondo Inicial:</span>
             <span className="font-bold">{formatCLP(data.openingFund)}</span>
@@ -54,7 +54,7 @@ export const ReceiptCashCutModal: React.FC<ReceiptCashCutModalProps> = ({
             <span>Ventas Tarjeta:</span>
             <span className="font-bold">+{formatCLP(data.salesCard)}</span>
           </div>
-          <div className="flex justify-between text-purple-700">
+          <div className="flex justify-between text-lilac-700">
             <span>Ventas Transferencia:</span>
             <span className="font-bold">+{formatCLP(data.salesTransfer)}</span>
           </div>
@@ -117,7 +117,7 @@ export const ReceiptCashCutModal: React.FC<ReceiptCashCutModalProps> = ({
           <button
             type="button"
             onClick={() => window.print()}
-            className="px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <Printer className="w-4 h-4" />
             <span>Imprimir Comprobante</span>
@@ -127,7 +127,7 @@ export const ReceiptCashCutModal: React.FC<ReceiptCashCutModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
+              className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold text-xs transition-colors cursor-pointer"
             >
               Nuevo Turno
             </button>

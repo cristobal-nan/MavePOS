@@ -226,36 +226,36 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
       onClick={handleBackdropClick}
       className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4"
     >
-      <div className="bg-white rounded-3xl shadow-2xl border border-lilac-200 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-lilac-200 dark:border-slate-800 w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
         {/* Header del Modal */}
-        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
+        <div className="px-6 py-4 bg-white dark:bg-slate-850 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-lilac-100 text-lilac-700 flex items-center justify-center font-black">
+            <div className="w-10 h-10 rounded-xl bg-lilac-100 dark:bg-lilac-950/50 text-lilac-700 dark:text-lilac-300 border border-lilac-200/60 dark:border-lilac-800/60 flex items-center justify-center font-black">
               #{selectedSaleDetail.folio}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-slate-900">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
                   Venta Folio #{selectedSaleDetail.folio}
                 </h3>
-                <span className="text-xs font-semibold text-lilac-700 bg-lilac-50 px-2.5 py-0.5 rounded-full border border-lilac-200">
+                <span className="text-xs font-semibold text-lilac-700 dark:text-lilac-300 bg-lilac-50 dark:bg-lilac-950/40 px-2.5 py-0.5 rounded-full border border-lilac-200 dark:border-lilac-800">
                   Ticket #{selectedSaleDetail.ticket_number ?? 0}
                 </span>
                 {selectedSaleDetail.status === 'cancelled' ? (
-                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-700 border border-rose-200">
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
                     Cancelada
                   </span>
                 ) : selectedSaleDetail.returned_items_count > 0 ? (
-                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-700 border border-amber-200">
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
                     Devolución Parcial
                   </span>
                 ) : (
-                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                     Completada
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Registrada el {formatDateTime(selectedSaleDetail.created_at)}
               </p>
             </div>
@@ -264,7 +264,7 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
           <button
             type="button"
             onClick={handleClose}
-            className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 flex items-center justify-center transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-center transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -274,21 +274,21 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
         <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-5">
           {/* Banner si proviene de un cambio de producto (Folio Padre) */}
           {selectedSaleDetail.exchange_parent_id && selectedSaleDetail.exchange_parent_folio && (
-            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-300 flex items-center justify-between shadow-2xs">
+            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-300 dark:border-amber-800 flex items-center justify-between shadow-2xs">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
                   <ArrowLeftRight className="w-4 h-4" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-900">
+                    <span className="text-xs font-bold text-slate-900 dark:text-white">
                       Venta originada por Cambio de Producto
                     </span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 text-amber-900 border border-amber-300">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-200 dark:bg-amber-950/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700">
                       Folio Padre #{selectedSaleDetail.exchange_parent_folio}
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-600 mt-0.5">
+                  <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5">
                     Esta venta se generó a partir de productos devueltos en la Venta Folio #{selectedSaleDetail.exchange_parent_folio}.
                   </p>
                 </div>
@@ -296,7 +296,7 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
               <button
                 type="button"
                 onClick={() => openSaleDetail(selectedSaleDetail.exchange_parent_id!)}
-                className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer shrink-0"
+                className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer shrink-0 border border-amber-500 dark:border-amber-400"
                 title={`Ver detalle completo de la venta origen (Folio #${selectedSaleDetail.exchange_parent_folio})`}
               >
                 <span>Ver Folio Padre #{selectedSaleDetail.exchange_parent_folio}</span>
@@ -311,7 +311,7 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
               {selectedSaleDetail.child_exchanges.map((child) => (
                 <div
                   key={child.id}
-                  className="p-3.5 rounded-2xl bg-lilac-50 border border-lilac-200 flex items-center justify-between shadow-2xs"
+                  className="p-3.5 rounded-2xl bg-lilac-50 dark:bg-lilac-950/30 border border-lilac-200 dark:border-lilac-800 flex items-center justify-between shadow-2xs"
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-xl bg-lilac-600 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
@@ -319,14 +319,14 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-slate-900">
+                        <span className="text-xs font-bold text-slate-900 dark:text-white">
                           Esta venta generó un Cambio de Producto
                         </span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-lilac-200 text-lilac-900 border border-lilac-300">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-lilac-200 dark:bg-lilac-900/60 text-lilac-900 dark:text-lilac-200 border border-lilac-300 dark:border-lilac-700">
                           Nueva Venta Folio #{child.folio}
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-600 mt-0.5">
+                      <p className="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5">
                         Los productos devueltos de esta transacción se aplicaron en la Venta Folio #{child.folio}.
                       </p>
                     </div>
@@ -334,7 +334,7 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
                   <button
                     type="button"
                     onClick={() => openSaleDetail(child.id)}
-                    className="px-3.5 py-2 rounded-xl bg-lilac-600 hover:bg-lilac-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer shrink-0"
+                    className="px-3.5 py-2 rounded-xl bg-lilac-600 hover:bg-lilac-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer shrink-0 border border-lilac-600 dark:border-lilac-500"
                     title={`Ver detalle de la venta generada por el cambio (Folio #${child.folio})`}
                   >
                     <span>Ver Venta de Cambio #{child.folio}</span>
@@ -347,23 +347,23 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
 
           {/* Desglose de Pagos y Resumen */}
           <div className="grid grid-cols-3 gap-3">
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
-              <span className="text-[11px] font-semibold text-slate-500 block">Total de la Venta</span>
-              <span className="text-xl font-black text-slate-900">
+            <div className="bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl p-3">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Total de la Venta</span>
+              <span className="text-xl font-black text-slate-900 dark:text-white">
                 {formatCLP(selectedSaleDetail.total)}
               </span>
             </div>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+            <div className="bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl p-3">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-slate-500 block">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">
                   Formas de Pago Registradas
                 </span>
                 {canChangePayment && (
                   <button
                     type="button"
                     onClick={handleOpenChangePayment}
-                    className="text-[10px] font-bold text-lilac-700 hover:text-lilac-800 bg-lilac-100 hover:bg-lilac-200 border border-lilac-300 px-2 py-0.5 rounded-md flex items-center gap-1 transition-colors cursor-pointer"
+                    className="text-[10px] font-bold text-lilac-700 dark:text-lilac-300 hover:text-lilac-800 dark:hover:text-lilac-200 bg-lilac-100 dark:bg-slate-700 hover:bg-lilac-200 dark:hover:bg-slate-600 border border-lilac-300 dark:border-slate-600 px-2 py-0.5 rounded-md flex items-center gap-1 transition-colors cursor-pointer"
                     title="Cambiar método de pago de esta venta"
                   >
                     <CreditCard className="w-3 h-3" />
@@ -383,7 +383,7 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
                     badges.push(
                       <span
                         key="devolution"
-                        className="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 border border-amber-300 text-amber-800"
+                        className="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 text-amber-800 dark:text-amber-300"
                       >
                         Devolución: {formatCLP(devolutionAmount)}
                       </span>
@@ -401,7 +401,7 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
                       badges.push(
                         <span
                           key={p.id}
-                          className="px-2 py-0.5 rounded text-[11px] font-semibold bg-white border border-slate-200 text-slate-700"
+                          className="px-2 py-0.5 rounded text-[11px] font-semibold bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
                         >
                           {label}: {formatCLP(p.amount)}
                         </span>
@@ -418,14 +418,14 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
               </div>
             </div>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3">
-              <span className="text-[11px] font-semibold text-slate-500 block">
+            <div className="bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl p-3">
+              <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">
                 Estado de Unidades
               </span>
-              <span className="text-sm font-bold text-slate-800 mt-1 block">
+              <span className="text-sm font-bold text-slate-800 dark:text-slate-200 mt-1 block">
                 {selectedSaleDetail.total_items} un. vendidas
                 {selectedSaleDetail.returned_items_count > 0 && (
-                  <span className="text-rose-600 ml-1.5 font-semibold">
+                  <span className="text-rose-600 dark:text-rose-400 ml-1.5 font-semibold">
                     ({selectedSaleDetail.returned_items_count} devueltas)
                   </span>
                 )}
@@ -435,13 +435,13 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
 
           {/* Tabla de Productos de la Venta */}
           <div>
-            <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+            <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
               Productos en esta Venta
             </h4>
 
-            <div className="border border-slate-200 rounded-xl overflow-hidden">
+            <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden bg-white dark:bg-slate-800/40">
               <table className="w-full text-left border-collapse">
-                <thead className="bg-slate-100 text-slate-600 text-[11px] font-bold border-b border-slate-200">
+                <thead className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[11px] font-bold border-b border-slate-200 dark:border-slate-700">
                   <tr>
                     <th className="py-2.5 px-3 w-28">Código</th>
                     <th className="py-2.5 px-3">Producto</th>
@@ -455,37 +455,37 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
                     )}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-xs">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60 text-xs">
                   {(selectedSaleDetail.items || []).map((it) => {
                     const availableToReturn = it.quantity - it.returned_qty
                     const isFullyReturned = availableToReturn <= 0
                     const isRowReturning = returningItemCode === it.product_code
 
                     return (
-                      <tr key={it.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="py-2.5 px-3 font-mono font-medium text-slate-600">
+                      <tr key={it.id} className="hover:bg-slate-50 dark:hover:bg-slate-750/50 transition-colors">
+                        <td className="py-2.5 px-3 font-mono font-medium text-slate-600 dark:text-slate-300">
                           {it.product_code}
                         </td>
-                        <td className="py-2.5 px-3 font-bold text-slate-800">{it.name}</td>
-                        <td className="py-2.5 px-3 text-right font-medium text-slate-700">
+                        <td className="py-2.5 px-3 font-bold text-slate-800 dark:text-slate-100">{it.name}</td>
+                        <td className="py-2.5 px-3 text-right font-medium text-slate-700 dark:text-slate-300">
                           {formatCLP(it.unit_price)}
                         </td>
-                        <td className="py-2.5 px-3 text-center font-bold text-slate-800">
+                        <td className="py-2.5 px-3 text-center font-bold text-slate-800 dark:text-slate-200">
                           {it.quantity}
                         </td>
                         <td className="py-2.5 px-3 text-center">
                           {it.returned_qty > 0 ? (
-                            <span className="font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200 text-[11px]">
+                            <span className="font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-full border border-rose-200 dark:border-rose-800 text-[11px]">
                               {it.returned_qty} un.
                             </span>
                           ) : (
-                            <span className="text-slate-400">0</span>
+                            <span className="text-slate-400 dark:text-slate-500">0</span>
                           )}
                         </td>
-                        <td className="py-2.5 px-3 text-right font-black text-slate-900">
+                        <td className="py-2.5 px-3 text-right font-black text-slate-900 dark:text-white">
                           {formatCLP(it.unit_price * it.quantity)}
                         </td>
-                        <td className="py-2.5 px-3 text-right font-semibold text-slate-600">
+                        <td className="py-2.5 px-3 text-right font-semibold text-slate-600 dark:text-slate-400">
                           {it.current_stock ?? '—'}
                         </td>
                         {isReturnModeActive && (
@@ -496,12 +496,12 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
                               </span>
                             ) : isRowReturning ? (
                               <div className="inline-flex items-center justify-center gap-1">
-                                <div className="inline-flex items-center border border-slate-300 rounded-lg overflow-hidden bg-white shadow-2xs">
+                                <div className="inline-flex items-center border border-slate-300 dark:border-slate-600 rounded-lg overflow-hidden bg-white dark:bg-slate-800 shadow-2xs">
                                   <button
                                     type="button"
                                     onClick={() => setReturnQuantity((prev) => Math.max(1, prev - 1))}
                                     disabled={returnQuantity <= 1}
-                                    className="w-5 h-6 text-slate-600 hover:bg-slate-100 flex items-center justify-center disabled:opacity-30 cursor-pointer"
+                                    className="w-5 h-6 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center disabled:opacity-30 cursor-pointer"
                                   >
                                     <Minus className="w-3 h-3" />
                                   </button>
@@ -516,13 +516,13 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
                                         setReturnQuantity(Math.min(availableToReturn, Math.max(1, v)))
                                       }
                                     }}
-                                    className="w-8 text-center text-xs font-bold py-0.5 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    className="w-8 text-center text-xs font-bold py-0.5 focus:outline-none bg-transparent text-slate-900 dark:text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                   />
                                   <button
                                     type="button"
                                     onClick={() => setReturnQuantity((prev) => Math.min(availableToReturn, prev + 1))}
                                     disabled={returnQuantity >= availableToReturn}
-                                    className="w-5 h-6 text-slate-600 hover:bg-slate-100 flex items-center justify-center disabled:opacity-30 cursor-pointer"
+                                    className="w-5 h-6 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center justify-center disabled:opacity-30 cursor-pointer"
                                   >
                                     <Plus className="w-3 h-3" />
                                   </button>
@@ -533,7 +533,7 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
                                   onClick={() => handleConfirmReturnItem(it.product_code)}
                                   disabled={isReturning}
                                   title="Confirmar devolución"
-                                  className="w-6 h-6 rounded-lg bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center shadow-2xs transition-colors cursor-pointer disabled:opacity-50"
+                                  className="w-6 h-6 rounded-lg bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center shadow-2xs transition-colors cursor-pointer disabled:opacity-50 border border-rose-600 dark:border-rose-500"
                                 >
                                   <Check className="w-3.5 h-3.5" />
                                 </button>
@@ -542,7 +542,7 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
                                   type="button"
                                   onClick={() => setReturningItemCode(null)}
                                   title="Cancelar"
-                                  className="w-6 h-6 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
+                                  className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-colors cursor-pointer"
                                 >
                                   <X className="w-3.5 h-3.5" />
                                 </button>
@@ -554,7 +554,7 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
                                   setReturningItemCode(it.product_code)
                                   setReturnQuantity(1)
                                 }}
-                                className="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 font-bold text-[11px] inline-flex items-center gap-1 transition-colors cursor-pointer"
+                                className="px-2.5 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800 font-bold text-[11px] inline-flex items-center gap-1 transition-colors cursor-pointer"
                               >
                                 <CornerDownLeft className="w-3 h-3" />
                                 <span>Devolver</span>
@@ -573,7 +573,7 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
         </div>
 
         {/* Footer del Modal */}
-        <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex flex-col gap-2 shrink-0">
+        <div className="px-6 py-3 bg-white dark:bg-slate-850 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-2 shrink-0">
           {printFeedback && (
             <div
               className={`p-2 rounded-lg text-xs font-semibold flex items-center gap-2 ${
@@ -605,7 +605,7 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
                           selectedSaleDetail.total
                         )
                       }
-                      className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer"
+                      className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer border border-rose-600 dark:border-rose-500"
                       title="Devolver todos los artículos restantes y anular la venta"
                     >
                       <XCircle className="w-4 h-4" />
@@ -618,7 +618,7 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
                         setIsReturnModeActive(false)
                         setReturningItemCode(null)
                       }}
-                      className="px-3.5 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer"
+                      className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer border border-slate-200 dark:border-slate-700"
                       title="Salir del modo devolución"
                     >
                       <X className="w-4 h-4" />
@@ -630,7 +630,7 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setIsExchangeModalOpen(true)}
-                      className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer"
+                      className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer border border-amber-500 dark:border-amber-400"
                     >
                       <ArrowLeftRight className="w-4 h-4" />
                       <span>Cambiar Productos</span>
@@ -639,7 +639,7 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setIsReturnModeActive(true)}
-                      className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer"
+                      className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 transition-colors cursor-pointer border border-rose-600 dark:border-rose-500"
                     >
                       <CornerDownLeft className="w-4 h-4" />
                       <span>Devolver / Anular</span>
@@ -651,9 +651,9 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
                 type="button"
                 onClick={handlePrintThermal}
                 disabled={isPrintingThermal}
-                className="px-3 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-bold text-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
               >
-                <Printer className="w-3.5 h-3.5 text-lilac-600" />
+                <Printer className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
                 <span>{isPrintingThermal ? 'Imprimiendo...' : 'Ticket Térmico'}</span>
               </button>
 
@@ -661,9 +661,9 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
                 type="button"
                 onClick={handlePrintNormal}
                 disabled={isPrintingNormal}
-                className="px-3 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-bold text-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
               >
-                <FileText className="w-3.5 h-3.5 text-lilac-600" />
+                <FileText className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
                 <span>{isPrintingNormal ? 'Imprimiendo...' : 'Comprobante Normal'}</span>
               </button>
             </div>
@@ -671,7 +671,7 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
             <button
               type="button"
               onClick={handleClose}
-              className="px-5 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
+              className="px-5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-bold text-xs transition-colors cursor-pointer"
             >
               Cerrar Detalle
             </button>
@@ -691,7 +691,7 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
       {isChangePaymentModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-850">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-lilac-100 text-lilac-700 flex items-center justify-center shrink-0">
                   <CreditCard className="w-4 h-4" />
@@ -779,7 +779,7 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
                         className={`w-full p-2.5 rounded-xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
                           isSelected
                             ? opt.bgActive
-                            : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/60'
+                            : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-100'
                         }`}
                       >
                         <div
@@ -821,7 +821,7 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
               )}
             </div>
 
-            <div className="p-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+            <div className="p-3.5 bg-white dark:bg-slate-850 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2">
               <button
                 type="button"
                 disabled={isUpdatingPayment}

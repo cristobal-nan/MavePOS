@@ -52,7 +52,7 @@ export const SupplierSelectCard: React.FC<SupplierSelectCardProps> = ({
 
   return (
     <div
-      className={`${className.includes('bg-') ? '' : 'bg-white'} border border-slate-300 rounded-xl p-3 text-xs text-slate-700 flex flex-col gap-2.5 shadow-2xs transition-all ${className}`}
+      className={`${className.includes('bg-') ? '' : 'bg-white dark:bg-slate-800'} border border-slate-300 dark:border-slate-700 rounded-xl p-3 text-xs text-slate-700 dark:text-slate-200 flex flex-col gap-2.5 shadow-2xs transition-all ${className}`}
     >
       {/* Header Bar */}
       <div
@@ -60,15 +60,15 @@ export const SupplierSelectCard: React.FC<SupplierSelectCardProps> = ({
         className="flex items-center justify-between gap-2 min-h-[26px] cursor-pointer select-none"
       >
         <div className="flex items-center gap-2 min-w-0 flex-wrap">
-          <Truck className="w-4 h-4 text-lilac-600 shrink-0" />
-          <span className="font-bold text-slate-800 shrink-0">{title}:</span>
+          <Truck className="w-4 h-4 text-lilac-600 dark:text-lilac-400 shrink-0" />
+          <span className="font-bold text-slate-800 dark:text-slate-100 shrink-0">{title}:</span>
 
           {selectedSuppliers.length > 0 ? (
             <div className="flex items-center gap-1.5 flex-wrap min-w-0">
               {selectedSuppliers.map((sup) => (
                 <span
                   key={sup!.id}
-                  className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-lilac-100 text-lilac-800 border border-lilac-200 truncate max-w-[150px] leading-tight"
+                  className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-lilac-100 dark:bg-slate-700 text-lilac-800 dark:text-lilac-300 border border-lilac-200 dark:border-slate-600 truncate max-w-[150px] leading-tight"
                   title={sup!.name}
                 >
                   {sup!.name}
@@ -76,7 +76,7 @@ export const SupplierSelectCard: React.FC<SupplierSelectCardProps> = ({
               ))}
             </div>
           ) : (
-            <span className="px-2 py-0.5 rounded-full text-[11px] text-slate-400 italic font-medium border border-transparent leading-tight">
+            <span className="px-2 py-0.5 rounded-full text-[11px] text-slate-400 dark:text-slate-500 italic font-medium border border-transparent leading-tight">
               (Sin proveedores)
             </span>
           )}
@@ -93,7 +93,7 @@ export const SupplierSelectCard: React.FC<SupplierSelectCardProps> = ({
                 setError(null)
                 setTimeout(() => inputRef.current?.focus(), 50)
               }}
-              className="text-xs text-lilac-600 hover:text-lilac-700 font-bold flex items-center gap-1 hover:underline cursor-pointer shrink-0"
+              className="text-xs text-lilac-600 hover:text-lilac-700 dark:text-lilac-400 dark:hover:text-lilac-300 font-bold flex items-center gap-1 hover:underline cursor-pointer shrink-0"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Nuevo Proveedor</span>
@@ -101,11 +101,11 @@ export const SupplierSelectCard: React.FC<SupplierSelectCardProps> = ({
           )}
 
           <div
-            className="p-1 text-slate-400 hover:text-slate-600 rounded-lg transition-colors cursor-pointer"
+            className="p-1 text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200 rounded-lg transition-colors cursor-pointer"
             title={isExpanded ? 'Contraer' : 'Expandir'}
           >
             <ChevronDown
-              className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${
+              className={`w-4 h-4 text-slate-500 dark:text-slate-400 transition-transform duration-200 ${
                 isExpanded ? 'rotate-180' : ''
               }`}
             />
@@ -115,11 +115,11 @@ export const SupplierSelectCard: React.FC<SupplierSelectCardProps> = ({
 
       {/* Collapsible Content */}
       {isExpanded && (
-        <div className="space-y-2.5 pt-1 border-t border-slate-100 animate-in fade-in duration-100">
+        <div className="space-y-2.5 pt-1 border-t border-slate-100 dark:border-slate-700 animate-in fade-in duration-100">
           {/* Inline Create Form */}
           {isAddingSupplierInline && (
-            <div className="flex flex-col gap-1.5 p-2 bg-white border border-lilac-200 rounded-lg shadow-xs animate-in fade-in duration-100">
-              {error && <span className="text-[11px] text-rose-600 font-medium">{error}</span>}
+            <div className="flex flex-col gap-1.5 p-2 bg-white dark:bg-slate-800 border border-lilac-200 dark:border-slate-700 rounded-lg shadow-xs animate-in fade-in duration-100">
+              {error && <span className="text-[11px] text-rose-600 dark:text-rose-400 font-medium">{error}</span>}
               <div className="flex items-center gap-2">
                 <input
                   ref={inputRef}
@@ -127,7 +127,7 @@ export const SupplierSelectCard: React.FC<SupplierSelectCardProps> = ({
                   value={newInlineSupplierName}
                   onChange={(e) => setNewInlineSupplierName(capitalizeWords(e.target.value))}
                   placeholder="Nombre del nuevo proveedor..."
-                  className="flex-1 px-2.5 py-1 text-xs bg-slate-50 border border-slate-200 focus:border-lilac-500 focus:bg-white rounded outline-none text-slate-900 font-medium"
+                  className="flex-1 px-2.5 py-1 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-lilac-500 focus:bg-white dark:focus:bg-slate-900 rounded outline-none text-slate-900 dark:text-white font-medium"
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
@@ -156,7 +156,7 @@ export const SupplierSelectCard: React.FC<SupplierSelectCardProps> = ({
                     setNewInlineSupplierName('')
                     setError(null)
                   }}
-                  className="p-1 text-slate-400 hover:text-slate-600 rounded transition-colors cursor-pointer"
+                  className="p-1 text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200 rounded transition-colors cursor-pointer"
                   title="Cancelar"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -174,8 +174,8 @@ export const SupplierSelectCard: React.FC<SupplierSelectCardProps> = ({
                   key={sup.id}
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-all ${
                     isChecked
-                      ? 'bg-lilac-600 border-lilac-700 text-white shadow-sm'
-                      : 'bg-white border-slate-300 text-slate-900 hover:border-slate-400 hover:bg-slate-50'
+                      ? 'bg-lilac-600 border-lilac-700 dark:bg-lilac-700 dark:border-lilac-600 text-white shadow-sm'
+                      : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-200 hover:border-slate-400 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-750'
                   }`}
                 >
                   <input
@@ -194,7 +194,7 @@ export const SupplierSelectCard: React.FC<SupplierSelectCardProps> = ({
               )
             })}
             {suppliers.length === 0 && (
-              <div className="py-2 text-center text-slate-400 italic text-[11px] w-full">
+              <div className="py-2 text-center text-slate-400 dark:text-slate-500 italic text-[11px] w-full">
                 No hay proveedores registrados aún.
               </div>
             )}

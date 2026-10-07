@@ -34,6 +34,8 @@ import {
 } from 'recharts'
 import { FullReportData, ReportFilter, ReportPeriodType } from '../../../shared/types'
 import { formatCLP } from '../utils/formatters'
+import { useUIStore } from '../store/uiStore'
+import { resolveSurface } from '../theme/themes'
 
 const PAYMENT_COLORS: Record<string, string> = {
   Efectivo: '#10B981', // Emerald
@@ -74,6 +76,11 @@ export const ReportsView: React.FC = () => {
   const [exporting, setExporting] = useState<boolean>(false)
   const [exportNotification, setExportNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [salesChartMetric, setSalesChartMetric] = useState<'amount' | 'count'>('amount')
+
+  const surfaceMode = useUIStore((s) => s.surfaceMode)
+  const isDark = resolveSurface(surfaceMode) === 'dark'
+  const chartGridStroke = isDark ? '#334155' : '#F1F5F9'
+  const chartTickFill = isDark ? '#94A3B8' : '#64748B'
 
   const fetchReport = useCallback(async () => {
     setLoading(true)
@@ -346,31 +353,31 @@ export const ReportsView: React.FC = () => {
       {reportData && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Card 1: Ventas Totales */}
-          <div className="bg-white p-4 rounded-2xl border border-lilac-100 shadow-sm relative overflow-hidden flex flex-col justify-between">
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-lilac-100 dark:border-slate-700 shadow-sm relative overflow-hidden flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-slate-500">Ventas Netas</span>
-              <div className="w-8 h-8 rounded-lg bg-lilac-100 text-lilac-600 flex items-center justify-center">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Ventas Netas</span>
+              <div className="w-8 h-8 rounded-lg bg-lilac-100 dark:bg-slate-700 text-lilac-600 dark:text-lilac-400 flex items-center justify-center">
                 <DollarSign className="w-4 h-4" />
               </div>
             </div>
             <div>
-              <h3 className="text-xl font-extrabold text-slate-800 tracking-tight">
+              <h3 className="text-xl font-extrabold text-slate-800 dark:text-white tracking-tight">
                 {formatCLP(reportData.kpi.totalSales)}
               </h3>
               <div className="flex items-center gap-1.5 mt-2">
                 {reportData.kpi.salesGrowthPct !== null ? (
                   reportData.kpi.salesGrowthPct > 0 ? (
-                    <span className="inline-flex items-center text-[11px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">
+                    <span className="inline-flex items-center text-[11px] font-bold text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-slate-700 px-1.5 py-0.5 rounded-md border border-transparent dark:border-emerald-700/50">
                       <ArrowUpRight className="w-3 h-3 mr-0.5" />
                       +{reportData.kpi.salesGrowthPct}%
                     </span>
                   ) : reportData.kpi.salesGrowthPct < 0 ? (
-                    <span className="inline-flex items-center text-[11px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-md">
+                    <span className="inline-flex items-center text-[11px] font-bold text-red-600 dark:text-rose-300 bg-red-50 dark:bg-slate-700 px-1.5 py-0.5 rounded-md border border-transparent dark:border-rose-700/50">
                       <ArrowDownRight className="w-3 h-3 mr-0.5" />
                       {reportData.kpi.salesGrowthPct}%
                     </span>
                   ) : (
-                    <span className="inline-flex items-center text-[11px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-md">
+                    <span className="inline-flex items-center text-[11px] font-bold text-slate-500 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded-md">
                       <Minus className="w-3 h-3 mr-0.5" />
                       0%
                     </span>
@@ -384,27 +391,27 @@ export const ReportsView: React.FC = () => {
           </div>
 
           {/* Card 2: Cantidad de Ventas */}
-          <div className="bg-white p-4 rounded-2xl border border-lilac-100 shadow-sm relative overflow-hidden flex flex-col justify-between">
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-lilac-100 dark:border-slate-700 shadow-sm relative overflow-hidden flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-slate-500">Transacciones</span>
-              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Transacciones</span>
+              <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-slate-700 text-blue-600 dark:text-blue-400 flex items-center justify-center">
                 <ShoppingBag className="w-4 h-4" />
               </div>
             </div>
             <div>
-              <h3 className="text-xl font-extrabold text-slate-800 tracking-tight">
+              <h3 className="text-xl font-extrabold text-slate-800 dark:text-white tracking-tight">
                 {reportData.kpi.salesCount}{' '}
                 <span className="text-xs font-semibold text-slate-400">ventas</span>
               </h3>
               <div className="flex items-center gap-1.5 mt-2">
                 {reportData.kpi.countGrowthPct !== null ? (
                   reportData.kpi.countGrowthPct >= 0 ? (
-                    <span className="inline-flex items-center text-[11px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-md">
+                    <span className="inline-flex items-center text-[11px] font-bold text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-slate-700 px-1.5 py-0.5 rounded-md border border-transparent dark:border-emerald-700/50">
                       <ArrowUpRight className="w-3 h-3 mr-0.5" />
                       +{reportData.kpi.countGrowthPct}%
                     </span>
                   ) : (
-                    <span className="inline-flex items-center text-[11px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded-md">
+                    <span className="inline-flex items-center text-[11px] font-bold text-red-600 dark:text-rose-300 bg-red-50 dark:bg-slate-700 px-1.5 py-0.5 rounded-md border border-transparent dark:border-rose-700/50">
                       <ArrowDownRight className="w-3 h-3 mr-0.5" />
                       {reportData.kpi.countGrowthPct}%
                     </span>
@@ -418,15 +425,15 @@ export const ReportsView: React.FC = () => {
           </div>
 
           {/* Card 3: Ticket Promedio */}
-          <div className="bg-white p-4 rounded-2xl border border-lilac-100 shadow-sm relative overflow-hidden flex flex-col justify-between">
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-lilac-100 dark:border-slate-700 shadow-sm relative overflow-hidden flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-slate-500">Ticket Promedio</span>
-              <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Ticket Promedio</span>
+              <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-slate-700 text-purple-600 dark:text-purple-400 flex items-center justify-center">
                 <Receipt className="w-4 h-4" />
               </div>
             </div>
             <div>
-              <h3 className="text-xl font-extrabold text-slate-800 tracking-tight">
+              <h3 className="text-xl font-extrabold text-slate-800 dark:text-white tracking-tight">
                 {formatCLP(reportData.kpi.averageTicket)}
               </h3>
               <p className="text-[11px] text-slate-400 mt-2">
@@ -436,15 +443,15 @@ export const ReportsView: React.FC = () => {
           </div>
 
           {/* Card 4: Unidades Vendidas */}
-          <div className="bg-white p-4 rounded-2xl border border-lilac-100 shadow-sm relative overflow-hidden flex flex-col justify-between">
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-lilac-100 dark:border-slate-700 shadow-sm relative overflow-hidden flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-slate-500">Unidades Vendidas</span>
-              <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Unidades Vendidas</span>
+              <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-slate-700 text-amber-600 dark:text-amber-400 flex items-center justify-center">
                 <Package className="w-4 h-4" />
               </div>
             </div>
             <div>
-              <h3 className="text-xl font-extrabold text-slate-800 tracking-tight">
+              <h3 className="text-xl font-extrabold text-slate-800 dark:text-white tracking-tight">
                 {reportData.kpi.unitsSold}{' '}
                 <span className="text-xs font-semibold text-slate-400">unidades</span>
               </h3>
@@ -455,19 +462,19 @@ export const ReportsView: React.FC = () => {
           </div>
 
           {/* Card 5: Margen Bruto Estimado */}
-          <div className="bg-white p-4 rounded-2xl border border-lilac-100 shadow-sm relative overflow-hidden flex flex-col justify-between">
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-lilac-100 dark:border-slate-700 shadow-sm relative overflow-hidden flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-slate-500">Margen Estimado</span>
-              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Margen Estimado</span>
+              <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
                 <TrendingUp className="w-4 h-4" />
               </div>
             </div>
             <div>
-              <h3 className="text-xl font-extrabold text-slate-800 tracking-tight">
+              <h3 className="text-xl font-extrabold text-slate-800 dark:text-white tracking-tight">
                 {formatCLP(reportData.kpi.estimatedMargin)}
               </h3>
               <div className="flex items-center gap-1.5 mt-2">
-                <span className="text-[11px] font-bold text-lilac-700 bg-lilac-100 px-1.5 py-0.5 rounded-md">
+                <span className="text-[11px] font-bold text-lilac-700 dark:text-lilac-300 bg-lilac-100 dark:bg-slate-700 px-1.5 py-0.5 rounded-md border border-transparent dark:border-lilac-700/50">
                   {reportData.kpi.marginPercentage}% margen
                 </span>
                 <span className="text-[11px] text-slate-400">bruto</span>
@@ -481,21 +488,21 @@ export const ReportsView: React.FC = () => {
       {reportData && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Chart 1: Sales Over Time (Span 2 Cols) */}
-          <div className="lg:col-span-2 bg-white p-5 rounded-2xl border border-lilac-100 shadow-sm flex flex-col">
+          <div className="lg:col-span-2 bg-white dark:bg-slate-800 p-5 rounded-2xl border border-lilac-100 dark:border-slate-700 shadow-sm flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-lilac-600" />
-                <h2 className="text-sm font-bold text-slate-800">
+                <TrendingUp className="w-4 h-4 text-lilac-600 dark:text-lilac-400" />
+                <h2 className="text-sm font-bold text-slate-800 dark:text-white">
                   {periodType === 'today' ? 'Ventas por Hora' : 'Tendencia de Ventas en el Tiempo'}
                 </h2>
               </div>
-              <div className="flex items-center bg-slate-100 p-1 rounded-xl text-[11px] font-semibold border border-slate-200/60">
+              <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl text-[11px] font-semibold border border-slate-200/60 dark:border-slate-700">
                 <button
                   onClick={() => setSalesChartMetric('amount')}
                   className={`px-2.5 py-1 rounded-lg transition-all ${
                     salesChartMetric === 'amount'
                       ? 'bg-lilac-600 text-white shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   Monto ($ CLP)
@@ -505,7 +512,7 @@ export const ReportsView: React.FC = () => {
                   className={`px-2.5 py-1 rounded-lg transition-all ${
                     salesChartMetric === 'count'
                       ? 'bg-lilac-600 text-white shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   }`}
                 >
                   Transacciones
@@ -523,15 +530,15 @@ export const ReportsView: React.FC = () => {
                         <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0.0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
                     <XAxis
                       dataKey="label"
-                      tick={{ fill: '#64748B', fontSize: 11 }}
-                      axisLine={{ stroke: '#E2E8F0' }}
+                      tick={{ fill: chartTickFill, fontSize: 11 }}
+                      axisLine={{ stroke: isDark ? '#334155' : '#E2E8F0' }}
                       tickLine={false}
                     />
                     <YAxis
-                      tick={{ fill: '#64748B', fontSize: 11 }}
+                      tick={{ fill: chartTickFill, fontSize: 11 }}
                       axisLine={false}
                       tickLine={false}
                       tickFormatter={(val) => (salesChartMetric === 'amount' ? `$ ${(val / 1000).toFixed(0)}k` : val)}
@@ -556,10 +563,10 @@ export const ReportsView: React.FC = () => {
           </div>
 
           {/* Chart 2: Payment Methods (1 Col) */}
-          <div className="bg-white p-5 rounded-2xl border border-lilac-100 shadow-sm flex flex-col justify-between">
+          <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-lilac-100 dark:border-slate-700 shadow-sm flex flex-col justify-between">
             <div className="flex items-center gap-2 mb-4">
-              <PieIcon className="w-4 h-4 text-lilac-600" />
-              <h2 className="text-sm font-bold text-slate-800">Métodos de Pago</h2>
+              <PieIcon className="w-4 h-4 text-lilac-600 dark:text-lilac-400" />
+              <h2 className="text-sm font-bold text-slate-800 dark:text-white">Métodos de Pago</h2>
             </div>
 
             <div className="h-56 w-full relative flex items-center justify-center">
@@ -594,9 +601,9 @@ export const ReportsView: React.FC = () => {
             </div>
 
             {/* Payment Method Badges */}
-            <div className="space-y-2 mt-2 pt-3 border-t border-slate-100 text-xs">
+            <div className="space-y-2 mt-2 pt-3 border-t border-slate-100 dark:border-slate-700 text-xs">
               {reportData.paymentMethods.map((method) => (
-                <div key={method.method} className="flex items-center justify-between text-slate-600 font-medium">
+                <div key={method.method} className="flex items-center justify-between text-slate-600 dark:text-slate-300 font-medium">
                   <div className="flex items-center gap-2">
                     <span
                       className="w-3 h-3 rounded-full shrink-0"
@@ -605,7 +612,7 @@ export const ReportsView: React.FC = () => {
                     <span>{method.methodName}</span>
                   </div>
                   <div className="text-right">
-                    <span className="font-bold text-slate-800 mr-2">{formatCLP(method.total)}</span>
+                    <span className="font-bold text-slate-800 dark:text-white mr-2">{formatCLP(method.total)}</span>
                     <span className="text-[11px] text-slate-400">({method.percentage}%)</span>
                   </div>
                 </div>
@@ -619,11 +626,11 @@ export const ReportsView: React.FC = () => {
       {reportData && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Top 10 Products Chart / List */}
-          <div className="bg-white p-5 rounded-2xl border border-lilac-100 shadow-sm flex flex-col">
+          <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-lilac-100 dark:border-slate-700 shadow-sm flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <Package className="w-4 h-4 text-lilac-600" />
-                <h2 className="text-sm font-bold text-slate-800">Top 10 Productos Más Vendidos</h2>
+                <Package className="w-4 h-4 text-lilac-600 dark:text-lilac-400" />
+                <h2 className="text-sm font-bold text-slate-800 dark:text-white">Top 10 Productos Más Vendidos</h2>
               </div>
               <span className="text-xs text-slate-400 font-medium">Por unidades vendidas</span>
             </div>
@@ -636,13 +643,13 @@ export const ReportsView: React.FC = () => {
                     layout="vertical"
                     margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#F1F5F9" />
-                    <XAxis type="number" tick={{ fill: '#64748B', fontSize: 11 }} />
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={chartGridStroke} />
+                    <XAxis type="number" tick={{ fill: chartTickFill, fontSize: 11 }} />
                     <YAxis
                       type="category"
                       dataKey="name"
                       width={130}
-                      tick={{ fill: '#334155', fontSize: 11 }}
+                      tick={{ fill: chartTickFill, fontSize: 11 }}
                       tickFormatter={(val) => (val.length > 18 ? `${val.slice(0, 18)}…` : val)}
                     />
                     <Tooltip
@@ -671,11 +678,11 @@ export const ReportsView: React.FC = () => {
           </div>
 
           {/* Sales By Category Chart */}
-          <div className="bg-white p-5 rounded-2xl border border-lilac-100 shadow-sm flex flex-col">
+          <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-lilac-100 dark:border-slate-700 shadow-sm flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <Layers className="w-4 h-4 text-lilac-600" />
-                <h2 className="text-sm font-bold text-slate-800">Ventas por Categoría</h2>
+                <Layers className="w-4 h-4 text-lilac-600 dark:text-lilac-400" />
+                <h2 className="text-sm font-bold text-slate-800 dark:text-white">Ventas por Categoría</h2>
               </div>
               <span className="text-xs text-slate-400 font-medium">Por recaudación ($)</span>
             </div>
@@ -684,16 +691,16 @@ export const ReportsView: React.FC = () => {
               <div className="h-72 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={reportData.categorySales} margin={{ top: 10, right: 10, left: 10, bottom: 25 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridStroke} />
                     <XAxis
                       dataKey="categoryName"
-                      tick={{ fill: '#64748B', fontSize: 11 }}
+                      tick={{ fill: chartTickFill, fontSize: 11 }}
                       angle={-20}
                       textAnchor="end"
                       height={40}
                     />
                     <YAxis
-                      tick={{ fill: '#64748B', fontSize: 11 }}
+                      tick={{ fill: chartTickFill, fontSize: 11 }}
                       axisLine={false}
                       tickLine={false}
                       tickFormatter={(val) => `$ ${(val / 1000).toFixed(0)}k`}
@@ -731,11 +738,11 @@ export const ReportsView: React.FC = () => {
 
       {/* 5. Ventas por Proveedor */}
       {reportData && (
-        <div className="bg-white p-5 rounded-2xl border border-lilac-100 shadow-sm flex flex-col">
+        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-lilac-100 dark:border-slate-700 shadow-sm flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Truck className="w-4 h-4 text-lilac-600" />
-              <h2 className="text-sm font-bold text-slate-800">Ventas por Proveedor</h2>
+              <Truck className="w-4 h-4 text-lilac-600 dark:text-lilac-400" />
+              <h2 className="text-sm font-bold text-slate-800 dark:text-white">Ventas por Proveedor</h2>
             </div>
             <span className="text-xs text-slate-400 font-medium">Por recaudación ($) y unidades</span>
           </div>
@@ -746,16 +753,16 @@ export const ReportsView: React.FC = () => {
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={reportData.supplierSales} margin={{ top: 10, right: 10, left: 10, bottom: 25 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridStroke} />
                     <XAxis
                       dataKey="supplierName"
-                      tick={{ fill: '#64748B', fontSize: 11 }}
+                      tick={{ fill: chartTickFill, fontSize: 11 }}
                       angle={-20}
                       textAnchor="end"
                       height={40}
                     />
                     <YAxis
-                      tick={{ fill: '#64748B', fontSize: 11 }}
+                      tick={{ fill: chartTickFill, fontSize: 11 }}
                       axisLine={false}
                       tickLine={false}
                       tickFormatter={(val) => `$ ${(val / 1000).toFixed(0)}k`}
@@ -784,9 +791,9 @@ export const ReportsView: React.FC = () => {
               </div>
 
               {/* Tabla Resumen de Proveedores */}
-              <div className="overflow-x-auto rounded-xl border border-slate-100 flex flex-col justify-center">
+              <div className="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-700 flex flex-col justify-center">
                 <table className="w-full text-xs text-left">
-                  <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200/70">
+                  <thead className="bg-slate-50 dark:bg-slate-850 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200/70 dark:border-slate-700">
                     <tr>
                       <th className="py-2.5 px-3">Proveedor</th>
                       <th className="py-2.5 px-3 text-center">Unidades</th>
@@ -794,22 +801,22 @@ export const ReportsView: React.FC = () => {
                       <th className="py-2.5 px-3 text-right">Participación</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700 font-medium text-slate-700 dark:text-slate-200">
                     {reportData.supplierSales.map((s, idx) => (
-                      <tr key={idx} className="hover:bg-lilac-50/40 transition-colors">
+                      <tr key={idx} className="hover:bg-lilac-50/40 dark:hover:bg-slate-700/50 transition-colors">
                         <td className="py-2.5 px-3 flex items-center gap-2">
                           <span
                             className="w-2.5 h-2.5 rounded-full shrink-0"
                             style={{ backgroundColor: SUPPLIER_COLORS[idx % SUPPLIER_COLORS.length] }}
                           />
-                          <span className="font-bold text-slate-800">{s.supplierName}</span>
+                          <span className="font-bold text-slate-800 dark:text-slate-100">{s.supplierName}</span>
                         </td>
-                        <td className="py-2.5 px-3 text-center font-bold text-slate-700">{s.unitsSold}</td>
-                        <td className="py-2.5 px-3 text-right font-extrabold text-lilac-700">
+                        <td className="py-2.5 px-3 text-center font-bold text-slate-700 dark:text-slate-200">{s.unitsSold}</td>
+                        <td className="py-2.5 px-3 text-right font-extrabold text-lilac-700 dark:text-lilac-300">
                           {formatCLP(s.totalRevenue)}
                         </td>
                         <td className="py-2.5 px-3 text-right">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200">
                             {s.percentage}%
                           </span>
                         </td>
@@ -829,17 +836,17 @@ export const ReportsView: React.FC = () => {
 
       {/* 6. Detailed Ranking Table */}
       {reportData && reportData.topProducts.length > 0 && (
-        <div className="bg-white rounded-2xl border border-lilac-100 shadow-sm p-5 space-y-4">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-lilac-100 dark:border-slate-700 shadow-sm p-5 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-slate-800">Detalle de Productos Vendidos en el Período</h2>
+            <h2 className="text-sm font-bold text-slate-800 dark:text-white">Detalle de Productos Vendidos en el Período</h2>
             <span className="text-xs text-slate-400 font-medium">
               {reportData.topProducts.length} productos con mayor rotación
             </span>
           </div>
 
-          <div className="overflow-x-auto rounded-xl border border-slate-200/70">
+          <div className="overflow-x-auto rounded-xl border border-slate-200/70 dark:border-slate-700">
             <table className="w-full text-xs text-left">
-              <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200/70">
+              <thead className="bg-slate-50 dark:bg-slate-850 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200/70 dark:border-slate-700">
                 <tr>
                   <th className="py-2.5 px-3">#</th>
                   <th className="py-2.5 px-3">Código</th>
@@ -850,20 +857,20 @@ export const ReportsView: React.FC = () => {
                   <th className="py-2.5 px-3 text-right">Total Recaudado</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700 font-medium text-slate-700 dark:text-slate-200">
                 {reportData.topProducts.map((p, idx) => (
-                  <tr key={p.code} className="hover:bg-lilac-50/40 transition-colors">
+                  <tr key={p.code} className="hover:bg-lilac-50/40 dark:hover:bg-slate-700/50 transition-colors">
                     <td className="py-2.5 px-3 font-bold text-slate-400">{idx + 1}</td>
-                    <td className="py-2.5 px-3 font-mono text-slate-500">{p.code}</td>
-                    <td className="py-2.5 px-3 font-bold text-slate-800">{p.name}</td>
+                    <td className="py-2.5 px-3 font-mono text-slate-500 dark:text-slate-400">{p.code}</td>
+                    <td className="py-2.5 px-3 font-bold text-slate-800 dark:text-slate-100">{p.name}</td>
                     <td className="py-2.5 px-3">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-lilac-100 text-lilac-700">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-lilac-100 dark:bg-slate-700 text-lilac-700 dark:text-lilac-300 border border-transparent dark:border-slate-600">
                         {p.categoryName}
                       </span>
                     </td>
                     <td className="py-2.5 px-3 text-right">{formatCLP(p.unitPrice)}</td>
-                    <td className="py-2.5 px-3 text-center font-bold text-slate-900">{p.unitsSold}</td>
-                    <td className="py-2.5 px-3 text-right font-extrabold text-lilac-700">
+                    <td className="py-2.5 px-3 text-center font-bold text-slate-900 dark:text-white">{p.unitsSold}</td>
+                    <td className="py-2.5 px-3 text-right font-extrabold text-lilac-700 dark:text-lilac-300">
                       {formatCLP(p.totalRevenue)}
                     </td>
                   </tr>

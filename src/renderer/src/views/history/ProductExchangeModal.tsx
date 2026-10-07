@@ -166,7 +166,7 @@ export const ProductExchangeModal: React.FC<ProductExchangeModalProps> = ({
                       <tr
                         key={item.product_code}
                         className={`transition-colors ${
-                          item.selectedQty > 0 ? 'bg-amber-50/40' : 'hover:bg-slate-50/70'
+                          item.selectedQty > 0 ? 'bg-amber-50' : 'hover:bg-slate-100'
                         }`}
                       >
                         <td className="py-2.5 px-3">
@@ -269,11 +269,11 @@ export const ProductExchangeModal: React.FC<ProductExchangeModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
+        <div className="px-6 py-4 bg-white dark:bg-slate-850 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs transition-colors"
+            className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs transition-colors border border-slate-200 dark:border-slate-700"
           >
             Cancelar
           </button>

@@ -43,16 +43,16 @@ export const SalesHistoryModal: React.FC<SalesHistoryModalProps> = ({ isOpen, on
       onClick={handleBackdropClick}
       className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-3 sm:p-5 animate-in fade-in duration-150 select-none"
     >
-      <div className="bg-white rounded-3xl shadow-2xl border border-lilac-200 w-full max-w-6xl h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-lilac-200 dark:border-slate-800 w-full max-w-6xl h-[92vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
         {/* Header del Modal */}
-        <div className="px-6 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
+        <div className="px-6 py-3.5 bg-white dark:bg-slate-850 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-lilac-100 text-lilac-700 flex items-center justify-center font-bold shadow-xs">
+            <div className="w-10 h-10 rounded-xl bg-lilac-100 dark:bg-slate-800 text-lilac-700 dark:text-lilac-400 flex items-center justify-center font-bold shadow-xs">
               <FileText className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-slate-900">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
                   Historial de Ventas y Devoluciones
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-lilac-100 text-lilac-800 border border-lilac-200">
@@ -92,7 +92,7 @@ export const SalesHistoryModal: React.FC<SalesHistoryModalProps> = ({ isOpen, on
         </div>
 
         {/* Contenido Principal: Tabla y Filtros */}
-        <div className="flex-1 flex flex-col overflow-hidden bg-slate-50">
+        <div className="flex-1 flex flex-col overflow-hidden bg-slate-100/60 dark:bg-slate-950">
           <SalesHistoryTab
             onOpenCancelModal={(id, folio, total) => setSaleToCancel({ id, folio, total })}
           />

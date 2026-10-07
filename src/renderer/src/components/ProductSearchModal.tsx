@@ -122,19 +122,19 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
           minWidth: '540px',
           minHeight: '400px'
         }}
-        className="bg-white rounded-3xl shadow-2xl border border-black/60 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 relative select-none"
+        className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-black/60 dark:border-slate-800 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 relative select-none"
       >
         {/* Header Ultra Compacto */}
-        <div className="px-4 py-1.5 bg-slate-50 border-b border-black/60 flex items-center justify-between shrink-0 h-9">
-          <div className="flex items-center gap-1.5 text-slate-800 font-bold text-xs">
-            <div className="w-5 h-5 rounded-md bg-lilac-100 text-lilac-600 flex items-center justify-center">
+        <div className="px-4 py-1.5 bg-white dark:bg-slate-850 border-b border-black/60 dark:border-slate-800 flex items-center justify-between shrink-0 h-9">
+          <div className="flex items-center gap-1.5 text-slate-800 dark:text-slate-100 font-bold text-xs">
+            <div className="w-5 h-5 rounded-md bg-lilac-100 dark:bg-slate-800 text-lilac-600 dark:text-lilac-400 flex items-center justify-center">
               <Search className="w-3 h-3" />
             </div>
             <span>{title}</span>
           </div>
           <button
             onClick={handleClose}
-            className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors"
+            className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -152,12 +152,12 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-2.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 shrink-0">
+        <div className="px-6 py-2.5 bg-white dark:bg-slate-850 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 shrink-0">
           <span>{footerText}</span>
           <div className="flex items-center gap-3">
             <button
               onClick={handleClose}
-              className="px-4 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl font-medium text-slate-700 transition-colors"
+              className="px-4 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl font-medium text-slate-700 dark:text-slate-200 transition-colors"
             >
               Cerrar (Esc)
             </button>

@@ -18,12 +18,14 @@ import {
   Boxes,
   ArrowUpDown,
   Hash,
-  FileText
+  FileText,
+  FileSpreadsheet
 } from 'lucide-react'
 import { useInventoryStore } from '../store/inventoryStore'
 import { ProductSearchResult, MovementType, QuickAdjustmentReason, DEFAULT_QUICK_REASONS } from '@shared/types'
 import { ProductSearchModal } from '../components/ProductSearchModal'
 import { formatCLP } from '../utils/formatters'
+import { isShortcutMatch } from '../utils/keyboardShortcut'
 
 export const InventoryView: React.FC = () => {
   const {
@@ -64,6 +66,75 @@ export const InventoryView: React.FC = () => {
     sign?: '+' | '-'
   } | null>(null)
   const [quickReasons, setQuickReasons] = useState<QuickAdjustmentReason[]>([...DEFAULT_QUICK_REASONS])
+  const [listeningMode, setListeningMode] = useState<'idle' | 'after_delta' | 'after_new_stock'>('idle')
+  const [hasAppliedReasonShortcut, setHasAppliedReasonShortcut] = useState(false)
+  const listeningModeRef = useRef<'idle' | 'after_delta' | 'after_new_stock'>('idle')
+  const hasAppliedReasonShortcutRef = useRef(false)
+
+  const updateListeningMode = (mode: 'idle' | 'after_delta' | 'after_new_stock'): void => {
+    listeningModeRef.current = mode
+    setListeningMode(mode)
+  }
+
+  const updateHasAppliedReasonShortcut = (val: boolean): void => {
+    hasAppliedReasonShortcutRef.current = val
+    setHasAppliedReasonShortcut(val)
+  }
+
+  // Estado para exportación a Excel
+  const [isExportingMovements, setIsExportingMovements] = useState(false)
+  const [isExportingKardex, setIsExportingKardex] = useState(false)
+  const [exportNotice, setExportNotice] = useState<{
+    type: 'success' | 'error'
+    message: string
+  } | null>(null)
+
+  const showExportNotice = (type: 'success' | 'error', message: string): void => {
+    setExportNotice({ type, message })
+    setTimeout(() => {
+      setExportNotice(null)
+    }, 4000)
+  }
+
+  const handleExportMovements = async (movementsToExport: any[]): Promise<void> => {
+    if (movementsToExport.length === 0) return
+    setIsExportingMovements(true)
+    try {
+      const res = await window.api.exportMovementsExcel(selectedDate, movementsToExport)
+      if (res && res.filePath) {
+        showExportNotice('success', `Movimientos exportados exitosamente (${res.totalExported} registros).`)
+      }
+    } catch (err: any) {
+      console.error('Error al exportar movimientos a Excel:', err)
+      showExportNotice('error', 'Error al exportar movimientos a Excel.')
+    } finally {
+      setIsExportingMovements(false)
+    }
+  }
+
+  const handleExportKardex = async (): Promise<void> => {
+    if (!kardexProduct) return
+    setIsExportingKardex(true)
+    try {
+      const productInfo = {
+        code: kardexProduct.code || '',
+        name: getProductDisplayName(kardexProduct.name, kardexProduct.parent_name),
+        category_name: kardexProduct.parent_category_name
+          ? `${kardexProduct.parent_category_name} > ${kardexProduct.category_name || ''}`
+          : kardexProduct.category_name,
+        current_stock: kardexProduct.stock
+      }
+      const res = await window.api.exportKardexExcel(productInfo)
+      if (res && res.filePath) {
+        showExportNotice('success', `Kardex exportado exitosamente (${res.totalExported} registros).`)
+      }
+    } catch (err: any) {
+      console.error('Error al exportar kardex a Excel:', err)
+      showExportNotice('error', 'Error al exportar kardex a Excel.')
+    } finally {
+      setIsExportingKardex(false)
+    }
+  }
 
   const [windowHeight, setWindowHeight] = useState(() =>
     typeof window !== 'undefined' ? window.innerHeight : 900
@@ -87,7 +158,21 @@ export const InventoryView: React.FC = () => {
   const reasonInputRef = useRef<HTMLInputElement>(null)
   const handleConfirmAdjustRef = useRef<((e?: React.MouseEvent | React.KeyboardEvent) => Promise<void>) | null>(null)
 
-  // Atajo F10 para abrir catálogo en inventario y Enter para confirmar ajuste cuando no hay input enfocado
+  // Aplicar motivo rápido (reemplazar o añadir a la frase)
+  const handleApplyReason = (item: QuickAdjustmentReason, focusReasonInput = true): void => {
+    if (item.type === 'replace') {
+      setReason(item.text)
+    } else {
+      setReason((prev) => (prev.trim() ? `${prev.trim()} ${item.text}` : item.text))
+    }
+    if (focusReasonInput) {
+      setTimeout(() => {
+        reasonInputRef.current?.focus()
+      }, 40)
+    }
+  }
+
+  // Atajo F10 para abrir catálogo en inventario, atajos de motivos y navegación fluida por Enter
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent): void => {
       if (e.key === 'F10') {
@@ -102,20 +187,63 @@ export const InventoryView: React.FC = () => {
         return
       }
 
-      if (e.key === 'Enter' && activeTab === 'adjust' && !isSearchModalOpen) {
+      if (activeTab === 'adjust' && !isSearchModalOpen) {
+        const target = e.target as HTMLElement | null
         const activeEl = document.activeElement
         const isInputOrTextarea =
-          activeEl instanceof HTMLInputElement || activeEl instanceof HTMLTextAreaElement
+          activeEl instanceof HTMLInputElement ||
+          activeEl instanceof HTMLTextAreaElement ||
+          target instanceof HTMLInputElement ||
+          target instanceof HTMLTextAreaElement
 
+        // Operaciones cuando ningún input está enfocado (escucha de atajos o confirmación)
         if (!isInputOrTextarea) {
-          e.preventDefault()
-          handleConfirmAdjustRef.current?.(e as unknown as React.KeyboardEvent)
+          // 1. Verificar si coincide con algún atajo de motivo configurado
+          const matchedReason = quickReasons.find((r) => isShortcutMatch(e, r.shortcut))
+          if (matchedReason) {
+            e.preventDefault()
+            e.stopPropagation()
+            handleApplyReason(matchedReason, false)
+            updateHasAppliedReasonShortcut(true)
+            return
+          }
+
+          // 2. Manejo de Enter
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            e.stopPropagation()
+            if (hasAppliedReasonShortcutRef.current) {
+              handleConfirmAdjustRef.current?.(e as unknown as React.KeyboardEvent)
+              updateListeningMode('idle')
+              updateHasAppliedReasonShortcut(false)
+            } else if (listeningModeRef.current === 'after_delta') {
+              newStockInputRef.current?.focus()
+              newStockInputRef.current?.select()
+              updateListeningMode('idle')
+            } else if (listeningModeRef.current === 'after_new_stock') {
+              reasonInputRef.current?.focus()
+              reasonInputRef.current?.select()
+              updateListeningMode('idle')
+            } else {
+              handleConfirmAdjustRef.current?.(e as unknown as React.KeyboardEvent)
+            }
+            return
+          }
+
+          // 3. Escape para salir del modo de escucha
+          if (e.key === 'Escape' && listeningModeRef.current !== 'idle') {
+            e.preventDefault()
+            e.stopPropagation()
+            updateListeningMode('idle')
+            updateHasAppliedReasonShortcut(false)
+            return
+          }
         }
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [activeTab, isSearchModalOpen])
+  }, [activeTab, isSearchModalOpen, quickReasons])
 
   // Helper para formatear nombre de producto evitando duplicar nombre del padre
   const getProductDisplayName = (name: string, parentName?: string | null): string => {
@@ -180,6 +308,8 @@ export const InventoryView: React.FC = () => {
       setDeltaInput('')
       setReason('')
       setFeedbackMessage(null)
+      updateListeningMode('idle')
+      updateHasAppliedReasonShortcut(false)
 
       if (activeTab === 'adjust') {
         setTimeout(() => {
@@ -192,6 +322,8 @@ export const InventoryView: React.FC = () => {
       setNewStockInput('')
       setDeltaInput('')
       setReason('')
+      updateListeningMode('idle')
+      updateHasAppliedReasonShortcut(false)
     }
   }, [selectedProduct, activeTab])
 
@@ -322,6 +454,9 @@ export const InventoryView: React.FC = () => {
 
   // Enviar formulario de ajuste
   const handleConfirmAdjust = async (e?: React.MouseEvent | React.KeyboardEvent): Promise<void> => {
+    updateListeningMode('idle')
+    updateHasAppliedReasonShortcut(false)
+
     if (!selectedProduct || !selectedProduct.code) {
       setFeedbackMessage({
         type: 'error',
@@ -417,18 +552,6 @@ export const InventoryView: React.FC = () => {
   }
   handleConfirmAdjustRef.current = handleConfirmAdjust
 
-  // Aplicar motivo rápido (reemplazar o añadir a la frase)
-  const handleApplyReason = (item: QuickAdjustmentReason): void => {
-    if (item.type === 'replace') {
-      setReason(item.text)
-    } else {
-      setReason((prev) => (prev.trim() ? `${prev.trim()} ${item.text}` : item.text))
-    }
-    setTimeout(() => {
-      reasonInputRef.current?.focus()
-    }, 40)
-  }
-
   // Abrir modal de búsqueda
   const handleOpenSearchModal = (target: 'adjust' | 'kardex'): void => {
     setModalTarget(target)
@@ -507,16 +630,16 @@ export const InventoryView: React.FC = () => {
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-slate-50 overflow-hidden select-none">
+    <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-900 overflow-hidden select-none">
       {/* Top Header & Sub-navigation Tabs */}
-      <div className="bg-white border-b border-lilac-100 px-4 sm:px-6 pt-3 gap-2 pb-0 flex flex-col shrink-0 shadow-sm">
+      <div className="bg-white dark:bg-slate-800 border-b border-lilac-100 dark:border-slate-700 px-4 sm:px-6 pt-3 gap-2 pb-0 flex flex-col shrink-0 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="w-8 h-8 rounded-lg sm:w-10 sm:h-10 sm:rounded-xl bg-lilac-100 text-lilac-600 flex items-center justify-center shadow-inner shrink-0">
-              <SlidersHorizontal className="w-4 h-4 sm:w-5 sm:h-5" />
+            <div className="w-8 h-8 rounded-lg sm:w-10 sm:h-10 sm:rounded-xl bg-lilac-100 dark:bg-lilac-950/60 text-lilac-600 dark:text-lilac-400 flex items-center justify-center shadow-inner shrink-0">
+              <Boxes className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <h1 className="text-base sm:text-lg font-bold text-slate-800 leading-tight">
+              <h1 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100 leading-tight">
                 Control de Inventario
               </h1>
             </div>
@@ -526,11 +649,12 @@ export const InventoryView: React.FC = () => {
         {/* Tab Buttons */}
         <div className="flex items-center gap-1.5 sm:gap-2 border-b border-transparent -mb-px overflow-x-auto">
           <button
+            type="button"
             onClick={() => setActiveTab('adjust')}
-            className={`flex items-center gap-1.5 sm:gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3.5 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 cursor-pointer ${
               activeTab === 'adjust'
-                ? 'border-lilac-600 text-lilac-700 bg-lilac-50/50'
-                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
+                ? 'border-lilac-600 text-lilac-700 dark:text-lilac-300 bg-lilac-50/50 dark:bg-lilac-950/40'
+                : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-slate-700/50'
             }`}
           >
             <SlidersHorizontal className="w-4 h-4" />
@@ -538,11 +662,12 @@ export const InventoryView: React.FC = () => {
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveTab('lowStock')}
-            className={`flex items-center gap-1.5 sm:gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3.5 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 cursor-pointer ${
               activeTab === 'lowStock'
-                ? 'border-lilac-600 text-lilac-700 bg-lilac-50/50'
-                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
+                ? 'border-lilac-600 text-lilac-700 dark:text-lilac-300 bg-lilac-50/50 dark:bg-lilac-950/40'
+                : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-slate-700/50'
             }`}
           >
             <AlertTriangle className="w-4 h-4 text-amber-500" />
@@ -555,11 +680,12 @@ export const InventoryView: React.FC = () => {
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveTab('movements')}
-            className={`flex items-center gap-1.5 sm:gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3.5 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 cursor-pointer ${
               activeTab === 'movements'
-                ? 'border-lilac-600 text-lilac-700 bg-lilac-50/50'
-                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
+                ? 'border-lilac-600 text-lilac-700 dark:text-lilac-300 bg-lilac-50/50 dark:bg-lilac-950/40'
+                : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-slate-700/50'
             }`}
           >
             <ArrowLeftRight className="w-4 h-4" />
@@ -567,11 +693,12 @@ export const InventoryView: React.FC = () => {
           </button>
 
           <button
+            type="button"
             onClick={() => setActiveTab('kardex')}
-            className={`flex items-center gap-1.5 sm:gap-2 px-4 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-3.5 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 cursor-pointer ${
               activeTab === 'kardex'
-                ? 'border-lilac-600 text-lilac-700 bg-lilac-50/50'
-                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
+                ? 'border-lilac-600 text-lilac-700 dark:text-lilac-300 bg-lilac-50/50 dark:bg-lilac-950/40'
+                : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-slate-700/50'
             }`}
           >
             <BookOpen className="w-4 h-4" />
@@ -586,6 +713,24 @@ export const InventoryView: React.FC = () => {
           isCompactHeight ? 'p-2 sm:p-2.5' : isMediumHeight ? 'p-3.5 sm:p-4' : 'p-5 sm:p-6'
         } ${activeTab === 'adjust' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto'}`}
       >
+        {/* Notificación flotante de exportación a Excel */}
+        {exportNotice && (
+          <div
+            className={`fixed bottom-5 right-5 z-50 px-4 py-3 rounded-2xl shadow-xl border flex items-center gap-2.5 text-xs font-semibold animate-in fade-in slide-in-from-bottom-3 duration-200 ${
+              exportNotice.type === 'success'
+                ? 'bg-emerald-900/95 text-emerald-100 border-emerald-700'
+                : 'bg-rose-900/95 text-rose-100 border-rose-700'
+            }`}
+          >
+            {exportNotice.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            ) : (
+              <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            )}
+            <span>{exportNotice.message}</span>
+          </div>
+        )}
+
         {/* ========================================================= */}
         {/* SUBTAB 1: AJUSTAR EXISTENCIA                             */}
         {/* ========================================================= */}
@@ -678,11 +823,17 @@ export const InventoryView: React.FC = () => {
                         ref={codeInputRef}
                         type="text"
                         value={codeInput}
+                        onFocus={() => {
+                          updateListeningMode('idle')
+                          updateHasAppliedReasonShortcut(false)
+                        }}
                         onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            e.nativeEvent?.stopImmediatePropagation?.()
                             if (selectedProduct && (codeInput.trim() === '' || codeInput.trim() === selectedProduct.code)) {
-                              e.preventDefault()
                               deltaInputRef.current?.focus()
                               deltaInputRef.current?.select()
                             } else {
@@ -732,20 +883,20 @@ export const InventoryView: React.FC = () => {
                     {selectedProduct ? (
                       <>
                         <span
-                          className={`${isCompactHeight ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'} font-bold text-slate-900 truncate`}
+                          className={`${isCompactHeight ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'} font-bold text-slate-900 dark:text-white truncate`}
                           title={getProductDisplayName(selectedProduct.name, selectedProduct.parent_name)}
                         >
                           {getProductDisplayName(selectedProduct.name, selectedProduct.parent_name)}
                         </span>
                         {(selectedProduct.parent_category_name || selectedProduct.category_name) && (
-                          <span className={`px-2 py-0.5 rounded-lg ${isCompactHeight ? 'text-[10px]' : 'text-xs'} font-semibold bg-lilac-50 text-lilac-700 border border-lilac-100 shrink-0`}>
+                          <span className={`px-2 py-0.5 rounded-lg ${isCompactHeight ? 'text-[10px]' : 'text-xs'} font-semibold bg-lilac-50 dark:bg-slate-700 text-lilac-700 dark:text-lilac-300 border border-lilac-100 dark:border-slate-600 shrink-0`}>
                             {selectedProduct.parent_category_name
                               ? `${selectedProduct.parent_category_name}${selectedProduct.category_name ? ' > ' + selectedProduct.category_name : ''}`
                               : selectedProduct.category_name}
                           </span>
                         )}
                         {selectedProduct.product_type === 'variation' && (
-                          <span className={`px-2 py-0.5 rounded-lg ${isCompactHeight ? 'text-[10px]' : 'text-xs'} font-semibold bg-amber-50 text-amber-700 border border-amber-200 shrink-0`}>
+                          <span className={`px-2 py-0.5 rounded-lg ${isCompactHeight ? 'text-[10px]' : 'text-xs'} font-semibold bg-amber-50 dark:bg-slate-700 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700/60 shrink-0`}>
                             Variación
                           </span>
                         )}
@@ -811,14 +962,28 @@ export const InventoryView: React.FC = () => {
                       type="text"
                       disabled={!selectedProduct}
                       value={deltaInput}
-                      onFocus={(e) => e.target.select()}
-                      onClick={(e) => (e.target as HTMLInputElement).select()}
+                      onFocus={(e) => {
+                        updateListeningMode('idle')
+                        updateHasAppliedReasonShortcut(false)
+                        e.target.select()
+                      }}
+                      onClick={(e) => {
+                        updateListeningMode('idle')
+                        updateHasAppliedReasonShortcut(false)
+                        ;(e.target as HTMLInputElement).select()
+                      }}
                       onChange={handleDeltaChange}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault()
-                          newStockInputRef.current?.focus()
-                          newStockInputRef.current?.select()
+                          e.stopPropagation()
+                          e.nativeEvent?.stopImmediatePropagation?.()
+                          e.currentTarget.blur()
+                          if (document.activeElement instanceof HTMLElement) {
+                            document.activeElement.blur()
+                          }
+                          updateListeningMode('after_delta')
+                          updateHasAppliedReasonShortcut(false)
                         }
                       }}
                       placeholder="0"
@@ -841,14 +1006,28 @@ export const InventoryView: React.FC = () => {
                       type="text"
                       disabled={!selectedProduct}
                       value={newStockInput}
-                      onFocus={(e) => e.target.select()}
-                      onClick={(e) => (e.target as HTMLInputElement).select()}
+                      onFocus={(e) => {
+                        updateListeningMode('idle')
+                        updateHasAppliedReasonShortcut(false)
+                        e.target.select()
+                      }}
+                      onClick={(e) => {
+                        updateListeningMode('idle')
+                        updateHasAppliedReasonShortcut(false)
+                        ;(e.target as HTMLInputElement).select()
+                      }}
                       onChange={handleNewStockChange}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault()
-                          reasonInputRef.current?.focus()
-                          reasonInputRef.current?.select()
+                          e.stopPropagation()
+                          e.nativeEvent?.stopImmediatePropagation?.()
+                          e.currentTarget.blur()
+                          if (document.activeElement instanceof HTMLElement) {
+                            document.activeElement.blur()
+                          }
+                          updateListeningMode('after_new_stock')
+                          updateHasAppliedReasonShortcut(false)
                         }
                       }}
                       placeholder="0"
@@ -868,38 +1047,72 @@ export const InventoryView: React.FC = () => {
                 </div>
 
                 {/* 7. Motivo del ajuste */}
-                <div className={`${isCompactHeight ? 'py-1.5' : isMediumHeight ? 'py-2' : 'py-3'} px-1 flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-3`}>
-                  <div className="w-36 sm:w-48 shrink-0 pt-1">
+                <div className={`${isCompactHeight ? 'py-1.5' : isMediumHeight ? 'py-2' : 'py-2.5'} px-1 flex flex-col gap-2.5 w-full`}>
+                  {/* Cabecera de la fila: Etiqueta a la izquierda y Estado de escucha a la derecha (cero layout shift) */}
+                  <div className="flex items-center justify-between gap-2 min-h-[26px]">
                     <label className={`${isCompactHeight ? 'text-xs' : 'text-sm sm:text-base'} font-normal text-slate-700 flex items-center gap-2`}>
                       <FileText className={`${isCompactHeight ? 'w-4 h-4' : 'w-5 h-5'} text-lilac-600 shrink-0`} />
-                      <span>Motivo del ajuste</span>
+                      <span className="font-semibold">Motivo del ajuste</span>
                     </label>
-                  </div>
-                  <div className="flex-1 flex flex-col gap-1.5 min-w-0">
-                    <input
-                      ref={reasonInputRef}
-                      type="text"
-                      disabled={!selectedProduct}
-                      value={reason}
-                      onChange={(e) => setReason(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          handleConfirmAdjust(e)
-                        }
-                      }}
-                      placeholder="Escribe el motivo del ajuste (ej: Conteo físico, rotura, merma...)"
-                      className={`w-full ${isCompactHeight ? 'py-1 px-2.5 text-xs' : 'py-1.5 px-3.5 text-xs sm:text-sm'} bg-slate-50 focus:bg-white border border-slate-200 focus:border-lilac-500 rounded-xl outline-none transition-all disabled:bg-slate-100 disabled:text-slate-400 shadow-2xs`}
-                    />
 
-                    {/* Chips de motivos configurables agrupados siempre presentes */}
-                    <div className="flex flex-col gap-1">
-                      {/* Motivos principales (Reemplazar) */}
-                      {quickReasons.filter((r) => r.type === 'replace').length > 0 && (
-                        <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
-                          <span className={`${isCompactHeight ? 'text-[10px]' : 'text-[11px]'} font-bold text-lilac-700 mr-1 select-none`}>
-                            Principal:
+                    {/* Mensaje de escucha integrado en la cabecera (sin alterar altura de la fila) */}
+                    <div className="flex items-center gap-2 transition-all">
+                      {listeningMode !== 'idle' ? (
+                        <div className="flex items-center gap-2 text-xs bg-amber-50 text-amber-900 border border-amber-200/80 px-2.5 py-0.5 rounded-lg font-medium shadow-2xs animate-in fade-in duration-150">
+                          <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping shrink-0" />
+                          <span className="hidden sm:inline">
+                            {hasAppliedReasonShortcut
+                              ? 'Motivo listo. Presiona otra tecla o Enter:'
+                              : 'Escuchando teclas de motivo:'}
                           </span>
+                          <span className="font-mono font-bold text-amber-800 bg-amber-100/90 px-1.5 py-0.2 rounded text-[11px]">
+                            {hasAppliedReasonShortcut
+                              ? 'Enter = Confirmar'
+                              : listeningMode === 'after_delta'
+                              ? 'Enter = Nueva Cant.'
+                              : 'Enter = Escribir'}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-slate-400 font-normal">
+                          {selectedProduct ? 'Escribe o presiona una tecla de motivo' : 'Selecciona un producto'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Input de texto del motivo a ancho completo */}
+                  <input
+                    ref={reasonInputRef}
+                    type="text"
+                    disabled={!selectedProduct}
+                    value={reason}
+                    onFocus={() => {
+                      updateListeningMode('idle')
+                      updateHasAppliedReasonShortcut(false)
+                    }}
+                    onChange={(e) => setReason(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        e.nativeEvent?.stopImmediatePropagation?.()
+                        handleConfirmAdjust(e)
+                      }
+                    }}
+                    placeholder="Escribe el motivo del ajuste (ej: Conteo físico, rotura, merma...)"
+                    className={`w-full ${isCompactHeight ? 'py-1 px-3 text-xs' : 'py-1.5 px-3.5 text-xs sm:text-sm'} bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-lilac-500 rounded-xl outline-none transition-all text-slate-800 dark:text-white disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 shadow-2xs font-medium`}
+                  />
+
+                  {/* Motivos rápidos tirados a la izquierda y adaptativos en una sola subfila sin truncar */}
+                  <div className="flex flex-col gap-1.5 w-full pt-0.5 overflow-hidden">
+                    {/* Motivos principales (Reemplaza) - Morados */}
+                    {quickReasons.filter((r) => r.type === 'replace').length > 0 && (
+                      <div className="flex items-center gap-2 w-full overflow-hidden">
+                        <span className="shrink-0 text-xs font-bold text-lilac-700 dark:text-lilac-400 tracking-wide select-none whitespace-nowrap">
+                          Reemplaza:
+                        </span>
+                        <div className="flex items-center gap-1.5 overflow-hidden flex-nowrap">
                           {quickReasons
                             .filter((r) => r.type === 'replace')
                             .map((r) => (
@@ -907,28 +1120,49 @@ export const InventoryView: React.FC = () => {
                                 key={r.id}
                                 type="button"
                                 disabled={!selectedProduct}
-                                onClick={() => handleApplyReason(r)}
-                                className={`${isCompactHeight ? 'px-2 py-0.5 text-[11px]' : 'px-2.5 py-0.5 text-xs'} rounded-lg font-medium transition-all ${
+                                onClick={() => handleApplyReason(r, true)}
+                                className={`shrink-0 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1 shadow-2xs ${
                                   !selectedProduct
-                                    ? 'bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed'
+                                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed border border-slate-200/50 dark:border-slate-700'
                                     : reason === r.text
-                                    ? 'bg-lilac-600 text-white shadow-xs cursor-pointer'
-                                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer'
+                                    ? 'bg-lilac-600 text-white shadow-sm ring-2 ring-lilac-600/30 cursor-pointer'
+                                    : listeningMode !== 'idle' && r.shortcut
+                                    ? 'bg-amber-50 hover:bg-amber-100 text-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-600 ring-2 ring-amber-400/40 cursor-pointer'
+                                    : 'bg-lilac-50 hover:bg-lilac-100 text-lilac-900 dark:text-lilac-200 border border-lilac-200/80 dark:border-lilac-700/80 cursor-pointer'
                                 }`}
-                                title="Reemplaza todo el texto con este motivo"
+                                title={
+                                  r.shortcut
+                                    ? `Tecla: [${r.shortcut}] - Reemplaza todo el texto con este motivo`
+                                    : 'Reemplaza todo el texto con este motivo'
+                                }
                               >
-                                {r.text}
+                                <span>{r.text}</span>
+                                {r.shortcut && (
+                                  <kbd
+                                    className={`px-1 py-0 rounded-full font-mono font-bold text-[9px] sm:text-[10px] shrink-0 leading-tight ${
+                                      reason === r.text
+                                        ? 'bg-white/20 text-white'
+                                        : listeningMode !== 'idle'
+                                        ? 'bg-amber-200 dark:bg-amber-900/60 text-amber-950 dark:text-amber-200 border border-amber-300 dark:border-amber-700'
+                                        : 'bg-white dark:bg-lilac-900/60 border border-lilac-300 dark:border-lilac-700 text-lilac-800 dark:text-lilac-200 shadow-2xs'
+                                    }`}
+                                  >
+                                    {r.shortcut}
+                                  </kbd>
+                                )}
                               </button>
                             ))}
                         </div>
-                      )}
+                      </div>
+                    )}
 
-                      {/* Complementos (Añadir a la frase) */}
-                      {quickReasons.filter((r) => r.type === 'append').length > 0 && (
-                        <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
-                          <span className={`${isCompactHeight ? 'text-[10px]' : 'text-[11px]'} font-bold text-emerald-700 mr-1 select-none`}>
-                            Añadir detalle:
-                          </span>
+                    {/* Complementos (Complemento) - Verdes */}
+                    {quickReasons.filter((r) => r.type === 'append').length > 0 && (
+                      <div className="flex items-center gap-2 w-full overflow-hidden">
+                        <span className="shrink-0 text-xs font-bold text-emerald-700 dark:text-emerald-400 tracking-wide select-none whitespace-nowrap">
+                          Complemento:
+                        </span>
+                        <div className="flex items-center gap-1.5 overflow-hidden flex-nowrap">
                           {quickReasons
                             .filter((r) => r.type === 'append')
                             .map((r) => (
@@ -936,20 +1170,37 @@ export const InventoryView: React.FC = () => {
                                 key={r.id}
                                 type="button"
                                 disabled={!selectedProduct}
-                                onClick={() => handleApplyReason(r)}
-                                className={`${isCompactHeight ? 'px-2 py-0.5 text-[11px]' : 'px-2.5 py-0.5 text-xs'} rounded-lg font-medium transition-all ${
+                                onClick={() => handleApplyReason(r, true)}
+                                className={`shrink-0 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1 shadow-2xs ${
                                   !selectedProduct
-                                    ? 'bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed border border-slate-200/50'
-                                    : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/60 cursor-pointer'
+                                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed border border-slate-200/50 dark:border-slate-700'
+                                    : listeningMode !== 'idle' && r.shortcut
+                                    ? 'bg-emerald-100 hover:bg-emerald-200 text-emerald-950 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-600 ring-2 ring-emerald-400/40 cursor-pointer'
+                                    : 'bg-emerald-50 hover:bg-emerald-100/90 text-emerald-800 dark:text-emerald-200 border border-emerald-200/80 dark:border-emerald-700/80 cursor-pointer'
                                 }`}
-                                title="Añade esta palabra/detalle a la frase con un espacio"
+                                title={
+                                  r.shortcut
+                                    ? `Tecla: [${r.shortcut}] - Añade esta palabra a la frase con un espacio`
+                                    : 'Añade esta palabra/detalle a la frase con un espacio'
+                                }
                               >
-                                + {r.text}
+                                <span>+ {r.text}</span>
+                                {r.shortcut && (
+                                  <kbd
+                                    className={`px-1 py-0 rounded-full font-mono font-bold text-[9px] sm:text-[10px] shrink-0 leading-tight ${
+                                      listeningMode !== 'idle'
+                                        ? 'bg-emerald-200 dark:bg-emerald-900/60 text-emerald-950 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-700'
+                                        : 'bg-white dark:bg-emerald-900/60 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-200 shadow-2xs'
+                                    }`}
+                                  >
+                                    {r.shortcut}
+                                  </kbd>
+                                )}
                               </button>
                             ))}
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1033,21 +1284,21 @@ export const InventoryView: React.FC = () => {
                         const deficit = Math.max(0, p.min_stock - p.stock)
 
                         return (
-                          <tr key={p.code} className="hover:bg-lilac-50/30 transition-colors border-b border-black/60">
-                            <td className="py-3 px-4 font-mono font-bold text-slate-700">
+                          <tr key={p.code} className="hover:bg-lilac-50/30 dark:hover:bg-slate-750/50 transition-colors border-b border-black/60 dark:border-slate-700">
+                            <td className="py-3 px-4 font-mono font-bold text-slate-700 dark:text-slate-300">
                               {p.code}
                             </td>
                             <td className="py-3 px-4">
-                              <div className="font-bold text-slate-800">
+                              <div className="font-bold text-slate-800 dark:text-slate-100">
                                 {getProductDisplayName(p.name, p.parent_name)}
                               </div>
                               {p.product_type === 'variation' && (
-                                <span className="inline-block text-[10px] text-lilac-600 bg-lilac-50 px-1.5 py-0.2 rounded font-medium mt-0.5">
+                                <span className="inline-block text-[10px] text-lilac-600 dark:text-lilac-300 bg-lilac-50 dark:bg-slate-700 px-1.5 py-0.2 rounded font-medium mt-0.5 border border-transparent dark:border-slate-600">
                                   Variación
                                 </span>
                               )}
                             </td>
-                            <td className="py-3 px-4 text-slate-500">
+                            <td className="py-3 px-4 text-slate-500 dark:text-slate-400">
                               {p.parent_category_name
                                 ? `${p.parent_category_name}${p.category_name ? ' > ' + p.category_name : ''}`
                                 : p.category_name || '—'}
@@ -1056,18 +1307,18 @@ export const InventoryView: React.FC = () => {
                               <span
                                 className={`inline-block px-2.5 py-1 rounded-full text-xs font-black ${
                                   isZeroOrNegative
-                                    ? 'bg-rose-100 text-rose-700'
-                                    : 'bg-amber-100 text-amber-800'
+                                    ? 'bg-rose-100 dark:bg-slate-700 text-rose-700 dark:text-rose-300 dark:border dark:border-rose-800/60'
+                                    : 'bg-amber-100 dark:bg-slate-700 text-amber-800 dark:text-amber-300 dark:border dark:border-amber-800/60'
                                 }`}
                               >
                                 {p.stock}
                               </span>
                             </td>
-                            <td className="py-3 px-4 text-center font-bold text-slate-600">
+                            <td className="py-3 px-4 text-center font-bold text-slate-600 dark:text-slate-300">
                               {p.min_stock}
                             </td>
                             <td className="py-3 px-4 text-center">
-                              <span className="font-extrabold text-rose-600">+{deficit}</span>
+                              <span className="font-extrabold text-rose-600 dark:text-rose-400">+{deficit}</span>
                             </td>
                             <td className="py-3 px-4 text-right">
                               <button
@@ -1172,13 +1423,30 @@ export const InventoryView: React.FC = () => {
                   </div>
                 </div>
 
-                <button
-                  onClick={() => fetchMovements()}
-                  className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-lilac-600' : ''}`} />
-                  <span>Refrescar</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => fetchMovements()}
+                    className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-lilac-600' : ''}`} />
+                    <span>Refrescar</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleExportMovements(filteredMovements)}
+                    disabled={isExportingMovements || filteredMovements.length === 0}
+                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed active:scale-95"
+                    title={
+                      filteredMovements.length === 0
+                        ? 'No hay movimientos para exportar'
+                        : `Exportar ${filteredMovements.length} movimientos a Excel`
+                    }
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    <span>{isExportingMovements ? 'Exportando...' : 'Exportar Excel'}</span>
+                  </button>
+                </div>
               </div>
 
               {/* Daily Summary Cards */}
@@ -1395,7 +1663,22 @@ export const InventoryView: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4 self-end sm:self-center">
+                  <div className="flex items-center gap-3 self-end sm:self-center">
+                    <button
+                      type="button"
+                      onClick={handleExportKardex}
+                      disabled={isExportingKardex || kardexMovements.length === 0}
+                      className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed active:scale-95"
+                      title={
+                        kardexMovements.length === 0
+                          ? 'No hay movimientos en el kardex para exportar'
+                          : 'Exportar historial de kardex a Excel'
+                      }
+                    >
+                      <FileSpreadsheet className="w-4 h-4" />
+                      <span>{isExportingKardex ? 'Exportando...' : 'Exportar Excel'}</span>
+                    </button>
+
                     <div className="flex flex-col items-center bg-slate-50 border border-slate-200 px-5 py-2.5 rounded-2xl">
                       <span className="text-[10px] uppercase tracking-wider font-bold text-slate-600">Stock Actual</span>
                       <span className="text-2xl font-black text-slate-800">{kardexProduct.stock}</span>
@@ -1403,7 +1686,7 @@ export const InventoryView: React.FC = () => {
 
                     <button
                       onClick={() => setKardexProduct(null)}
-                      className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 border border-transparent hover:border-slate-200 transition-colors"
+                      className="p-2.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 border border-transparent hover:border-slate-200 transition-colors cursor-pointer"
                       title="Cambiar producto"
                     >
                       <X className="w-5 h-5" />

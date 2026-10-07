@@ -263,13 +263,13 @@ export const CatalogView: React.FC = () => {
   const isAllVisibleSelected = products.length > 0 && products.every((p) => p.id && selectedProductIds.has(p.id))
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-slate-50 overflow-hidden select-none">
+    <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-900 overflow-hidden select-none">
       {/* Top Header & Actions */}
       <div
         className={`px-4 sm:px-6 py-3 flex items-center justify-between shrink-0 shadow-sm transition-colors border-b ${
           selectedProductIds.size > 0
             ? 'bg-lilac-600 border-lilac-600 text-white'
-            : 'bg-white border-lilac-100 text-slate-800'
+            : 'bg-white dark:bg-slate-850 border-lilac-100 dark:border-slate-800 text-slate-800 dark:text-white'
         }`}
       >
         {selectedProductIds.size > 0 ? (
@@ -339,11 +339,11 @@ export const CatalogView: React.FC = () => {
           <>
             {/* Left: Title & Icon */}
             <div className="flex items-center gap-2 sm:gap-3">
-              <div className="w-8 h-8 rounded-lg sm:w-10 sm:h-10 sm:rounded-xl bg-lilac-100 text-lilac-600 flex items-center justify-center shadow-inner shrink-0">
-                <Boxes className="w-4 h-4 sm:w-5 sm:h-5" />
+              <div className="w-8 h-8 rounded-lg sm:w-10 sm:h-10 sm:rounded-xl bg-lilac-100 dark:bg-slate-800 text-lilac-600 dark:text-lilac-400 flex items-center justify-center shadow-inner shrink-0">
+                <Layers className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               <div>
-                <h1 className="text-base sm:text-lg font-bold text-slate-800 leading-tight">
+                <h1 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white leading-tight">
                   Productos
                 </h1>
               </div>
@@ -361,17 +361,17 @@ export const CatalogView: React.FC = () => {
 
               <button
                 onClick={() => setIsCategoryModalOpen(true)}
-                className="px-3 py-2 bg-slate-100 hover:bg-lilac-50 text-slate-700 hover:text-lilac-800 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-200/60 cursor-pointer"
+                className="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-lilac-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 hover:text-lilac-800 dark:hover:text-lilac-300 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-200/60 dark:border-slate-700 cursor-pointer"
               >
-                <Layers className="w-3.5 h-3.5 text-lilac-600" />
+                <Layers className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
                 <span>Categorías</span>
               </button>
 
               <button
                 onClick={() => setIsSupplierModalOpen(true)}
-                className="px-3 py-2 bg-slate-100 hover:bg-lilac-50 text-slate-700 hover:text-lilac-800 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-200/60 cursor-pointer"
+                className="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-lilac-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 hover:text-lilac-800 dark:hover:text-lilac-300 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-200/60 dark:border-slate-700 cursor-pointer"
               >
-                <Truck className="w-3.5 h-3.5 text-lilac-600" />
+                <Truck className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
                 <span>Proveedores</span>
               </button>
 
@@ -380,25 +380,25 @@ export const CatalogView: React.FC = () => {
                 onClick={() => setIsFilterDrawerOpen(true)}
                 className={`px-3 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5 border cursor-pointer ${
                   selectedCategory || selectedSupplier || selectedProductType !== 'all'
-                    ? 'bg-lilac-50 text-lilac-700 border-lilac-300 font-semibold shadow-2xs'
-                    : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200/60'
+                    ? 'bg-lilac-50 dark:bg-slate-800 text-lilac-700 dark:text-lilac-300 border-lilac-300 dark:border-slate-600 font-semibold shadow-2xs'
+                    : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200/60 dark:border-slate-700'
                 }`}
                 title="Abrir panel de filtros"
               >
-                <Filter className={`w-3.5 h-3.5 ${selectedCategory || selectedSupplier || selectedProductType !== 'all' ? 'text-lilac-600' : 'text-slate-500'}`} />
+                <Filter className={`w-3.5 h-3.5 ${selectedCategory || selectedSupplier || selectedProductType !== 'all' ? 'text-lilac-600 dark:text-lilac-400' : 'text-slate-500 dark:text-slate-400'}`} />
                 <span>Filtros</span>
                 {(selectedCategory || selectedSupplier || selectedProductType !== 'all') && (
-                  <span className="w-2 h-2 rounded-full bg-lilac-600" />
+                  <span className="w-2 h-2 rounded-full bg-lilac-600 dark:bg-lilac-400" />
                 )}
               </button>
 
               {products.length === 0 && (
                 <button
                   onClick={() => seedSampleData()}
-                  className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 animate-pulse cursor-pointer"
+                  className="px-3 py-2 bg-emerald-50 dark:bg-slate-800 hover:bg-emerald-100 dark:hover:bg-slate-750 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 animate-pulse cursor-pointer"
                   title="Carga el catálogo de muestra con departamentos, subcategorías, productos simples y variables con variaciones"
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                   <span>Cargar datos de prueba</span>
                 </button>
               )}
@@ -407,7 +407,7 @@ export const CatalogView: React.FC = () => {
               <button
                 onClick={() => fetchProducts(undefined, 'catalog')}
                 title="Recargar catálogo"
-                className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-colors border border-slate-200/60 flex items-center justify-center cursor-pointer"
+                className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition-colors border border-slate-200/60 dark:border-slate-700 flex items-center justify-center cursor-pointer"
               >
                 <RefreshCw className="w-4 h-4" />
               </button>
@@ -510,17 +510,17 @@ export const CatalogView: React.FC = () => {
           onClick={handleBackdropStockBlocked}
           className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 select-none animate-in fade-in duration-150"
         >
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
-            <div className="px-6 py-4 bg-amber-50 border-b border-amber-200/80 flex items-center justify-between">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
+            <div className="px-6 py-4 bg-amber-50 dark:bg-slate-850 border-b border-amber-200/80 dark:border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-slate-800 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
                   <AlertTriangle className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-slate-900">
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">
                     No es posible eliminar
                   </h4>
-                  <p className="text-[11px] text-amber-800 font-mono">
+                  <p className="text-[11px] text-amber-800 dark:text-amber-300 font-mono">
                     {stockBlockedProduct.code || stockBlockedProduct.name}
                   </p>
                 </div>
@@ -528,39 +528,39 @@ export const CatalogView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setStockBlockedProduct(null)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="p-6 flex flex-col gap-4">
-              <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl space-y-1.5 text-xs">
-                <span className="font-bold text-amber-950 block">
+              <div className="p-3.5 bg-amber-50/80 dark:bg-slate-800/80 border border-amber-200 dark:border-amber-800/60 rounded-xl space-y-1.5 text-xs">
+                <span className="font-bold text-amber-950 dark:text-amber-200 block">
                   {stockBlockedProduct.name}
                 </span>
-                <p className="text-amber-900 leading-relaxed">
-                  Para eliminar este producto del catálogo, <strong className="font-black text-amber-950">no debe tener stock disponible</strong> (su existencia debe ser 0).
+                <p className="text-amber-900 dark:text-amber-300 leading-relaxed">
+                  Para eliminar este producto del catálogo, <strong className="font-black text-amber-950 dark:text-amber-100">no debe tener stock disponible</strong> (su existencia debe ser 0).
                 </p>
               </div>
 
-              <div className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs">
-                <span className="font-semibold text-slate-600">Existencia actual registrada:</span>
-                <span className="font-mono font-black text-rose-600 text-sm bg-rose-50 px-2.5 py-0.5 rounded-lg border border-rose-200">
+              <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs">
+                <span className="font-semibold text-slate-600 dark:text-slate-300">Existencia actual registrada:</span>
+                <span className="font-mono font-black text-rose-600 dark:text-rose-300 text-sm bg-rose-50 dark:bg-slate-700 px-2.5 py-0.5 rounded-lg border border-rose-200 dark:border-rose-900/60">
                   {stockBlockedProduct.stock} {stockBlockedProduct.stock === 1 ? 'unidad' : 'unidades'}
                 </span>
               </div>
 
-              <p className="text-[11px] text-slate-500 leading-relaxed">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
                 Debes rebajar o ajustar la existencia a 0 antes de poder dar de baja este producto del catálogo.
               </p>
             </div>
 
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
+            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-850 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setStockBlockedProduct(null)}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors cursor-pointer"
               >
                 Volver
               </button>
@@ -584,19 +584,19 @@ export const CatalogView: React.FC = () => {
           onClick={handleBackdropDeleteSingle}
           className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 select-none animate-in fade-in duration-150"
         >
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
+            <div className="px-6 py-4 bg-white dark:bg-slate-850 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-rose-100 dark:bg-slate-800 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
                   <Trash2 className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-slate-900">
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">
                     {productToDelete.product_type === 'variable'
                       ? '¿Eliminar producto variable?'
                       : '¿Eliminar producto?'}
                   </h4>
-                  <p className="text-[11px] text-slate-500 font-mono">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
                     {productToDelete.code || 'Sin código'}
                   </p>
                 </div>
@@ -604,33 +604,33 @@ export const CatalogView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setProductToDelete(null)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="p-6 flex flex-col gap-3">
-              <div className="bg-rose-50 border border-rose-200 rounded-xl p-3.5 flex flex-col gap-1 text-xs">
-                <span className="font-bold text-rose-900">
+              <div className="bg-rose-50 dark:bg-slate-800/80 border border-rose-200 dark:border-rose-900/60 rounded-xl p-3.5 flex flex-col gap-1 text-xs">
+                <span className="font-bold text-rose-900 dark:text-rose-200">
                   {productToDelete.name}
                 </span>
-                <span className="text-rose-700 text-[11px]">
+                <span className="text-rose-700 dark:text-rose-300 text-[11px]">
                   {productToDelete.product_type === 'variable'
                     ? 'Se desactivarán tanto el producto padre como todas sus variaciones asociadas.'
                     : 'Se realizará un soft delete (se mantendrá en el historial/kardex pero no estará en ventas).'}
                 </span>
               </div>
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
                 ¿Confirmas que deseas desactivar este producto del catálogo activo?
               </p>
             </div>
 
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
+            <div className="px-6 py-4 bg-white dark:bg-slate-850 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setProductToDelete(null)}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors cursor-pointer"
               >
                 Cancelar (Esc)
               </button>
@@ -654,17 +654,17 @@ export const CatalogView: React.FC = () => {
           onClick={handleBackdropDeleteBulk}
           className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 select-none animate-in fade-in duration-150"
         >
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
+            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-850 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-rose-100 dark:bg-slate-800 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
                   <Trash2 className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-slate-900">
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">
                     Eliminar productos seleccionados
                   </h4>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
                     {selectedProductIds.size} producto(s) marcados
                   </p>
                 </div>
@@ -672,31 +672,31 @@ export const CatalogView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsBulkDeleteModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <div className="p-6 flex flex-col gap-3">
-              <div className="bg-rose-50 border border-rose-200 rounded-xl p-3.5 flex flex-col gap-1 text-xs">
-                <span className="font-bold text-rose-900">
+              <div className="bg-rose-50 dark:bg-slate-800/80 border border-rose-200 dark:border-rose-900/60 rounded-xl p-3.5 flex flex-col gap-1 text-xs">
+                <span className="font-bold text-rose-900 dark:text-rose-200">
                   ¿Estás seguro de eliminar los {selectedProductIds.size} productos seleccionados?
                 </span>
-                <span className="text-rose-700 text-[11px]">
+                <span className="text-rose-700 dark:text-rose-300 text-[11px]">
                   Se realizará un soft delete (se mantendrán en kardex/historial, pero no en ventas). Si incluiste productos padre, también se desactivarán sus variaciones.
                 </span>
               </div>
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
                 Esta acción afectará a todos los productos actualmente seleccionados en la lista.
               </p>
             </div>
 
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
+            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-850 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setIsBulkDeleteModalOpen(false)}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors cursor-pointer"
               >
                 Cancelar (Esc)
               </button>
@@ -716,13 +716,13 @@ export const CatalogView: React.FC = () => {
 
       {/* Toast Flotante de Éxito de Exportación (Bottom-Right, sin Layout Shift) */}
       {exportSuccessInfo && (
-        <div className="fixed bottom-6 right-6 z-50 bg-white border border-emerald-300 text-emerald-950 p-3.5 rounded-2xl shadow-2xl flex items-center gap-3 text-xs animate-in fade-in slide-in-from-bottom-3 duration-200 max-w-lg select-none">
-          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+        <div className="fixed bottom-6 right-6 z-50 bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-800 text-emerald-950 dark:text-emerald-100 p-3.5 rounded-2xl shadow-2xl flex items-center gap-3 text-xs animate-in fade-in slide-in-from-bottom-3 duration-200 max-w-lg select-none">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
           <div className="flex flex-col">
             <span className="font-bold">¡Catálogo exportado con éxito!</span>
-            <span className="text-slate-600 text-[11px]">
+            <span className="text-slate-600 dark:text-slate-300 text-[11px]">
               Se exportaron <strong>{exportSuccessInfo.totalExported} productos</strong> en{' '}
-              <code className="bg-slate-100 px-1 py-0.5 rounded font-mono text-[10px] text-slate-800">
+              <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded font-mono text-[10px] text-slate-800 dark:text-slate-200 border border-transparent dark:border-slate-700">
                 {exportSuccessInfo.filePath}
               </code>
             </span>
@@ -731,15 +731,15 @@ export const CatalogView: React.FC = () => {
             <button
               type="button"
               onClick={() => window.api.openContainingFolder(exportSuccessInfo.filePath)}
-              className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg font-bold text-xs transition-colors flex items-center gap-1 cursor-pointer"
+              className="px-2.5 py-1 bg-emerald-50 dark:bg-slate-800 hover:bg-emerald-100 dark:hover:bg-slate-750 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 rounded-lg font-bold text-xs transition-colors flex items-center gap-1 cursor-pointer"
             >
-              <FolderInput className="w-3.5 h-3.5 text-emerald-600" />
+              <FolderInput className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
               <span>Abrir</span>
             </button>
             <button
               type="button"
               onClick={() => setExportSuccessInfo(null)}
-              className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer"
+              className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -749,16 +749,16 @@ export const CatalogView: React.FC = () => {
 
       {/* Toast Flotante de Error de Exportación (Bottom-Right, sin Layout Shift) */}
       {exportError && (
-        <div className="fixed bottom-6 right-6 z-50 bg-white border border-rose-300 text-rose-950 p-3.5 rounded-2xl shadow-2xl flex items-center gap-3 text-xs animate-in fade-in slide-in-from-bottom-3 duration-200 max-w-md select-none">
-          <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+        <div className="fixed bottom-6 right-6 z-50 bg-white dark:bg-slate-900 border border-rose-300 dark:border-rose-800 text-rose-950 dark:text-rose-100 p-3.5 rounded-2xl shadow-2xl flex items-center gap-3 text-xs animate-in fade-in slide-in-from-bottom-3 duration-200 max-w-lg select-none">
+          <AlertTriangle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />
           <div className="flex flex-col flex-1">
             <span className="font-bold">Error al exportar</span>
-            <span className="text-slate-600 text-[11px]">{exportError}</span>
+            <span className="text-slate-600 dark:text-slate-300 text-[11px]">{exportError}</span>
           </div>
           <button
             type="button"
             onClick={() => setExportError(null)}
-            className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer shrink-0"
+            className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
@@ -773,23 +773,23 @@ export const CatalogView: React.FC = () => {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="w-80 sm:w-96 bg-white h-full shadow-2xl flex flex-col border-l border-slate-200 animate-in slide-in-from-right duration-200"
+            className="w-80 sm:w-96 bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col border-l border-slate-200 dark:border-slate-800 animate-in slide-in-from-right duration-200"
           >
             {/* Header del Drawer */}
-            <div className="p-4 sm:p-5 border-b border-lilac-100 flex items-center justify-between bg-slate-50/70">
+            <div className="p-4 sm:p-5 border-b border-lilac-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-850">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-lilac-100 text-lilac-600 flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-lilac-100 dark:bg-slate-800 text-lilac-600 dark:text-lilac-400 flex items-center justify-center shrink-0">
                   <Filter className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-slate-800 leading-tight">Filtros del Catálogo</h3>
-                  <p className="text-[11px] text-slate-500">Ajusta los criterios de búsqueda</p>
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-white leading-tight">Filtros del Catálogo</h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Ajusta los criterios de búsqueda</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsFilterDrawerOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
+                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
                 title="Cerrar panel (Esc)"
               >
                 <X className="w-4 h-4" />
@@ -800,14 +800,14 @@ export const CatalogView: React.FC = () => {
             <div className="p-5 flex-1 flex flex-col gap-5 overflow-y-auto">
               {/* 1. Categoría */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                  <Layers className="w-3.5 h-3.5 text-lilac-600" />
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
                   <span>Categoría</span>
                 </label>
                 <select
                   value={selectedCategory || ''}
                   onChange={(e) => setSelectedCategory(e.target.value ? Number(e.target.value) : null)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-lilac-500 cursor-pointer"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-lilac-500 cursor-pointer"
                 >
                   <option value="">Todas las categorías</option>
                   {categories.map((c) => (
@@ -820,14 +820,14 @@ export const CatalogView: React.FC = () => {
 
               {/* 2. Proveedor */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                  <Truck className="w-3.5 h-3.5 text-lilac-600" />
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Truck className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
                   <span>Proveedor</span>
                 </label>
                 <select
                   value={selectedSupplier || ''}
                   onChange={(e) => setSelectedSupplier(e.target.value ? Number(e.target.value) : null)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-lilac-500 cursor-pointer"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-lilac-500 cursor-pointer"
                 >
                   <option value="">Todos los proveedores</option>
                   {suppliers.map((s) => (
@@ -840,14 +840,14 @@ export const CatalogView: React.FC = () => {
 
               {/* 3. Tipo de Producto */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                  <Box className="w-3.5 h-3.5 text-lilac-600" />
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Box className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
                   <span>Tipo de Producto</span>
                 </label>
                 <select
                   value={selectedProductType}
                   onChange={(e) => setSelectedProductType(e.target.value as any)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-lilac-500 cursor-pointer"
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-lilac-500 cursor-pointer"
                 >
                   <option value="sellable">Productos vendibles (Simples y Variaciones)</option>
                   <option value="simple">Solo Simples</option>
@@ -859,7 +859,7 @@ export const CatalogView: React.FC = () => {
             </div>
 
             {/* Footer con botón de Limpiar filtros */}
-            <div className="p-4 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-3 shrink-0">
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 flex items-center justify-between gap-3 shrink-0">
               <button
                 type="button"
                 onClick={() => {
@@ -868,7 +868,7 @@ export const CatalogView: React.FC = () => {
                   setSelectedProductType('all', 'catalog')
                 }}
                 disabled={!selectedCategory && !selectedSupplier && selectedProductType === 'all'}
-                className="text-xs text-slate-600 hover:text-slate-900 font-semibold px-3 py-2 rounded-xl hover:bg-slate-200/60 transition-colors disabled:opacity-40 cursor-pointer"
+                className="text-xs text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-semibold px-3 py-2 rounded-xl hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors disabled:opacity-40 cursor-pointer"
               >
                 Limpiar filtros
               </button>

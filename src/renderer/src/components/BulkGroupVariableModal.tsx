@@ -423,7 +423,7 @@ export const BulkGroupVariableModal: React.FC<BulkGroupVariableModalProps> = ({
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
                   {rows.map((row, idx) => (
-                    <tr key={row.productId} className="hover:bg-slate-50/80">
+                    <tr key={row.productId} className="hover:bg-slate-100">
                       <td className="py-2 px-3 font-mono text-slate-600">
                         {row.code || <span className="italic text-slate-400">Sin código</span>}
                       </td>
