@@ -1,113 +1,130 @@
-# AGENTS.md — POS Offline
+# AGENTS.md — POS Offline (Reglamento Operativo del Proyecto)
 
 Punto de venta de escritorio para Windows, 100% offline.
-Las decisiones de abajo fueron acordadas con el dueño del proyecto y son vinculantes.
+Documento vinculante de reglas de negocio, integridad técnica y comportamiento de interfaz para agentes de desarrollo.
+> Fuente de especificación detallada y esquemas: `docs/ESPECIFICACION.md`.
 
-> Fuente de verdad completa: **`docs/ESPECIFICACION.md`** (esquema de BD, pantallas, flujos, fases).
-> Este archivo solo resume lo que un agente no puede deducir solo. Si divergen, gana la especificación.
+---
 
-## Estado y stack decidido
+## 1. Stack Tecnológico y Comandos
 
-- Stack: **Electron + electron-vite**, React + TypeScript, TailwindCSS, better-sqlite3 en modo WAL (proceso main),
-  Zustand, Recharts, SheetJS (`xlsx`), node-thermal-printer.
-- Ventana fullscreen sin bordes (`frame: false`) con titlebar propia (minimizar/cerrar).
-- Tema: blanco + lila (acentos `#8B5CF6`, superficies `#EDE9FE`).
-- Comandos: `npm run dev` (desarrollo), `npm run typecheck` (validación de tipos TS), `npm run build` (compilación producción), `npm run test` (pruebas unitarias con vitest).
-- **Progreso actual:** **Todas las 12 fases completadas y probadas (124 tests unitarios pasando).** Fases 1–8, Fase 9 (Impresión y Tickets Térmicos ESC/POS, cajón monetario, impresora normal Windows), Fase 10 (Importación Excel / Reorganización / Proveedores N:M), Fase 11 (Reportes y Gráficos Recharts) y Fase 12 (Configuración y pulido).
+- **Arquitectura:** Electron + electron-vite (separación estricta entre proceso `main` y `renderer` vía IPC seguro en `preload`).
+- **Frontend:** React + TypeScript, TailwindCSS, Zustand (gestión de estado), Recharts (gráficos), SheetJS (`xlsx`).
+- **Base de Datos:** SQLite local con `better-sqlite3` en modo **WAL** (ejecutada exclusivamente en proceso `main`).
+- **Impresión y Periféricos:** `node-thermal-printer` (ESC/POS, 58/80mm), spooler de Windows para impresoras convencionales.
+- **Ventana:** Fullscreen sin bordes (`frame: false`) con TitleBar propia (minimizar/cerrar).
+- **Tema:** Dinámico centralizado en `src/renderer/src/theme/themes.ts` (tema base Mave Lila, con soporte para Esmeralda, Océano y Grafito).
+- **Comandos de desarrollo y validación:**
+  - `npm run dev`: Inicia el entorno de desarrollo.
+  - `npm run typecheck`: Validación estricta de tipos TypeScript (debe pasar con 0 errores).
+  - `npm run test`: Batería completa de pruebas unitarias con Vitest (debe pasar al 100%).
+  - `npm run build`: Compilación de producción (main, preload y renderer).
 
-## Reglas de dominio (no negociables)
+---
 
-- Moneda **CLP**: montos como enteros, sin decimales, separador de miles con punto (`formatCLP`).
-- **Categorías y Proveedores (Relación N:M)**:
-  - La **Categoría** define el objeto o clasificación principal del producto (ej: Lanas, Hilos, Accesorios).
-  - Los **Proveedores** son una entidad independiente (`suppliers`) asociada a los productos mediante una relación de muchos a muchos (`product_suppliers`). Un producto puede comprarse a varios proveedores (ej: *Lana Natural* provista por *Revesderecho* y *Ukryl*).
-  - **Sintaxis de visualización:** La columna en el catálogo y tablas se titula **"Categoría"**, y su contenido se formatea automáticamente como:
-    `"Categoría - Proveedor1 / Proveedor2"` (ej: `"Lanas - Revesderecho / Ukryl"`). Si no tiene proveedor: `"Lanas"`. Si no tiene categoría pero sí proveedor: `"Proveedor1 / Proveedor2"` (ej: `"Revesderecho"` o `"Revesderecho / Ukryl"`, sin prefijo "Sin Categoría"). Si no tiene ni categoría ni proveedor: `"Sin Categoría"`.
-  - **Filtros en Catálogo:** Existen dos selectores desplegables independientes en la barra superior: uno para filtrar por **Categoría** y otro para filtrar por **Proveedor**. Al filtrar por un proveedor, se muestran tanto los productos directamente asociados a él como las variaciones de un producto padre vinculado a ese proveedor.
-- **Productos Simples y Variables con Variaciones** (reemplaza el concepto previo de familias):
-  - Columna `product_type`: `'simple' | 'variable' | 'variation'`.
-  - **Producto Simple (`simple`)**: Unidad vendible directa con código propio, stock propio y precio propio.
-  - **Producto Variable (`variable`)**: Producto padre contenedor (ej: "Algodón Rústico"). No se vende directamente en caja, no tiene stock físico directo ni se escanea; agrupa variaciones y define atributos compartidos.
-  - **Variación (`variation`)**: Unidad vendible vinculada a su padre vía `parent_id`. Tiene código propio, precio propio, costo propio, stock y stock mínimo propios, y un valor de atributo (`attribute_name` ej: 'Color', `attribute_value` ej: 'Azul').
-  - **Sin guion de separación:** Al buscar, listar o vender una variación, no se añade guion `-` ni `—` artificial entre el padre y la variación (se muestra `${parent.name} ${variation.name}`).
-- **Listado y orden en Catálogo**:
-  - Catálogo lista todos los productos **vendibles** (`simple` y `variation`), **excluyendo el producto padre** (`variable`).
-  - El orden alfabético se rige por el nombre del **producto padre** (o simple si es simple): `COALESCE(parent.search_name, p.search_name) ASC, p.search_name ASC`. De esta forma, una variación con 'Z' permanece agrupada bajo su padre si este empieza con 'A'.
-- Unidad vendible: Cada fila vendible (`simple` o `variation`) es la unidad referenciada en ventas, inventario y kardex (`products.code`).
-- Eliminar producto = **soft delete** (`active=0`) para preservar historial/kardex. Si se elimina un padre variable, se desactivan en cascada sus variaciones.
-- Ventas pendientes (tickets en standby) se **persisten en BD** (status `pending`), sobreviven reinicios.
-- **Diferenciación entre Folio único y Número de Ticket de turno**:
-  - **Folio (`sales.folio`)**: Es el identificador **único, irrepetible y estrictamente global** entre todas las ventas de la historia del sistema (`UNIQUE`, incremental: 1, 2, 3...). Nunca se reinicia entre turnos ni se repite entre ventas. Identifica unívocamente la transacción en el historial, auditoría y recibos.
-  - **Número de Ticket (`sales.ticket_number` / pestañas de venta)**: Sirve exclusivamente para mostrar el orden visual de atención del turno/día y diferenciar pestañas simultáneas abiertas en la pantalla de ventas (Ticket #1, Ticket #2...).
-    - Se reinicia en **1** al abrir una nueva sesión de caja (`cash_session_id`).
-    - Algoritmo sin huecos: asigna el menor entero `>= 1` que no esté vendido en el turno actual ni abierto en pestañas activas. Si un ticket se descarta/cierra, su número se reutiliza de inmediato para el siguiente ticket que se abra.
-- Todo movimiento de inventario se registra en `inventory_movements` (delta±, tipo, motivo, ref venta).
+## 2. Reglas de Negocio y Dominio (No Negociables)
 
-## Búsqueda de productos (componente reutilizable `ProductSearch`)
+- **Moneda CLP:** Todos los valores monetarios son **enteros** sin decimales. Formato con punto separador de miles (`formatCLP`).
+- **Categorías y Proveedores (Relación N:M):**
+  - La **Categoría** define el tipo principal del producto (ej: *Lanas*, *Hilos*).
+  - Los **Proveedores** (`suppliers`) son entidades independientes asociadas a productos mediante `product_suppliers` (un producto puede tener múltiples proveedores).
+  - **Sintaxis de visualización unificada en tablas:** Columna *"Categoría"*, formateada como:
+    - Con categoría y proveedores: `"Categoría - Proveedor1 / Proveedor2"`
+    - Sin proveedores: `"Categoría"`
+    - Sin categoría pero con proveedores: `"Proveedor1 / Proveedor2"` (sin prefijos artificiales)
+    - Sin categoría ni proveedores: `"Sin Categoría"`
+  - **Protección referencial:** No se permite eliminar una categoría si aún tiene productos asignados.
+- **Jerarquía de Productos (Simples vs Variables con Variaciones):**
+  - `product_type`: `'simple' | 'variable' | 'variation'`.
+  - **Simple (`simple`):** Unidad vendible autónoma con código, stock, costo y precio propios.
+  - **Variable (`variable`):** Producto padre contenedor (ej: "Algodón Rústico"). **No se vende en caja, no tiene stock físico directo ni se escanea**; agrupa variaciones y define categoría/proveedores compartidos.
+  - **Variación (`variation`):** Unidad vendible vinculada a su padre vía `parent_id`. Tiene código propio, precio, costo, stock y valor de atributo (`attribute_name` / `attribute_value`).
+  - **Nombre compuesto sin guiones:** Se visualiza como `${parent.name} ${variation.name}` (sin guiones `-` ni `—`).
+- **Listado y Orden en Catálogo:**
+  - El Catálogo lista exclusivamente **unidades vendibles** (`simple` y `variation`), **excluyendo el producto padre (`variable`)**.
+  - Orden alfabético regido por el nombre del **padre** (o del producto si es simple):
+    `COALESCE(parent.search_name, p.search_name) ASC, p.search_name ASC`.
+- **Integridad de Inventario (¡REGLA CRÍTICA!):**
+  - **Prohibido editar stock en el formulario de Modificar Producto:** En la pantalla de crear/modificar productos se editan nombres, precios, costos, categorías y atributos, **NUNCA el inventario**. El stock solo cambia mediante: Ajuste de Inventario, Importación Excel, Venta o Devolución.
+  - **Kardex y Auditoría obligatorios:** Todo movimiento de stock genera una fila en `inventory_movements` (delta±, tipo, motivo obligatorio y referencia).
+  - **Eliminación lógica (Soft Delete):** Eliminar un producto marca `active=0`. Si se elimina un padre variable, se desactivan en cascada sus variaciones.
+- **Folio Único Global vs Número de Ticket de Turno:**
+  - **Folio (`sales.folio`):** Identificador **único, incremental y global** entre todas las ventas de la historia del sistema (`UNIQUE`, Folio 1, 2, 3...). Nunca se reinicia ni se repite.
+  - **Número de Ticket (`sales.ticket_number`):** Orden visual de atención del turno actual (Ticket #1, Ticket #2...). Se reinicia en **1** al abrir una sesión de caja y se asigna sin huecos (reutilizándose de inmediato si un ticket se descarta).
 
-- Normalización sobre columna `search_name` (mayúsculas, sin tildes) escrita al guardar el producto.
-- Input = **un solo término** (los espacios van incluidos, no se separa en palabras).
-- Se parte por `%` en fragmentos (los vacíos se descartan; si no queda ninguno, se lista todo):
-  - **fragmento inicial** (sin `%` delante) → coincide con el **inicio del nombre** (`LIKE frag%`)
-  - **fragmentos con `%` delante** → coinciden **en cualquier parte** (`LIKE %frag%`)
-  - todos los fragmentos se combinan con **AND**
-- Evalúa tanto `p.search_name` como el `search_name` del producto padre.
-- Ej: `algod` = solo "Algodón..." · `%algod` = también "Estuche de algodón" ·
-  `algod%` = idéntico a `algod` · `algod%negro` = empieza con "algod" y contiene "negro".
-- Insensible a mayúsculas y tildes. `_` es literal, nunca comodín. Búsqueda por código aparte, literal.
-- Columnas: código, nombre, precio, existencia; orden persistente (nombre/existencia/precio) y
-  ancho redimensionable.
-- Reutilizar este componente en modificar/eliminar producto, ajustar existencia y kardex.
+---
 
-## Control de Inventario (Fase 6)
+## 3. Ventas, Cobro y Escáner de Códigos
 
-- Subpestañas:
-  - **Ajustar existencia:** Input de código / escáner o modal de búsqueda. Ajuste relativo (+ / −) o reemplazo directo a nueva cantidad. Requiere motivo obligatorio (auditoría en `inventory_movements`). Validación estricta: stock no negativo y delta ≠ 0.
-  - **Stock bajo:** Muestra productos vendibles donde `stock <= min_stock`, ordenados por menor stock, con botón de acceso directo a ajustar.
-  - **Movimientos:** Auditoría diaria filtrada por fecha (hoy por defecto) y tipo de movimiento (`venta`, `devolucion`, `ajuste`, `importacion`, `inicial`).
-  - **Kardex:** Historial cronológico completo de entradas y salidas para un producto específico seleccionado.
+- **Autofocus Permanente para Escáner HID:**
+  - El escáner de códigos funciona como teclado HID (wedge). El input de código en Ventas debe permanecer **siempre enfocado**.
+  - Al cerrar cualquier modal (Cobro, Historial, Búsqueda F10), descartar un ticket o cambiar de pestaña, el foco debe regresar **automáticamente e inmediatamente al input de código**.
+- **Tickets Simultáneos (Standby):**
+  - Los tickets abiertos se persisten en base de datos (`status='pending'`) para sobrevivir a reinicios o cortes de energía.
+- **Cobro (Checkout Modal):**
+  - Modal bloqueante que no permite interactuar con la vista de fondo.
+  - Métodos: Efectivo, Tarjeta, Transferencia y Mixto.
+  - En cobro **mixto**, la suma de los métodos debe cuadrar **exactamente** con el total de la venta.
+  - En **efectivo**, el monto entregado debe ser mayor o igual al total; se calcula el vuelto automáticamente.
+  - Tras completar el cobro: opción de impresión de ticket, apertura del cajón de dinero si corresponde, y apertura inmediata de una nueva venta limpia con foco en el escáner.
+- **Cambios de Producto:**
+  - Desde el Historial de Ventas se genera un ticket reservado de cambio (`CAMBIO (Venta #X)`).
+  - El cliente debe llevar nuevos artículos por un valor **igual o superior** al crédito devuelto (no se entrega dinero en efectivo por saldo a favor restante).
+  - Advertencia visual si la venta original supera los 30 días.
 
-## Importación Excel (.xlsx)
+---
 
-Mapeo exacto acordado (upsert por código): Código→code, Producto→name, P. Costo→cost_price,
-P. Venta→sale_price, Existencia→stock (**reemplaza**, registra movimiento 'importación'),
-Inv. Mínimo→min_stock, Departamento→categoría nivel 1 (se crea si no existe).
-**Ignorar columnas**: P. Mayoreo e Inv. Máximo (el dueño decidió no almacenarlas).
-Los 10k+ productos iniciales importan plano; la reorganización (categoría, proveedores y variaciones) se hace después
-con selección múltiple en Catálogo → mover categoría y proveedores / agrupar como producto variable con variaciones.
+## 4. Control de Inventario y Kardex
 
-## Flujo de caja
+- **Ajustar Existencia:**
+  - Permite ajuste relativo (+ / −) o reemplazo directo a conteo físico.
+  - Validación estricta: delta ≠ 0 y el stock resultante no puede ser negativo.
+  - Motivo de ajuste **obligatorio** (para auditoría).
+- **Alertas de Stock Bajo:**
+  - Lista productos vendibles donde `stock <= min_stock`, con botón de acceso directo para ajustar.
+- **Búsqueda Normalizada (`ProductSearch`):**
+  - Búsqueda insensible a mayúsculas y tildes sobre `search_name`.
+  - El carácter `%` actúa como comodín intermedio; si no lleva `%` al inicio, ancla al comienzo del nombre. El carácter `_` es siempre literal.
 
-- Inicio: si NO existe sesión abierta → pantalla única de fondo de caja que desbloquea la app.
-  Si SÍ existe sesión abierta → entrar directo a Ventas restaurando tickets pendientes.
-- Corte (pestaña): fondo de caja, ventas por método (efectivo/tarjeta/transferencia), total,
-  devoluciones, salidas de dinero → cierra la sesión.
-- Devoluciones: desde Historial de ventas (cancelar venta completa o devolver producto+cantidad);
-  reponen inventario y suman al monto "devoluciones" del corte. Salidas de dinero: botón propio
-  (monto + motivo), aparecen separadas en el corte.
-- **Navegación y Pestañas Principales (F1 a F6)**:
-  - F1: Ventas, F2: Catálogo, F3: Inventario, F4: Corte, F5: Reportes, F6: Configuración.
-  - **Historial de Ventas y Salidas de Dinero como Modales**: No ocupan pestañas en la barra superior. Se abren como ventanas modales superpuestas directamente desde los botones de la barra inferior de Ventas, permitiendo consultar ventas, devoluciones, cambios y salidas sin abandonar el contexto de la caja.
-- **Cambios de Producto**: Desde el modal de Historial de Ventas se seleccionan los ítems a cambiar. Al confirmar, se cierra el modal y se genera una pestaña reservada de cambio en Ventas con color distintivo (`CAMBIO (Venta #X)`).
-  - El cliente debe llevar nuevos productos por un valor igual o superior al crédito generado (sin entrega de dinero en efectivo por saldo sobrante).
-  - Si la venta supera los 30 días, se emite una advertencia informativa visual, permitiendo continuar según criterio del vendedor.
-  - Al completar el cambio, se crea una nueva transacción con Folio propio y trazabilidad a su venta padre (`exchange_parent_id`), reponiendo el stock devuelto y rebajando los nuevos productos.
+---
 
-## Flujo de cierre y respaldos
+## 5. Flujo de Caja y Cierre de la Aplicación
 
-Al cerrar (X / Alt+F4):
-1. Modal "¿Cerrar caja?" → **No**: salir ya, sesión queda abierta. **Sí**: registrar cierre de sesión.
-2. Tras cerrar caja: modal con cuenta atrás de 5s ("respaldo automático") con botones
-   [Realizar ya] / [No respaldar]; al llegar a 0 respalda solo y cierra.
-- Respaldo con `db.backup()` de better-sqlite3 (consistente con WAL). Retención: últimos **7**
-  en `Documentos\Respaldos POS\` (configurable). Mismo mecanismo para respaldo manual en Configuración.
+- **Apertura de Caja:** Si no hay sesión abierta (`cash_sessions`), la app bloquea la navegación exigiendo ingresar el fondo de caja inicial.
+- **Corte de Caja:** Calcula ventas netas por método, devoluciones y salidas de dinero. Realiza el arqueo comparando el efectivo esperado con el contado físicamente y registra el cierre formal.
+- **Cierre de la Aplicación (X / Alt+F4):**
+  1. Paso 1: Pregunta si desea cerrar el turno de caja. Si responde "No", la sesión queda abierta para el próximo inicio.
+  2. Paso 2: Si confirma cerrar caja (o en salida post-corte), se ejecuta el modal de respaldo automático con cuenta regresiva de 5 segundos.
+  3. Respaldo consistente con `db.backup()` en `Documentos\Respaldos POS\`, reteniendo los últimos 7 archivos.
 
-## Periféricos
+---
 
-- Escáner de códigos = teclado HID (wedge): mantener input de código enfocado en Ventas.
-- Impresora térmica: ESC/POS vía node-thermal-printer (tcp/USB compartida/serie, 58/80mm).
-- Cajón monetario: pulso ESC/POS a través de la impresora térmica.
-- Impresora normal: spooler de Windows.
+## 6. Reglas de Interfaz y UX (Cero Layout Shift & Edición Fluida)
+
+- **Prohibido terminantemente Banners Inline que causen Layout Shift:**
+  - **NUNCA** colocar mensajes condicionales de éxito, error o guardado arriba o entre tarjetas que empujen el contenido hacia abajo al aparecer o desaparecer.
+  - El feedback visual se maneja exclusivamente de dos formas:
+    1. **En el propio botón accionado:** Spinner de carga (`Loader2` animado) mientras procesa, y confirmación temporal en verde (`bg-emerald-600`, icono `CheckCircle2` y texto tipo *"¡Guardado!"* o *"¡Respaldo Realizado!"* durante 2 a 3 segundos).
+    2. **Toast flotante con posición fija:** Contenedor fuera del flujo del documento (`fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-3 duration-200 select-none`).
+- **Inputs Numéricos y Edición Fluida:**
+  - Permitir escribir y borrar libremente mientras el input está enfocado (no forzar mínimos, clamps ni autocompletados restrictivos en `onChange`).
+  - Las restricciones (mínimo, máximo, enteros o redondeos) se evalúan y aplican exclusivamente en `onBlur` o al presionar guardar.
+- **Centralización de Colores y Temas Dinámicos:**
+  - Archivo maestro único de paletas: `src/renderer/src/theme/themes.ts`.
+  - **Prohibido quemar clases de color fijas como `purple-*`, `violet-*` o valores HEX directos en componentes.**
+  - Toda la interfaz debe consumir exclusivamente los tokens temáticos `lilac-*` (`bg-lilac-50`, `bg-lilac-600`, `text-lilac-700`, `border-lilac-200`, etc.).
+  - Estos tokens están conectados dinámicamente a variables CSS (`--color-theme-*`) en `tailwind.config.js`, permitiendo cambiar el tema completo al instante desde *Configuración > Apariencia*.
+- **Soporte de Modo Oscuro y Arquitectura de Superficies (Slate Profundo):**
+  - La apariencia opera en dos ejes ortogonales independientes: **Modo de Superficie** (`surface_mode: 'light' | 'dark' | 'system'`) y **Acento Temático** (`theme_accent: 'lila' | 'esmeralda' | 'oceano' | 'grafito'`).
+  - **Prohibido asumir fondo blanco invariable:** Todos los componentes deben soportar el modo oscuro utilizando la paleta Slate Profundo (`#0F172A` para bases/fondos oscuros, `#1E293B` para tarjetas/paneles, `#334155` para bordes y divisores, `#F8FAFC` / `#94A3B8` para tipografía).
+  - **Inmutabilidad de Tickets Térmicos Físicos:** Los tickets de venta, cambios y cortes de caja representan papel físico de impresora térmica (58/80mm). **Siempre deben visualizarse e imprimirse en papel blanco con texto negro nítido** (`bg-white text-slate-900 font-mono`, clase `thermal-ticket-paper`), incluso cuando la aplicación o el modal se encuentren en modo oscuro.
+  - **Alcance de Transiciones CSS:** Las transiciones de color (`transition-colors duration-200`) están **estrictamente limitadas a la subpestaña de Configuración > Apariencia** donde el usuario visualiza el cambio en pantalla. En el resto de la aplicación, el cambio de tema o superficie es instantáneo (0ms) para garantizar rendimiento óptimo y consumo cero de GPU en computadores de caja.
+- **Validación Dual Obligatoria (Modo Claro & Modo Oscuro):**
+  - **TODO cambio visual o componente nuevo DEBE verificarse y garantizar contraste y legibilidad óptima en AMBOS modos (Claro y Oscuro).**
+  - En **modo oscuro**, los elementos con fondo de color (botones de acción, badges, etiquetas, atajos) **deben preservar su tinte de color identificatorio** (fondos translúcidos con contraste y bordes de su propia familia tonal, nunca fundirse a un gris plano o transparente ni mostrar bordes blancos residuales).
+  - En **modo claro**, las superficies, tablas y paneles deben mantener fondos limpios y definidos (blanco puro o gris intencional, evitando transparencias no deseadas que ensucien la visualización).
+
+---
 
 ## Agent skills
 

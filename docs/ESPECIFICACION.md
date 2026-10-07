@@ -2,7 +2,7 @@
 
 > Documento de referencia del proyecto. Define el alcance, el modelo de datos y todas las
 > decisiones de producto tomadas. **Es la guía base para programar.**
-> Actualizado: 2026-09-27 · Estado: plan aprobado, implementación pendiente.
+> Actualizado: 2026-10-06 · Estado: Software 100% implementado y probado (194 tests pasando).
 
 ## Índice
 
@@ -365,13 +365,16 @@ En **Catálogo**, con filtros y selección múltiple (incluye "seleccionar todo 
  ├─ Modal 1: "¿Cerrar caja?"
  │   ├─ NO  → sale ya; la sesión queda ABIERTA (al reabrir se restaura tal cual)
  │   └─ SÍ  → registra el cierre de sesión
- │            └─ Modal 2: "Se realizará un respaldo automáticamente en 5… 4… 3…"
- │                 [Realizar ya] · [No respaldar] · al llegar a 0 → respalda y cierra
+ │            └─ Modal 2: Cuenta regresiva de 5 segundos
+ │                 [Realizar ya] · [No respaldar] · al llegar a 0:
+ │                 ├─ Estado en progreso: spinner giratorio y barra de progreso animada
+ │                 ├─ Estado completado: confirmación visual (check verde) y ruta del archivo
+ │                 └─ Pausa de 1.5s y cierre limpio automático de la aplicación
 ```
 
-- Respaldo con **`db.backup()`** de better-sqlite3 (consistente con WAL).
+- Respaldo consistente con **`db.backup()`** de better-sqlite3 (compatible con WAL).
 - Retención: **últimos 7** en `Documentos\Respaldos POS\` (configurable).
-- Mismo mecanismo para el respaldo/restauración manual de Configuración.
+- Mismo mecanismo para el respaldo/restauración manual en Configuración.
 
 ## 11. Periféricos
 
@@ -384,9 +387,7 @@ En **Catálogo**, con filtros y selección múltiple (incluye "seleccionar todo 
 
 ## 12. Metodología de trabajo y tests
 
-- **Pausa en cada fase**: se implementa la fase, se compila, se hace typecheck, se corren los tests y se
-  avisa; el dueño prueba la app y da el visto bueno para seguir.
-- **Tests automatizados** (vitest) de la lógica crítica (**115 pruebas automatizadas pasando al 100%**):
+- **Tests automatizados** (Vitest) de la lógica crítica (**194 pruebas automatizadas pasando al 100% en 17 suites**):
 
   | Fase | Estado | Qué se testea |
   |---|---|---|
@@ -403,7 +404,7 @@ En **Catálogo**, con filtros y selección múltiple (incluye "seleccionar todo 
   | 12 | Completada | Datos del negocio, gestión y restauración atómica de respaldos, atajos de teclado y mantenimiento |
   | 9 | Completada | Impresión térmica ESC/POS (node-thermal-printer, PC850), impresora normal Windows (spooler HTML), cajón monetario (pulso RJ11), auto-print, test de conexión |
 
-## 13. Orden de implementación (12 fases)
+## 13. Módulos y fases implementadas del sistema (100% completadas)
 
 1. [x] **Base**: scaffold electron-vite, ventana fullscreen sin bordes + titlebar propia, tema blanco/lila, layout de pestañas.
 2. [x] **Datos**: esquema SQLite completo + migraciones, IPC tipado, hook de cierre y `backupService`.

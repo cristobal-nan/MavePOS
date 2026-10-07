@@ -44,3 +44,23 @@ Este documento define el vocabulario canónico del sistema de Punto de Venta (PO
 - **Producto Variable (`variable`)**: Contenedor padre de una familia de productos. No es vendible directamente en caja ni posee stock físico directo.
 - **Variación (`variation`)**: Unidad vendible hija asociada a un producto variable padre mediante `parent_id`. Posee código, precio, costo y atributos propios (`attribute_value`, ej. Color 'Azul').
 - **Kardex**: Historial cronológico de todos los movimientos de entrada y salida de inventario para un producto específico.
+- **Atajos de Motivos de Ajuste**: Teclas alfanuméricas o combinaciones asignables a motivos principales y complementos en Configuración (ej: 1, M, Ctrl+1) para selección instantánea sin usar el ratón.
+- **Modo de Escucha de Ajuste**: Estado sin foco activo activado al presionar Enter en los campos de cantidad (`+ / -` o `Nueva Cantidad`), permitiendo aplicar motivos por teclado o presionar Enter para confirmar o avanzar.
+
+---
+
+### Configuración del Sistema (F6)
+
+- **Guardado Global de Configuración**: Mecanismo centralizado en la cabecera superior de Configuración que persiste todas las modificaciones de la subpestaña activa, reemplazando botones individuales por tarjeta.
+- **Estado Sucio (`isDirty`)**: Indicador reactivo que detecta cambios pendientes no persistidos en formularios de configuración. Transforma el botón de guardado en color naranja de advertencia e impide el cambio accidental de pestaña o subpestaña.
+- **Bloqueo Estricto de Navegación**: Política de protección que intercepta clics y atajos de teclado (F1-F6) si existen cambios sin guardar, desplegando el modal `UnsavedChangesModal` con el listado detallado de modificaciones y opciones para guardar, descartar o cancelar.
+
+---
+
+### Apariencia y Tematización
+
+- **Modo de Superficie (`surface_mode`)**: Dimensión que controla la luminosidad de las superficies de la interfaz (`light`, `dark` o `system`). En modo `dark`, los fondos se presentan en Slate-900 (`#0F172A`), paneles en Slate-800 (`#1E293B`) y textos en alto contraste legible (`#F8FAFC`).
+- **Color de Acento (`theme_accent`)**: Tonalidad cromática del sistema (`lila`, `esmeralda`, `oceano`, `grafito`) que tiñe botones principales, badges de estado activo y focos, combinable ortogonalmente con cualquier Modo de Superficie.
+- **Preferencia del Sistema (`system`)**: Modo que sincroniza automáticamente el Modo de Superficie con la configuración del sistema operativo Windows vía `prefers-color-scheme`.
+
+
