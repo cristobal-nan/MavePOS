@@ -380,5 +380,133 @@ describe('Fase 10: Importación de Catálogo desde Excel (.xlsx)', () => {
         // ignore
       }
     })
+
+    it('exporta movimientos por día a Excel con formato y columnas correctas', () => {
+      const exportPath = path.join(os.tmpdir(), `test_movements_${Date.now()}.xlsx`)
+      const movements = [
+        {
+          created_at: '2026-10-06 10:30:00',
+          type: 'venta',
+          product_code: '01234',
+          product_name: 'Lana Merino',
+          parent_name: null,
+          attribute_value: null,
+          stock_before: 10,
+          delta: -2,
+          stock_after: 8,
+          reason: null,
+          sale_folio: 101
+        },
+        {
+          created_at: '2026-10-06 11:15:00',
+          type: 'ajuste',
+          product_code: '05678',
+          product_name: 'Algodón Rústico',
+          parent_name: 'Hilo Rústico',
+          attribute_value: 'Azul',
+          stock_before: 5,
+          delta: 3,
+          stock_after: 8,
+          reason: 'Conteo de inventario',
+          sale_folio: null
+        }
+      ]
+
+      const res = excelService.exportMovements(exportPath, movements)
+      expect(res.filePath).toBe(exportPath)
+      expect(res.totalExported).toBe(2)
+      expect(fs.existsSync(exportPath)).toBe(true)
+
+      const wb = XLSX.readFile(exportPath)
+      expect(wb.SheetNames).toContain('Movimientos')
+      const ws = wb.Sheets['Movimientos']
+      const data: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 })
+
+      expect(data[0]).toEqual([
+        'Fecha y Hora',
+        'Tipo de Movimiento',
+        'Código',
+        'Producto',
+        'Stock Anterior',
+        'Variación (Delta)',
+        'Stock Resultante',
+        'Motivo / Referencia'
+      ])
+      // Fila 1: venta con folio
+      expect(data[1][1]).toBe('Venta')
+      expect(data[1][2]).toBe('01234')
+      expect(data[1][3]).toBe('Lana Merino')
+      expect(data[1][7]).toBe('Venta #101')
+
+      // Fila 2: ajuste con padre y atributo
+      expect(data[2][1]).toBe('Ajuste Manual')
+      expect(data[2][2]).toBe('05678')
+      expect(data[2][3]).toContain('Hilo Rústico')
+      expect(data[2][7]).toBe('Conteo de inventario')
+
+      try {
+        fs.unlinkSync(exportPath)
+      } catch {
+        // ignore
+      }
+    })
+
+    it('exporta kardex de producto a Excel con stock y movimientos', () => {
+      const exportPath = path.join(os.tmpdir(), `test_kardex_${Date.now()}.xlsx`)
+      const productInfo = {
+        code: '01234',
+        name: 'Lana Merino Azul',
+        category_name: 'Lanas > Lana Merino',
+        current_stock: 15
+      }
+      const movements = [
+        {
+          created_at: '2026-10-06 09:00:00',
+          type: 'inicial',
+          stock_before: 0,
+          delta: 20,
+          stock_after: 20,
+          reason: 'Carga inicial',
+          sale_folio: null
+        },
+        {
+          created_at: '2026-10-06 14:00:00',
+          type: 'venta',
+          stock_before: 20,
+          delta: -5,
+          stock_after: 15,
+          reason: null,
+          sale_folio: 205
+        }
+      ]
+
+      const res = excelService.exportKardex(exportPath, productInfo, movements)
+      expect(res.filePath).toBe(exportPath)
+      expect(res.totalExported).toBe(2)
+      expect(fs.existsSync(exportPath)).toBe(true)
+
+      const wb = XLSX.readFile(exportPath)
+      expect(wb.SheetNames).toContain('Kardex')
+      const ws = wb.Sheets['Kardex']
+      const data: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 })
+
+      expect(data[0]).toEqual([
+        'Fecha y Hora',
+        'Tipo de Movimiento',
+        'Stock Anterior',
+        'Variación (Delta)',
+        'Stock Resultante',
+        'Motivo / Referencia'
+      ])
+      expect(data[1][1]).toBe('Stock Inicial')
+      expect(data[2][1]).toBe('Venta')
+      expect(data[2][5]).toBe('Venta #205')
+
+      try {
+        fs.unlinkSync(exportPath)
+      } catch {
+        // ignore
+      }
+    })
   })
 })

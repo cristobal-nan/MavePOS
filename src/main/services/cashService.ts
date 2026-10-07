@@ -411,4 +411,45 @@ export class CashService {
       .prepare('SELECT * FROM cash_movements WHERE cash_session_id = ? ORDER BY id ASC')
       .all(sessionId) as CashMovement[]
   }
+
+  discardSession(sessionId: number): boolean {
+    const session = this.db
+      .prepare('SELECT * FROM cash_sessions WHERE id = ?')
+      .get(sessionId) as CashSession | undefined
+
+    if (!session) {
+      throw new Error('Sesión de caja no encontrada')
+    }
+    if (session.closed_at !== null) {
+      throw new Error('La sesión de caja ya se encuentra cerrada')
+    }
+
+    // Comprobar que no existan ventas registradas (completadas o canceladas)
+    const existingSales = this.db
+      .prepare("SELECT COUNT(*) as count FROM sales WHERE cash_session_id = ? AND status != 'pending'")
+      .get(sessionId) as { count: number }
+
+    if (existingSales && existingSales.count > 0) {
+      throw new Error('No se puede descartar una sesión de caja con ventas registradas')
+    }
+
+    // Eliminar tickets pendientes en standby si hubiesen
+    const pendingSales = this.db
+      .prepare("SELECT id FROM sales WHERE cash_session_id = ? AND status = 'pending'")
+      .all(sessionId) as { id: number }[]
+
+    for (const ps of pendingSales) {
+      this.db.prepare('DELETE FROM sale_items WHERE sale_id = ?').run(ps.id)
+      this.db.prepare('DELETE FROM sales WHERE id = ?').run(ps.id)
+    }
+
+    // Eliminar movimientos de efectivo asociados si hubiesen
+    this.db.prepare('DELETE FROM cash_movements WHERE cash_session_id = ?').run(sessionId)
+
+    // Eliminar la sesión para que no figure en el historial de cortes
+    this.db.prepare('DELETE FROM cash_sessions WHERE id = ?').run(sessionId)
+
+    return true
+  }
 }
+

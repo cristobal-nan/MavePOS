@@ -195,7 +195,7 @@ export class InventoryService {
     return this.db.prepare(sql).all(...finalParams) as InventoryMovementDetail[]
   }
 
-  getProductKardex(productCode: string, limit = 100): InventoryMovementDetail[] {
+  getProductKardex(productCode: string, limit?: number): InventoryMovementDetail[] {
     const trimmed = productCode.trim()
     const stripped = trimmed.replace(/^0+/, '') || '0'
     const prod = this.db
@@ -208,6 +208,9 @@ export class InventoryService {
       `)
       .get(trimmed, stripped, stripped) as { code: string } | undefined
     const actualCode = prod ? prod.code : trimmed
+
+    const hasLimit = typeof limit === 'number' && limit > 0
+    const limitClause = hasLimit ? 'LIMIT ?' : ''
 
     const sql = `
       WITH ranked AS (
@@ -247,8 +250,9 @@ export class InventoryService {
         (current_product_stock - delta_after_this - delta) AS stock_before
       FROM ranked
       ORDER BY created_at DESC, id DESC
-      LIMIT ?
+      ${limitClause}
     `
-    return this.db.prepare(sql).all(actualCode, limit) as InventoryMovementDetail[]
+    const params = hasLimit ? [actualCode, limit] : [actualCode]
+    return this.db.prepare(sql).all(...params) as InventoryMovementDetail[]
   }
 }

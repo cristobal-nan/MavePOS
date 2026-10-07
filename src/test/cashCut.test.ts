@@ -321,4 +321,79 @@ describe('Fase 8: Corte de Caja (Arqueo, Cuadre de Turno y Cierre de Sesión)', 
       expect(past[0].transfer_difference).toBe(0)
     })
   })
+
+  describe('Cierre de caja sin ventas: descartar sin registrar vs guardar igual', () => {
+    it('descarta la sesión sin ventas eliminándola de la base de datos y no aparece en getPastSessions', () => {
+      // sessionId no tiene ventas
+      const summary = cashService.getSessionSummary(sessionId)
+      expect(summary.salesCount).toBe(0)
+      expect(summary.salesTotal).toBe(0)
+
+      // Se descarta la sesión
+      const discarded = cashService.discardSession(sessionId)
+      expect(discarded).toBe(true)
+
+      // Ya no hay sesión activa
+      expect(cashService.getCurrentOpenSession()).toBeNull()
+
+      // No figura en el historial de cortes
+      const past = cashService.getPastSessions()
+      expect(past.find((s) => s.id === sessionId)).toBeUndefined()
+    })
+
+    it('no permite descartar una sesión si ya se completaron ventas', () => {
+      // Registrar una venta
+      salesService.completeSale({
+        cashSessionId: sessionId,
+        items: [{ product_code: 'ITEM-1', name: 'Ovillo Algodón Soft', quantity: 1, unit_price: 4000 }],
+        payments: [{ method: 'cash', amount: 4000 }]
+      })
+
+      expect(() => cashService.discardSession(sessionId)).toThrow(
+        'No se puede descartar una sesión de caja con ventas registradas'
+      )
+    })
+
+    it('al descartar una sesión sin ventas, elimina tickets pendientes en standby y movimientos asociados', () => {
+      // Guardar ticket pendiente en standby
+      salesService.savePendingSale({
+        cashSessionId: sessionId,
+        items: [{ product_code: 'ITEM-1', name: 'Ovillo Algodón Soft', quantity: 2, unit_price: 4000 }]
+      })
+
+      // Registrar una salida de dinero
+      cashService.addMovement(sessionId, 5000, 'Compra insumos de prueba')
+
+      // Descartar la sesión
+      const discarded = cashService.discardSession(sessionId)
+      expect(discarded).toBe(true)
+
+      // No quedan tickets pendientes ni movimientos
+      const pending = salesService.getPendingSales(sessionId)
+      expect(pending).toHaveLength(0)
+
+      const movements = cashService.getSessionMovements(sessionId)
+      expect(movements).toHaveLength(0)
+
+      expect(cashService.getCurrentOpenSession()).toBeNull()
+    })
+
+    it('permite guardar igual en el historial si el usuario lo decide (botón secundario)', () => {
+      // Cerrar normalmente aunque no haya ventas (Guardar igual)
+      const closed = cashService.closeSession(sessionId, {
+        closingCash: 50000,
+        expectedCash: 50000,
+        difference: 0,
+        notes: 'Cierre sin ventas registrado a petición del usuario'
+      })
+
+      expect(closed.closed_at).not.toBeNull()
+      expect(closed.notes).toBe('Cierre sin ventas registrado a petición del usuario')
+
+      // Sí figura en el historial de cortes
+      const past = cashService.getPastSessions()
+      expect(past.find((s) => s.id === sessionId)).toBeDefined()
+    })
+  })
 })
+

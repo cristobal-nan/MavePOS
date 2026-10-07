@@ -34,6 +34,7 @@ interface SalesState {
   finalizeSale: (input: Omit<CompleteSaleInput, 'saleId' | 'items'>) => Promise<CompletedSaleResult>
   fetchLastSale: (cashSessionId?: number) => Promise<void>
   setLastSale: (sale: LastSaleInfo | null) => void
+  resetTickets: () => void
 }
 
 function getInitialLastSale(): LastSaleInfo | null {
@@ -56,6 +57,14 @@ export const useSalesStore = create<SalesState>((set, get) => ({
   isInitialized: false,
   initializedSessionId: null,
   lastSale: getInitialLastSale(),
+
+  resetTickets: () =>
+    set({
+      tickets: [{ ticketIndex: 1, label: 'Ticket #1', items: [] }],
+      activeTicketIndex: 0,
+      isInitialized: false,
+      initializedSessionId: null
+    }),
 
   setLastSale: (sale: LastSaleInfo | null) => set({ lastSale: sale }),
 

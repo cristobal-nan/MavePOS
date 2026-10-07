@@ -609,4 +609,139 @@ export class ExcelService {
       totalExported: products.length
     }
   }
+
+  /**
+   * Export inventory movements to an Excel spreadsheet.
+   */
+  exportMovements(
+    targetFilePath: string,
+    movements: {
+      created_at: string
+      type: string
+      product_code: string
+      product_name: string
+      parent_name?: string | null
+      attribute_value?: string | null
+      stock_before?: number
+      delta: number
+      stock_after?: number
+      reason?: string | null
+      sale_folio?: number | null
+    }[]
+  ): ExportExcelResult {
+    const typeLabels: Record<string, string> = {
+      venta: 'Venta',
+      devolucion: 'Devolución',
+      ajuste: 'Ajuste Manual',
+      importacion: 'Importación Excel',
+      inicial: 'Stock Inicial'
+    }
+
+    const rows = movements.map((m) => {
+      let displayName = m.product_name || ''
+      if (m.parent_name) {
+        displayName = `${m.parent_name} ${displayName}`
+      }
+      if (m.attribute_value && !displayName.includes(m.attribute_value)) {
+        displayName = `${displayName} (${m.attribute_value})`
+      }
+
+      let motivoRef = m.reason || ''
+      if (m.type === 'venta' && m.sale_folio) {
+        motivoRef = `Venta #${m.sale_folio}`
+      }
+
+      return {
+        'Fecha y Hora': m.created_at || '',
+        'Tipo de Movimiento': typeLabels[m.type] || m.type,
+        'Código': m.product_code ? String(m.product_code) : '',
+        'Producto': displayName,
+        'Stock Anterior': m.stock_before !== undefined ? m.stock_before : '',
+        'Variación (Delta)': m.delta,
+        'Stock Resultante': m.stock_after !== undefined ? m.stock_after : '',
+        'Motivo / Referencia': motivoRef
+      }
+    })
+
+    const worksheet = XLSX.utils.json_to_sheet(rows)
+
+    // Formatear columna Código (columna índice 2) como texto explícito ('@') para no perder ceros a la izquierda
+    if (worksheet['!ref']) {
+      const range = XLSX.utils.decode_range(worksheet['!ref'])
+      for (let r = range.s.r + 1; r <= range.e.r; r++) {
+        const cellAddress = XLSX.utils.encode_cell({ r, c: 2 })
+        const cell = worksheet[cellAddress]
+        if (cell) {
+          cell.t = 's'
+          cell.z = '@'
+        }
+      }
+    }
+
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Movimientos')
+    XLSX.writeFile(workbook, targetFilePath)
+
+    return {
+      filePath: targetFilePath,
+      totalExported: movements.length
+    }
+  }
+
+  /**
+   * Export product kardex to an Excel spreadsheet.
+   */
+  exportKardex(
+    targetFilePath: string,
+    productInfo: {
+      code: string
+      name: string
+      category_name?: string | null
+      current_stock: number
+    },
+    movements: {
+      created_at: string
+      type: string
+      stock_before?: number
+      delta: number
+      stock_after?: number
+      reason?: string | null
+      sale_folio?: number | null
+    }[]
+  ): ExportExcelResult {
+    const typeLabels: Record<string, string> = {
+      venta: 'Venta',
+      devolucion: 'Devolución',
+      ajuste: 'Ajuste Manual',
+      importacion: 'Importación Excel',
+      inicial: 'Stock Inicial'
+    }
+
+    const rows = movements.map((m) => {
+      let motivoRef = m.reason || ''
+      if (m.type === 'venta' && m.sale_folio) {
+        motivoRef = `Venta #${m.sale_folio}`
+      }
+
+      return {
+        'Fecha y Hora': m.created_at || '',
+        'Tipo de Movimiento': typeLabels[m.type] || m.type,
+        'Stock Anterior': m.stock_before !== undefined ? m.stock_before : '',
+        'Variación (Delta)': m.delta,
+        'Stock Resultante': m.stock_after !== undefined ? m.stock_after : '',
+        'Motivo / Referencia': motivoRef
+      }
+    })
+
+    const worksheet = XLSX.utils.json_to_sheet(rows)
+
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Kardex')
+    XLSX.writeFile(workbook, targetFilePath)
+
+    return {
+      filePath: targetFilePath,
+      totalExported: movements.length
+    }
+  }
 }

@@ -47,7 +47,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
   registerCatalogIpc(productService, supplierService, excelService, mainWindow)
   registerSalesIpc(salesService)
   registerCashIpc(cashService)
-  registerInventoryIpc(inventoryService)
+  registerInventoryIpc(inventoryService, excelService, mainWindow)
   registerReportsIpc(reportService)
   registerDevicesIpc(printerService, mainWindow)
   registerSystemIpc(mainWindow, settingsService, backupService)

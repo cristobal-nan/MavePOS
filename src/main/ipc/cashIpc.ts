@@ -18,6 +18,10 @@ export function registerCashIpc(cashService: CashService): void {
     return cashService.closeSession(sessionId, closingData)
   })
 
+  ipcMain.handle('cash:discardSession', (_event, sessionId: number) => {
+    return cashService.discardSession(sessionId)
+  })
+
   ipcMain.handle('cash:getSessionSummary', (_event, sessionId: number) => {
     return cashService.getSessionSummary(sessionId)
   })

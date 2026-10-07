@@ -32,7 +32,8 @@ import {
   FullReportData,
   PrinterInfo,
   PrinterConfig,
-  PrintResult
+  PrintResult,
+  ExportExcelResult
 } from '../shared/types'
 
 // Domain API interfaces
@@ -80,6 +81,7 @@ export interface CashAPI {
   getCurrentSession: () => Promise<CashSession | null>
   openSession: (openingFund: number, openingDenominations?: Record<number, number>) => Promise<CashSession>
   closeSession: (sessionId: number, closingData?: Omit<CloseCashSessionInput, 'sessionId'>) => Promise<CashSession>
+  discardSession: (sessionId: number) => Promise<boolean>
   getSessionSummary: (sessionId: number) => Promise<CashCutSummary>
   getPastSessions: (limit?: number, offset?: number) => Promise<CashSession[]>
   getLastClosedSession: () => Promise<CashSession | null>
@@ -92,6 +94,11 @@ export interface InventoryAPI {
   getLowStock: (limit?: number, offset?: number) => Promise<(ProductSearchResult & { min_stock: number })[]>
   getMovements: (dateStr?: string, type?: MovementType) => Promise<InventoryMovementDetail[]>
   getKardex: (productCode: string, limit?: number) => Promise<InventoryMovementDetail[]>
+  exportMovementsExcel: (dateStr: string, movements: InventoryMovementDetail[]) => Promise<ExportExcelResult | null>
+  exportKardexExcel: (
+    productInfo: { code: string; name: string; category_name?: string | null; current_stock: number },
+    limit?: number
+  ) => Promise<ExportExcelResult | null>
 }
 
 export interface ReportsAPI {
@@ -175,6 +182,7 @@ export interface WindowAPI {
   getCurrentCashSession: () => Promise<CashSession | null>
   openCashSession: (openingFund: number) => Promise<CashSession>
   closeCashSession: (sessionId: number, closingData?: Omit<CloseCashSessionInput, 'sessionId'>) => Promise<CashSession>
+  discardCashSession: (sessionId: number) => Promise<boolean>
   getSessionSummary: (sessionId: number) => Promise<CashCutSummary>
   getPastSessions: (limit?: number, offset?: number) => Promise<CashSession[]>
   addCashMovement: (sessionId: number, amount: number, reason: string) => Promise<CashMovement>
@@ -207,6 +215,11 @@ export interface WindowAPI {
   getLowStockProducts: (limit?: number, offset?: number) => Promise<(ProductSearchResult & { min_stock: number })[]>
   getInventoryMovements: (dateStr?: string, type?: MovementType) => Promise<InventoryMovementDetail[]>
   getProductKardex: (productCode: string, limit?: number) => Promise<InventoryMovementDetail[]>
+  exportMovementsExcel: (dateStr: string, movements: InventoryMovementDetail[]) => Promise<ExportExcelResult | null>
+  exportKardexExcel: (
+    productInfo: { code: string; name: string; category_name?: string | null; current_stock: number },
+    limit?: number
+  ) => Promise<ExportExcelResult | null>
 
   selectExcelFile: () => Promise<string | null>
   parseExcelFile: (filePath: string) => Promise<ExcelParsePreview>
@@ -279,6 +292,7 @@ const cash: CashAPI = {
   openSession: (openingFund, openingDenominations) =>
     ipcRenderer.invoke('cash:openSession', openingFund, openingDenominations),
   closeSession: (sessionId, closingData) => ipcRenderer.invoke('cash:closeSession', sessionId, closingData),
+  discardSession: (sessionId) => ipcRenderer.invoke('cash:discardSession', sessionId),
   getSessionSummary: (sessionId) => ipcRenderer.invoke('cash:getSessionSummary', sessionId),
   getPastSessions: (limit, offset) => ipcRenderer.invoke('cash:getPastSessions', limit, offset),
   getLastClosedSession: () => ipcRenderer.invoke('cash:getLastClosedSession'),
@@ -290,7 +304,11 @@ const inventory: InventoryAPI = {
   adjustStock: (input) => ipcRenderer.invoke('inventory:adjustStock', input),
   getLowStock: (limit, offset) => ipcRenderer.invoke('inventory:getLowStock', limit, offset),
   getMovements: (dateStr, type) => ipcRenderer.invoke('inventory:getMovements', dateStr, type),
-  getKardex: (productCode, limit) => ipcRenderer.invoke('inventory:getKardex', productCode, limit)
+  getKardex: (productCode, limit) => ipcRenderer.invoke('inventory:getKardex', productCode, limit),
+  exportMovementsExcel: (dateStr, movements) =>
+    ipcRenderer.invoke('inventory:exportMovementsExcel', dateStr, movements),
+  exportKardexExcel: (productInfo, limit) =>
+    ipcRenderer.invoke('inventory:exportKardexExcel', productInfo, limit)
 }
 
 const reports: ReportsAPI = {
@@ -388,6 +406,7 @@ const api: WindowAPI = {
   getCurrentCashSession: cash.getCurrentSession,
   openCashSession: cash.openSession,
   closeCashSession: cash.closeSession,
+  discardCashSession: cash.discardSession,
   getSessionSummary: cash.getSessionSummary,
   getPastSessions: cash.getPastSessions,
   addCashMovement: cash.addMovement,
@@ -420,6 +439,8 @@ const api: WindowAPI = {
   getLowStockProducts: inventory.getLowStock,
   getInventoryMovements: inventory.getMovements,
   getProductKardex: inventory.getKardex,
+  exportMovementsExcel: inventory.exportMovementsExcel,
+  exportKardexExcel: inventory.exportKardexExcel,
 
   selectExcelFile: catalog.selectExcelFile,
   parseExcelFile: catalog.parseExcelFile,

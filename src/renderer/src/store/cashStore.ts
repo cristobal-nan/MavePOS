@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { CashSession, CashCutSummary, CloseCashSessionInput } from '@shared/types'
+import { useSalesStore } from './salesStore'
 
 interface CashState {
   currentSession: CashSession | null
@@ -18,6 +19,7 @@ interface CashState {
     sessionId: number,
     closingData?: Omit<CloseCashSessionInput, 'sessionId'>
   ) => Promise<boolean>
+  discardSession: (sessionId: number) => Promise<boolean>
   clearError: () => void
   getLastClosedSession: () => Promise<CashSession | null>
   completedCutReceipt: any | null
@@ -116,11 +118,30 @@ export const useCashStore = create<CashState>((set, get) => ({
       }
       await window.api.cash.closeSession(sessionId, closingData)
       set({ currentSession: null, currentSummary: null })
+      useSalesStore.getState().resetTickets()
       await get().fetchPastSessions()
       return true
     } catch (err: any) {
       console.error('Error cerrando sesión de caja:', err)
       set({ error: err.message || 'Error al cerrar caja' })
+      return false
+    }
+  },
+
+  discardSession: async (sessionId: number) => {
+    set({ error: null })
+    try {
+      if (!window.api?.cash?.discardSession) {
+        throw new Error('API no disponible')
+      }
+      await window.api.cash.discardSession(sessionId)
+      set({ currentSession: null, currentSummary: null })
+      useSalesStore.getState().resetTickets()
+      await get().fetchPastSessions()
+      return true
+    } catch (err: any) {
+      console.error('Error descartando sesión de caja sin registrar:', err)
+      set({ error: err.message || 'Error al cerrar caja sin registrar' })
       return false
     }
   }

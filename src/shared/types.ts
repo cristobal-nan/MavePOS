@@ -257,6 +257,7 @@ export interface QuickAdjustmentReason {
   id: string
   text: string
   type: 'replace' | 'append'
+  shortcut?: string
 }
 
 export const DEFAULT_QUICK_REASONS: QuickAdjustmentReason[] = [
