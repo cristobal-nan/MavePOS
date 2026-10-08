@@ -134,6 +134,7 @@ export interface SystemAPI {
   getBackupDirectory: () => Promise<string>
   openBackupDirectory: () => Promise<boolean>
   selectBackupDirectory: () => Promise<string | null>
+  selectExternalBackup: () => Promise<BackupInfo | null>
   restoreBackup: (backupFilePath: string) => Promise<{ ok: boolean }>
 }
 
@@ -197,6 +198,7 @@ export interface WindowAPI {
   getBackupDirectory: () => Promise<string>
   openBackupDirectory: () => Promise<boolean>
   selectBackupDirectory: () => Promise<string | null>
+  selectExternalBackup: () => Promise<BackupInfo | null>
   restoreBackup: (backupFilePath: string) => Promise<{ ok: boolean }>
 
   getNextFolio: () => Promise<number>
@@ -358,6 +360,7 @@ const system: SystemAPI = {
   getBackupDirectory: () => ipcRenderer.invoke('backup:getDirectory'),
   openBackupDirectory: () => ipcRenderer.invoke('backup:openDirectory'),
   selectBackupDirectory: () => ipcRenderer.invoke('backup:selectDirectory'),
+  selectExternalBackup: () => ipcRenderer.invoke('backup:selectExternal'),
   restoreBackup: (backupFilePath) => ipcRenderer.invoke('backup:restore', backupFilePath)
 }
 
@@ -421,6 +424,7 @@ const api: WindowAPI = {
   getBackupDirectory: system.getBackupDirectory,
   openBackupDirectory: system.openBackupDirectory,
   selectBackupDirectory: system.selectBackupDirectory,
+  selectExternalBackup: system.selectExternalBackup,
   restoreBackup: system.restoreBackup,
 
   getNextFolio: sales.getNextFolio,

@@ -53,7 +53,16 @@ export function registerSystemIpc(
     return backupService.selectBackupDirectory(mainWindow)
   })
 
-  ipcMain.handle('backup:restore', (_event, backupFilePath: string) => {
+  ipcMain.handle('backup:selectExternal', async () => {
+    return await backupService.selectExternalBackup(mainWindow)
+  })
+
+  ipcMain.handle('backup:restore', async (_event, backupFilePath: string) => {
+    try {
+      await backupService.createBackup()
+    } catch (err) {
+      console.warn('Advertencia: No se pudo generar respaldo de seguridad previo a la restauración:', err)
+    }
     backupService.restoreBackup(backupFilePath)
     return { ok: true }
   })

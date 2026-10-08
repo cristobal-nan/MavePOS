@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3'
 import { app, shell, dialog, BrowserWindow } from 'electron'
-import { join } from 'path'
+import { join, basename } from 'path'
 import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'fs'
 import { SettingsService } from './settingsService'
 import { BackupInfo } from '../../shared/types'
@@ -163,5 +163,61 @@ export class BackupService {
       this.settingsService.set('backup_directory', chosen)
     }
     return chosen
+  }
+
+  validateBackupFile(filePath: string): BackupInfo {
+    if (!existsSync(filePath)) {
+      throw new Error('El archivo de respaldo especificado no existe.')
+    }
+
+    let tempDb: Database.Database | null = null
+    try {
+      tempDb = new Database(filePath, { readonly: true, fileMustExist: true })
+      const tables = tempDb
+        .prepare("SELECT name FROM sqlite_master WHERE type='table'")
+        .all() as { name: string }[]
+      const tableNames = new Set(tables.map((t) => t.name))
+
+      const posTables = ['products', 'sales', 'categories']
+      const hasPosTables = posTables.some((t) => tableNames.has(t))
+      if (!hasPosTables) {
+        throw new Error('El archivo no contiene una estructura válida de respaldo de este sistema POS.')
+      }
+    } catch (err: any) {
+      if (err.message && err.message.includes('respaldo')) {
+        throw err
+      }
+      throw new Error(`El archivo seleccionado no es una base de datos SQLite válida: ${err.message}`)
+    } finally {
+      if (tempDb) {
+        tempDb.close()
+      }
+    }
+
+    const stats = statSync(filePath)
+    return {
+      filename: basename(filePath),
+      filepath: filePath,
+      sizeBytes: stats.size,
+      createdAt: stats.mtime.toISOString()
+    }
+  }
+
+  async selectExternalBackup(window?: BrowserWindow): Promise<BackupInfo | null> {
+    if (!dialog || !dialog.showOpenDialog) return null
+
+    const res = await dialog.showOpenDialog(window as any, {
+      title: 'Seleccionar Archivo de Respaldo',
+      filters: [
+        { name: 'Respaldos SQLite (*.db)', extensions: ['db'] },
+        { name: 'Todos los archivos (*.*)', extensions: ['*'] }
+      ],
+      properties: ['openFile']
+    })
+
+    if (res.canceled || res.filePaths.length === 0) return null
+
+    const filePath = res.filePaths[0]
+    return this.validateBackupFile(filePath)
   }
 }

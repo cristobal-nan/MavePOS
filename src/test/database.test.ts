@@ -335,6 +335,40 @@ describe('Fase 2: Datos, Esquema, Servicios y Backup', () => {
         }
       }
     })
+
+    it('valida correctamente un archivo de respaldo antes de restaurar', async () => {
+      const tempDir = join(process.cwd(), 'temp_test_validate_backup_' + Date.now())
+      const backupService = new BackupService(db, settingsService)
+      mkdirSync(tempDir, { recursive: true })
+      try {
+        const backupPath = await backupService.createBackup(tempDir)
+        const info = backupService.validateBackupFile(backupPath)
+        expect(info).toBeDefined()
+        expect(info.filename).toContain('pos_backup_')
+        expect(info.filepath).toBe(backupPath)
+        expect(info.sizeBytes).toBeGreaterThan(0)
+        expect(info.createdAt).toBeDefined()
+
+        // Archivo inexistente
+        expect(() => backupService.validateBackupFile(join(tempDir, 'no_existe.db'))).toThrow(
+          'El archivo de respaldo especificado no existe.'
+        )
+
+        // Archivo no POS / inválido
+        const invalidFilePath = join(tempDir, 'invalido.db')
+        const fakeDb = new Database(invalidFilePath)
+        fakeDb.exec('CREATE TABLE dummy_tabla (id INTEGER PRIMARY KEY, valor TEXT)')
+        fakeDb.close()
+
+        expect(() => backupService.validateBackupFile(invalidFilePath)).toThrow(
+          'El archivo no contiene una estructura válida de respaldo de este sistema POS.'
+        )
+      } finally {
+        if (existsSync(tempDir)) {
+          rmSync(tempDir, { recursive: true, force: true })
+        }
+      }
+    })
   })
 
   describe('Vaciado / Reset de Base de Datos (resetDatabase)', () => {
