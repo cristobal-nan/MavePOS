@@ -134,7 +134,12 @@ export function buildThermalReceipt(options: BuildThermalReceiptOptions): void {
 
   // 6. Cash drawer pulse (if enabled)
   if (openDrawerOnPrint) {
-    printer.openCashDrawer()
+    if (typeof printer.append === 'function') {
+      // Pin 2 + Pin 5 with 50ms ON / 500ms OFF + Star BEL
+      printer.append(Buffer.from([0x1b, 0x70, 0x00, 0x19, 0xfa, 0x1b, 0x70, 0x01, 0x19, 0xfa, 0x07]))
+    } else if (typeof printer.openCashDrawer === 'function') {
+      printer.openCashDrawer()
+    }
   }
 
   // 7. Paper cut

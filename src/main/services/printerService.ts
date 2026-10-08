@@ -15,6 +15,11 @@ import {
   buildThermalTestTicket,
   generateNormalReceiptHtml
 } from './printing/ticketTemplates'
+import {
+  sendRawBufferToPrinter,
+  sendRawBufferToTcp,
+  CASH_DRAWER_PULSE_BUFFER
+} from './printing/rawPrinterHelper'
 
 export class PrinterService {
   constructor(
@@ -112,22 +117,15 @@ export class PrinterService {
   }
 
   /**
-   * Instantiates a configured ThermalPrinter instance.
+   * Instantiates a configured ThermalPrinter instance in memory.
    */
   createPrinterInstance(customConfig?: Partial<PrinterConfig>): any {
     const config = { ...this.getPrinterConfig(), ...customConfig }
     const printerType = config.thermalType === 'star' ? PrinterTypes.STAR : PrinterTypes.EPSON
     const widthChars = config.paperWidth === '58mm' ? 32 : 48
 
-    // Resolve interface target
-    let iface = config.thermalInterface || ''
-    if (config.thermalInterfaceType === 'windows_printer' && iface && !iface.startsWith('printer:')) {
-      iface = `printer:${iface}`
-    }
-
     const printer = new (ThermalPrinter as any)({
       type: printerType,
-      interface: iface,
       width: widthChars,
       characterSet: 'PC850_MULTILINGUAL',
       removeSpecialCharacters: false
@@ -151,6 +149,31 @@ export class PrinterService {
   }
 
   /**
+   * Dispatches a raw binary buffer to the configured printer interface (Windows Spooler RAW or TCP Network).
+   */
+  async dispatchThermalBuffer(
+    buffer: Buffer,
+    config: PrinterConfig,
+    docTitle = 'POS Ticket'
+  ): Promise<PrintResult> {
+    const iface = config.thermalInterface?.trim()
+    if (!iface) {
+      return {
+        success: false,
+        error: 'No se ha configurado ninguna impresora térmica de destino en Configuración.'
+      }
+    }
+
+    if (config.thermalInterfaceType === 'tcp' || iface.startsWith('tcp://')) {
+      return await sendRawBufferToTcp(iface, buffer)
+    }
+
+    // Windows spooler RAW printing
+    const printerName = iface.replace(/^printer:/i, '').trim()
+    return await sendRawBufferToPrinter(printerName, buffer, docTitle)
+  }
+
+  /**
    * Prints a thermal receipt for a sale.
    */
   async printThermalReceipt(
@@ -159,18 +182,22 @@ export class PrinterService {
     customConfig?: Partial<PrinterConfig>
   ): Promise<PrintResult> {
     const printerObj = this.createPrinterInstance(customConfig)
-    this.buildReceiptCommands(printerObj, saleDetail, change)
+
+    if (!printerObj.config.thermalInterface) {
+      return {
+        success: false,
+        error: 'No se ha configurado ninguna impresora térmica de destino en Configuración.'
+      }
+    }
 
     try {
-      if (!printerObj.config.thermalInterface) {
-        return {
-          success: false,
-          error: 'No se ha configurado ninguna impresora térmica de destino en Configuración.'
-        }
-      }
-
-      await printerObj.printer.execute()
-      return { success: true }
+      this.buildReceiptCommands(printerObj, saleDetail, change)
+      const buffer = printerObj.printer.getBuffer()
+      return await this.dispatchThermalBuffer(
+        buffer,
+        printerObj.config,
+        `Venta #${saleDetail.folio ?? saleDetail.id}`
+      )
     } catch (err: any) {
       console.error('Error imprimiendo ticket térmico:', err)
       return {
@@ -184,19 +211,21 @@ export class PrinterService {
    * Sends an ESC/POS pulse to open the cash drawer.
    */
   async openCashDrawer(customConfig?: Partial<PrinterConfig>): Promise<PrintResult> {
-    const printerObj = this.createPrinterInstance(customConfig)
-    printerObj.printer.openCashDrawer()
+    const config = { ...this.getPrinterConfig(), ...customConfig }
+
+    if (!config.thermalInterface) {
+      return {
+        success: false,
+        error: 'No se ha configurado la interfaz de la impresora para el pulso de cajón.'
+      }
+    }
 
     try {
-      if (!printerObj.config.thermalInterface) {
-        return {
-          success: false,
-          error: 'No se ha configurado la interfaz de la impresora para el pulso de cajón.'
-        }
-      }
-
-      await printerObj.printer.execute()
-      return { success: true }
+      return await this.dispatchThermalBuffer(
+        CASH_DRAWER_PULSE_BUFFER,
+        config,
+        'Apertura Cajon'
+      )
     } catch (err: any) {
       console.error('Error abriendo cajón monetario:', err)
       return {
@@ -211,27 +240,31 @@ export class PrinterService {
    */
   async printTestTicket(customConfig?: Partial<PrinterConfig>): Promise<PrintResult> {
     const printerObj = this.createPrinterInstance(customConfig)
-    const { printer, widthChars } = printerObj
 
-    const businessName = this.settingsService.get('business_name', 'MAVE POS') || 'MAVE POS'
-
-    buildThermalTestTicket({
-      printer,
-      widthChars,
-      paperWidth: printerObj.config.paperWidth,
-      businessName
-    })
+    if (!printerObj.config.thermalInterface) {
+      return {
+        success: false,
+        error: 'Por favor selecciona una impresora térmica antes de realizar la prueba.'
+      }
+    }
 
     try {
-      if (!printerObj.config.thermalInterface) {
-        return {
-          success: false,
-          error: 'Por favor selecciona una impresora térmica antes de realizar la prueba.'
-        }
-      }
+      const { printer, widthChars } = printerObj
+      const businessName = this.settingsService.get('business_name', 'MAVE POS') || 'MAVE POS'
 
-      await printer.execute()
-      return { success: true }
+      buildThermalTestTicket({
+        printer,
+        widthChars,
+        paperWidth: printerObj.config.paperWidth,
+        businessName
+      })
+
+      const buffer = printer.getBuffer()
+      return await this.dispatchThermalBuffer(
+        buffer,
+        printerObj.config,
+        'Ticket de Prueba'
+      )
     } catch (err: any) {
       return {
         success: false,

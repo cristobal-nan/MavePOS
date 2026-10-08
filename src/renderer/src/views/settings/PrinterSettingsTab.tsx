@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Printer, Archive, RefreshCw, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { Printer, Archive, RefreshCw, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react'
 import { PrinterConfig, PrinterInfo } from '@shared/types'
 import { useSettingsStore, DirtyFieldChange } from '../../store/settingsStore'
 
@@ -109,6 +109,15 @@ export const PrinterSettingsTab: React.FC = () => {
     }
   }
 
+  const showFeedback = (type: 'success' | 'error', text: string): void => {
+    setPrinterFeedback({ type, text })
+    if (type === 'success') {
+      setTimeout(() => {
+        setPrinterFeedback((curr) => (curr?.text === text ? null : curr))
+      }, 4000)
+    }
+  }
+
   const handleTestPrinter = async (): Promise<void> => {
     setIsTestingPrinter(true)
     setPrinterFeedback(null)
@@ -116,21 +125,12 @@ export const PrinterSettingsTab: React.FC = () => {
       await window.api.savePrinterConfig(printerConfig)
       const res = await window.api.testThermalPrinter(printerConfig)
       if (res.success) {
-        setPrinterFeedback({
-          type: 'success',
-          text: '¡Ticket de prueba enviado exitosamente a la impresora térmica!'
-        })
+        showFeedback('success', '¡Ticket de prueba enviado exitosamente a la impresora térmica!')
       } else {
-        setPrinterFeedback({
-          type: 'error',
-          text: res.error || 'No se pudo comunicar con la impresora térmica.'
-        })
+        showFeedback('error', res.error || 'No se pudo comunicar con la impresora térmica.')
       }
     } catch (err: any) {
-      setPrinterFeedback({
-        type: 'error',
-        text: err.message || 'Error durante la prueba de impresión.'
-      })
+      showFeedback('error', err.message || 'Error durante la prueba de impresión.')
     } finally {
       setIsTestingPrinter(false)
     }
@@ -143,21 +143,12 @@ export const PrinterSettingsTab: React.FC = () => {
       await window.api.savePrinterConfig(printerConfig)
       const res = await window.api.openCashDrawer(printerConfig)
       if (res.success) {
-        setPrinterFeedback({
-          type: 'success',
-          text: '¡Pulso de apertura emitido al cajón de dinero!'
-        })
+        showFeedback('success', '¡Pulso de apertura emitido al cajón de dinero!')
       } else {
-        setPrinterFeedback({
-          type: 'error',
-          text: res.error || 'No se pudo emitir el pulso al cajón.'
-        })
+        showFeedback('error', res.error || 'No se pudo emitir el pulso al cajón.')
       }
     } catch (err: any) {
-      setPrinterFeedback({
-        type: 'error',
-        text: err.message || 'Error al enviar pulso al cajón.'
-      })
+      showFeedback('error', err.message || 'Error al enviar pulso al cajón.')
     } finally {
       setIsOpeningDrawer(false)
     }
@@ -165,31 +156,6 @@ export const PrinterSettingsTab: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto flex flex-col gap-6 animate-in fade-in duration-150">
-      {printerFeedback && (
-        <div
-          className={`p-3.5 rounded-2xl border text-xs flex items-center justify-between shadow-sm animate-in fade-in duration-200 ${
-            printerFeedback.type === 'success'
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-              : 'bg-red-50 border-red-200 text-red-800'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            {printerFeedback.type === 'success' ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            ) : (
-              <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
-            )}
-            <span className="font-semibold">{printerFeedback.text}</span>
-          </div>
-          <button
-            onClick={() => setPrinterFeedback(null)}
-            className="text-slate-400 hover:text-slate-600 font-bold ml-4"
-          >
-            ×
-          </button>
-        </div>
-      )}
-
       <form
         onSubmit={(e) => {
           e.preventDefault()
@@ -430,7 +396,11 @@ export const PrinterSettingsTab: React.FC = () => {
               disabled={isTestingPrinter}
               className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50 cursor-pointer"
             >
-              <Printer className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
+              {isTestingPrinter ? (
+                <Loader2 className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400 animate-spin" />
+              ) : (
+                <Printer className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
+              )}
               <span>{isTestingPrinter ? 'Imprimiendo test...' : 'Probar Impresión de Ticket'}</span>
             </button>
 
@@ -440,12 +410,41 @@ export const PrinterSettingsTab: React.FC = () => {
               disabled={isOpeningDrawer}
               className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50 cursor-pointer"
             >
-              <Archive className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              {isOpeningDrawer ? (
+                <Loader2 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 animate-spin" />
+              ) : (
+                <Archive className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+              )}
               <span>{isOpeningDrawer ? 'Enviando pulso...' : 'Probar Apertura de Cajón'}</span>
             </button>
           </div>
         </div>
       </form>
+
+      {/* Toast Flotante Fijo (Bottom-Right, Cero Layout Shift) */}
+      {printerFeedback && (
+        <div
+          className={`fixed bottom-6 right-6 z-50 p-3.5 rounded-2xl border text-xs flex items-center gap-2.5 shadow-2xl animate-in fade-in slide-in-from-bottom-3 duration-200 select-none max-w-md ${
+            printerFeedback.type === 'success'
+              ? 'bg-white dark:bg-slate-800 border-emerald-300 dark:border-emerald-700 text-emerald-950 dark:text-emerald-100'
+              : 'bg-white dark:bg-slate-800 border-rose-300 dark:border-rose-700 text-rose-950 dark:text-rose-100'
+          }`}
+        >
+          {printerFeedback.type === 'success' ? (
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+          ) : (
+            <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+          )}
+          <span className="font-semibold">{printerFeedback.text}</span>
+          <button
+            onClick={() => setPrinterFeedback(null)}
+            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-bold ml-2 shrink-0 cursor-pointer text-base leading-none"
+            title="Cerrar"
+          >
+            ×
+          </button>
+        </div>
+      )}
     </div>
   )
 }

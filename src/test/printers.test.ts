@@ -4,6 +4,7 @@ import { runMigrations } from '../main/db/migrations'
 import { SettingsService } from '../main/services/settingsService'
 import { PrinterService } from '../main/services/printerService'
 import { generateNormalReceiptHtml as generateHtmlPure } from '../main/services/printing/ticketTemplates'
+import { CASH_DRAWER_PULSE_BUFFER, getRawPrintExePath } from '../main/services/printing/rawPrinterHelper'
 import { SaleDetail } from '../shared/types'
 
 describe('Fase 9: Impresión y Tickets Térmicos (ESC/POS y Periféricos)', () => {
@@ -248,6 +249,54 @@ describe('Fase 9: Impresión y Tickets Térmicos (ESC/POS y Periféricos)', () =
       expect(html).toContain('Gracias por preferir nuestro trabajo hecho a mano')
       expect(html).toContain('$ 15.990')
       expect(html).toContain('Lana Merino Roja')
+    })
+  })
+
+  describe('Control de Spooler RAW y Pulso Universal de Cajón (rawPrinterHelper)', () => {
+    it('el buffer universal de pulso contiene las secuencias estándar ESC/POS y Star', () => {
+      expect(CASH_DRAWER_PULSE_BUFFER).toBeDefined()
+      const hex = CASH_DRAWER_PULSE_BUFFER.toString('hex')
+      // Pin 2 (1b 70 00 19 fa)
+      expect(hex).toContain('1b700019fa')
+      // Pin 5 (1b 70 01 19 fa)
+      expect(hex).toContain('1b700119fa')
+      // Star BEL (07)
+      expect(hex).toContain('07')
+    })
+
+    it('localiza el binario nativo winrawprint.exe en la estructura del proyecto', () => {
+      const exePath = getRawPrintExePath()
+      expect(exePath).not.toBeNull()
+      expect(exePath).toContain('winrawprint.exe')
+    })
+
+    it('la emisión de ticket incluye el pulso de cajón y corte de papel en el buffer binario', () => {
+      const printerObj = printerService.createPrinterInstance({
+        paperWidth: '80mm',
+        openDrawerOnPrint: true
+      })
+
+      const mockSaleDetail: SaleDetail = {
+        id: 10,
+        folio: 10,
+        status: 'completed',
+        total: 5000,
+        cash_session_id: 1,
+        created_at: new Date().toISOString(),
+        items: [],
+        payments: [],
+        total_items: 0,
+        returned_items_count: 0
+      }
+
+      printerService.buildReceiptCommands(printerObj, mockSaleDetail)
+      const buffer = printerObj.printer.getBuffer()
+      const hex = buffer.toString('hex')
+
+      // Debe contener el pulso de apertura
+      expect(hex).toContain('1b700019fa')
+      // Debe contener el corte de papel (1d 56 00)
+      expect(hex).toContain('1d5600')
     })
   })
 })

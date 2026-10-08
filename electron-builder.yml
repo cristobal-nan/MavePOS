@@ -9,6 +9,11 @@ files:
 asar: true
 asarUnpack:
   - "**/*.node"
+extraResources:
+  - from: resources/bin
+    to: bin
+    filter:
+      - "**/*"
 npmRebuild: false
 win:
   target:
