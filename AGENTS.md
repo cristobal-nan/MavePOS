@@ -19,6 +19,15 @@ Documento vinculante de reglas de negocio, integridad técnica y comportamiento 
   - `npm run typecheck`: Validación estricta de tipos TypeScript (debe pasar con 0 errores).
   - `npm run test`: Batería completa de pruebas unitarias con Vitest (debe pasar al 100%).
   - `npm run build`: Compilación de producción (main, preload y renderer).
+- **Flujo y Formato de Commits en Git:**
+  - **Sin prefijos ni etiquetas:** Mensajes directos, descriptivos y en español. **Prohibido terminantemente** usar tags o prefijos al inicio como `feat:`, `fix:`, `refactor:`, `chore:`, etc.
+  - **Cantidad natural y necesaria:** No forzar jamás un número fijo o arbitrario de commits (como 4). Crear únicamente la cantidad de commits necesaria según los cambios reales para que el historial sea claro y atómico:
+    - Si se resolvió un solo problema o ajuste puntual: **1 solo commit**.
+    - Si se abordaron varias tareas o módulos independientes: **un commit por cada unidad funcional clara**, sin sobre-fragmentar archivos de un mismo módulo en múltiples commits innecesarios.
+  - Ejemplos:
+    - `"permitir seleccionar y restaurar respaldos desde carpetas externas"`
+    - `"unificar motivos rapidos de inventario y enlazar boton guardar del header"`
+    - `"implementar spooler RAW de Windows y pulso universal para cajon de dinero"`
 
 ---
 
