@@ -1,6 +1,6 @@
 {
   "name": "pos-offline",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Punto de Venta de escritorio para Windows 100% offline",
   "main": "./out/main/index.js",
   "author": "Mave",
