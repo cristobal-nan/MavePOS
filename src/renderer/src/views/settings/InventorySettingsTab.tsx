@@ -1,13 +1,9 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   Boxes,
-  Save,
   RotateCcw,
-  CheckCircle2,
   Plus,
   Trash2,
-  Info,
-  Layers,
   FileText,
   FileSpreadsheet,
   Gauge,
@@ -18,26 +14,43 @@ import {
 import { QuickAdjustmentReason, DEFAULT_QUICK_REASONS, CatalogConfig, DEFAULT_CATALOG_CONFIG } from '@shared/types'
 import { eventToShortcut } from '../../utils/keyboardShortcut'
 import { useCatalogStore } from '../../store/catalogStore'
+import { useSettingsStore, DirtyFieldChange } from '../../store/settingsStore'
 
 export const InventorySettingsTab: React.FC = () => {
+  const [initialReasons, setInitialReasons] = useState<QuickAdjustmentReason[]>([...DEFAULT_QUICK_REASONS])
   const [reasons, setReasons] = useState<QuickAdjustmentReason[]>([...DEFAULT_QUICK_REASONS])
   const [newText, setNewText] = useState('')
   const [newType, setNewType] = useState<'replace' | 'append'>('replace')
   const [newShortcut, setNewShortcut] = useState('')
   const [isRecordingNewShortcut, setIsRecordingNewShortcut] = useState(false)
   const [editingShortcutId, setEditingShortcutId] = useState<string | null>(null)
+
+  const [initialExportPrefix, setInitialExportPrefix] = useState('Productos')
   const [exportPrefix, setExportPrefix] = useState('Productos')
-  const [isSaving, setIsSaving] = useState(false)
-  const [savedMessage, setSavedMessage] = useState<string | null>(null)
 
   // Opciones de Carga y Rendimiento de Catálogo
+  const [initialCatalogAutoLoad, setInitialCatalogAutoLoad] = useState(DEFAULT_CATALOG_CONFIG.catalogAutoLoad)
   const [catalogAutoLoad, setCatalogAutoLoad] = useState(DEFAULT_CATALOG_CONFIG.catalogAutoLoad)
+
+  const [initialCatalogInitialLimit, setInitialCatalogInitialLimit] = useState(DEFAULT_CATALOG_CONFIG.catalogInitialLimit)
   const [catalogInitialLimit, setCatalogInitialLimit] = useState(DEFAULT_CATALOG_CONFIG.catalogInitialLimit)
+
+  const [initialCatalogScrollBatch, setInitialCatalogScrollBatch] = useState(DEFAULT_CATALOG_CONFIG.catalogScrollBatch)
   const [catalogScrollBatch, setCatalogScrollBatch] = useState(DEFAULT_CATALOG_CONFIG.catalogScrollBatch)
+
+  const [initialModalAutoLoad, setInitialModalAutoLoad] = useState(DEFAULT_CATALOG_CONFIG.modalAutoLoad)
   const [modalAutoLoad, setModalAutoLoad] = useState(DEFAULT_CATALOG_CONFIG.modalAutoLoad)
+
+  const [initialModalInitialLimit, setInitialModalInitialLimit] = useState(DEFAULT_CATALOG_CONFIG.modalInitialLimit)
   const [modalInitialLimit, setModalInitialLimit] = useState(DEFAULT_CATALOG_CONFIG.modalInitialLimit)
+
+  const [initialModalScrollBatch, setInitialModalScrollBatch] = useState(DEFAULT_CATALOG_CONFIG.modalScrollBatch)
   const [modalScrollBatch, setModalScrollBatch] = useState(DEFAULT_CATALOG_CONFIG.modalScrollBatch)
-  const [isSavingPerformance, setIsSavingPerformance] = useState(false)
+
+  const [isLoaded, setIsLoaded] = useState(false)
+
+  const registerSubTabState = useSettingsStore((s) => s.registerSubTabState)
+  const clearSubTabState = useSettingsStore((s) => s.clearSubTabState)
 
   useEffect(() => {
     let isMounted = true
@@ -45,37 +58,63 @@ export const InventorySettingsTab: React.FC = () => {
       .getAllSettings()
       .then((settings) => {
         if (!isMounted) return
+        let loadedReasons = [...DEFAULT_QUICK_REASONS]
         if (settings?.inventory_quick_reasons) {
           try {
             const parsed = JSON.parse(settings.inventory_quick_reasons)
             if (Array.isArray(parsed) && parsed.length > 0) {
-              setReasons(parsed)
+              loadedReasons = parsed
             }
           } catch (e) {
             console.error('Error parseando inventory_quick_reasons:', e)
           }
         }
-        if (settings?.excel_export_prefix) {
-          setExportPrefix(settings.excel_export_prefix)
-        }
-        if (settings?.catalog_autoload !== undefined) {
-          setCatalogAutoLoad(settings.catalog_autoload === 'true')
-        }
-        if (settings?.catalog_initial_limit) {
-          setCatalogInitialLimit(parseInt(settings.catalog_initial_limit, 10) || 150)
-        }
-        if (settings?.catalog_scroll_batch) {
-          setCatalogScrollBatch(parseInt(settings.catalog_scroll_batch, 10) || 150)
-        }
-        if (settings?.modal_autoload !== undefined) {
-          setModalAutoLoad(settings.modal_autoload === 'true')
-        }
-        if (settings?.modal_initial_limit) {
-          setModalInitialLimit(parseInt(settings.modal_initial_limit, 10) || 150)
-        }
-        if (settings?.modal_scroll_batch) {
-          setModalScrollBatch(parseInt(settings.modal_scroll_batch, 10) || 150)
-        }
+        setInitialReasons(loadedReasons)
+        setReasons(loadedReasons)
+
+        const loadedPrefix = settings?.excel_export_prefix || 'Productos'
+        setInitialExportPrefix(loadedPrefix)
+        setExportPrefix(loadedPrefix)
+
+        const autoLoad =
+          settings?.catalog_autoload !== undefined
+            ? settings.catalog_autoload === 'true'
+            : DEFAULT_CATALOG_CONFIG.catalogAutoLoad
+        setInitialCatalogAutoLoad(autoLoad)
+        setCatalogAutoLoad(autoLoad)
+
+        const catInit = settings?.catalog_initial_limit
+          ? parseInt(settings.catalog_initial_limit, 10) || 150
+          : DEFAULT_CATALOG_CONFIG.catalogInitialLimit
+        setInitialCatalogInitialLimit(catInit)
+        setCatalogInitialLimit(catInit)
+
+        const catBatch = settings?.catalog_scroll_batch
+          ? parseInt(settings.catalog_scroll_batch, 10) || 150
+          : DEFAULT_CATALOG_CONFIG.catalogScrollBatch
+        setInitialCatalogScrollBatch(catBatch)
+        setCatalogScrollBatch(catBatch)
+
+        const mAutoLoad =
+          settings?.modal_autoload !== undefined
+            ? settings.modal_autoload === 'true'
+            : DEFAULT_CATALOG_CONFIG.modalAutoLoad
+        setInitialModalAutoLoad(mAutoLoad)
+        setModalAutoLoad(mAutoLoad)
+
+        const mInit = settings?.modal_initial_limit
+          ? parseInt(settings.modal_initial_limit, 10) || 150
+          : DEFAULT_CATALOG_CONFIG.modalInitialLimit
+        setInitialModalInitialLimit(mInit)
+        setModalInitialLimit(mInit)
+
+        const mBatch = settings?.modal_scroll_batch
+          ? parseInt(settings.modal_scroll_batch, 10) || 150
+          : DEFAULT_CATALOG_CONFIG.modalScrollBatch
+        setInitialModalScrollBatch(mBatch)
+        setModalScrollBatch(mBatch)
+
+        setIsLoaded(true)
       })
       .catch((err) => {
         console.error('Error al cargar configuración de inventario:', err)
@@ -83,8 +122,167 @@ export const InventorySettingsTab: React.FC = () => {
 
     return () => {
       isMounted = false
+      clearSubTabState()
     }
-  }, [])
+  }, [clearSubTabState])
+
+  const handleSave = useCallback(async (): Promise<boolean> => {
+    try {
+      await window.api.setSetting('inventory_quick_reasons', JSON.stringify(reasons))
+      const safePrefix = exportPrefix.trim() || 'Productos'
+      await window.api.setSetting('excel_export_prefix', safePrefix)
+
+      const safeCatInit = Math.max(10, catalogInitialLimit || 150)
+      const safeCatBatch = Math.max(10, catalogScrollBatch || 150)
+      const safeModalInit = Math.max(10, modalInitialLimit || 150)
+      const safeModalBatch = Math.max(10, modalScrollBatch || 150)
+
+      const newConfig: CatalogConfig = {
+        catalogAutoLoad,
+        catalogInitialLimit: safeCatInit,
+        catalogScrollBatch: safeCatBatch,
+        modalAutoLoad,
+        modalInitialLimit: safeModalInit,
+        modalScrollBatch: safeModalBatch
+      }
+      await useCatalogStore.getState().updateConfig(newConfig)
+
+      setInitialReasons([...reasons])
+      setInitialExportPrefix(safePrefix)
+      setExportPrefix(safePrefix)
+      setInitialCatalogAutoLoad(catalogAutoLoad)
+      setInitialCatalogInitialLimit(safeCatInit)
+      setCatalogInitialLimit(safeCatInit)
+      setInitialCatalogScrollBatch(safeCatBatch)
+      setCatalogScrollBatch(safeCatBatch)
+      setInitialModalAutoLoad(modalAutoLoad)
+      setInitialModalInitialLimit(safeModalInit)
+      setModalInitialLimit(safeModalInit)
+      setInitialModalScrollBatch(safeModalBatch)
+      setModalScrollBatch(safeModalBatch)
+
+      return true
+    } catch (err: any) {
+      console.error('Error al guardar configuración de inventario:', err)
+      return false
+    }
+  }, [
+    reasons,
+    exportPrefix,
+    catalogAutoLoad,
+    catalogInitialLimit,
+    catalogScrollBatch,
+    modalAutoLoad,
+    modalInitialLimit,
+    modalScrollBatch
+  ])
+
+  const handleDiscard = useCallback((): void => {
+    setReasons([...initialReasons])
+    setExportPrefix(initialExportPrefix)
+    setCatalogAutoLoad(initialCatalogAutoLoad)
+    setCatalogInitialLimit(initialCatalogInitialLimit)
+    setCatalogScrollBatch(initialCatalogScrollBatch)
+    setModalAutoLoad(initialModalAutoLoad)
+    setModalInitialLimit(initialModalInitialLimit)
+    setModalScrollBatch(initialModalScrollBatch)
+  }, [
+    initialReasons,
+    initialExportPrefix,
+    initialCatalogAutoLoad,
+    initialCatalogInitialLimit,
+    initialCatalogScrollBatch,
+    initialModalAutoLoad,
+    initialModalInitialLimit,
+    initialModalScrollBatch
+  ])
+
+  // Track dirty changes
+  useEffect(() => {
+    if (!isLoaded) return
+
+    const changes: DirtyFieldChange[] = []
+
+    if (JSON.stringify(reasons) !== JSON.stringify(initialReasons)) {
+      changes.push({
+        field: 'Motivos Rápidos de Ajuste',
+        value: `${reasons.length} motivos configurados`
+      })
+    }
+
+    if (exportPrefix.trim() !== initialExportPrefix.trim()) {
+      changes.push({
+        field: 'Prefijo Exportación Excel',
+        value: exportPrefix.trim() || 'Productos'
+      })
+    }
+
+    if (catalogAutoLoad !== initialCatalogAutoLoad) {
+      changes.push({
+        field: 'Carga automática catálogo (F2)',
+        value: catalogAutoLoad ? 'Activada' : 'Desactivada'
+      })
+    }
+
+    if (catalogInitialLimit !== initialCatalogInitialLimit) {
+      changes.push({
+        field: 'Productos iniciales catálogo (F2)',
+        value: `${catalogInitialLimit} unid.`
+      })
+    }
+
+    if (catalogScrollBatch !== initialCatalogScrollBatch) {
+      changes.push({
+        field: 'Lote scroll catálogo (F2)',
+        value: `${catalogScrollBatch} unid.`
+      })
+    }
+
+    if (modalAutoLoad !== initialModalAutoLoad) {
+      changes.push({
+        field: 'Carga automática búsqueda modal (F10)',
+        value: modalAutoLoad ? 'Activada' : 'Desactivada'
+      })
+    }
+
+    if (modalInitialLimit !== initialModalInitialLimit) {
+      changes.push({
+        field: 'Resultados iniciales modal (F10)',
+        value: `${modalInitialLimit} unid.`
+      })
+    }
+
+    if (modalScrollBatch !== initialModalScrollBatch) {
+      changes.push({
+        field: 'Lote scroll modal (F10)',
+        value: `${modalScrollBatch} unid.`
+      })
+    }
+
+    const isDirty = changes.length > 0
+    registerSubTabState(isDirty, changes, handleSave, handleDiscard)
+  }, [
+    isLoaded,
+    reasons,
+    initialReasons,
+    exportPrefix,
+    initialExportPrefix,
+    catalogAutoLoad,
+    initialCatalogAutoLoad,
+    catalogInitialLimit,
+    initialCatalogInitialLimit,
+    catalogScrollBatch,
+    initialCatalogScrollBatch,
+    modalAutoLoad,
+    initialModalAutoLoad,
+    modalInitialLimit,
+    initialModalInitialLimit,
+    modalScrollBatch,
+    initialModalScrollBatch,
+    handleSave,
+    handleDiscard,
+    registerSubTabState
+  ])
 
   const handleAddReason = (e: React.FormEvent): void => {
     e.preventDefault()
@@ -112,19 +310,16 @@ export const InventorySettingsTab: React.FC = () => {
     setNewText('')
     setNewShortcut('')
     setIsRecordingNewShortcut(false)
-    setSavedMessage(null)
   }
 
   const handleDeleteReason = (id: string): void => {
     setReasons((prev) => prev.filter((r) => r.id !== id))
-    setSavedMessage(null)
   }
 
   const handleToggleType = (id: string): void => {
     setReasons((prev) =>
       prev.map((r) => (r.id === id ? { ...r, type: r.type === 'replace' ? 'append' : 'replace' } : r))
     )
-    setSavedMessage(null)
   }
 
   const handleSetReasonShortcut = (id: string, shortcut: string | undefined): void => {
@@ -142,52 +337,19 @@ export const InventorySettingsTab: React.FC = () => {
       })
     )
     setEditingShortcutId(null)
-    setSavedMessage(null)
   }
 
   const handleRestoreDefaults = (): void => {
     setReasons([...DEFAULT_QUICK_REASONS])
-    setSavedMessage(null)
   }
 
-  const handleSave = async (e: React.FormEvent): Promise<void> => {
-    e.preventDefault()
-    setIsSaving(true)
-    setSavedMessage(null)
-
-    try {
-      await window.api.setSetting('inventory_quick_reasons', JSON.stringify(reasons))
-      await window.api.setSetting('excel_export_prefix', exportPrefix.trim() || 'Productos')
-      setSavedMessage('Configuración de inventario y exportación guardada correctamente.')
-    } catch (err: any) {
-      console.error('Error al guardar configuración de inventario:', err)
-      alert('Error al guardar: ' + err.message)
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const handleSavePerformance = async (): Promise<void> => {
-    setIsSavingPerformance(true)
-    setSavedMessage(null)
-    try {
-      const newConfig: CatalogConfig = {
-        catalogAutoLoad,
-        catalogInitialLimit: Math.max(10, catalogInitialLimit || 150),
-        catalogScrollBatch: Math.max(10, catalogScrollBatch || 150),
-        modalAutoLoad,
-        modalInitialLimit: Math.max(10, modalInitialLimit || 150),
-        modalScrollBatch: Math.max(10, modalScrollBatch || 150)
-      }
-      await useCatalogStore.getState().updateConfig(newConfig)
-      setSavedMessage('Configuración de rendimiento y carga de productos guardada.')
-      setTimeout(() => setSavedMessage(null), 4000)
-    } catch (err: any) {
-      console.error('Error al guardar configuración de rendimiento:', err)
-      alert('Error al guardar: ' + err.message)
-    } finally {
-      setIsSavingPerformance(false)
-    }
+  const handleRestorePerformanceDefaults = (): void => {
+    setCatalogAutoLoad(DEFAULT_CATALOG_CONFIG.catalogAutoLoad)
+    setCatalogInitialLimit(DEFAULT_CATALOG_CONFIG.catalogInitialLimit)
+    setCatalogScrollBatch(DEFAULT_CATALOG_CONFIG.catalogScrollBatch)
+    setModalAutoLoad(DEFAULT_CATALOG_CONFIG.modalAutoLoad)
+    setModalInitialLimit(DEFAULT_CATALOG_CONFIG.modalInitialLimit)
+    setModalScrollBatch(DEFAULT_CATALOG_CONFIG.modalScrollBatch)
   }
 
   const mainReasons = reasons.filter((r) => r.type === 'replace')
@@ -195,67 +357,53 @@ export const InventorySettingsTab: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-6 max-w-4xl mx-auto">
-      {/* Intro Header */}
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-lilac-100 dark:border-slate-800 shadow-sm flex flex-col gap-2">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-lilac-50 dark:bg-slate-800 text-lilac-600 dark:text-lilac-400 flex items-center justify-center shrink-0">
-            <Boxes className="w-5 h-5" />
+      {/* Tarjeta Única: Motivos Rápidos de Ajuste de Inventario */}
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-lilac-100 dark:border-slate-700 p-6 shadow-sm space-y-5">
+        {/* Cabecera compacta con título, subtítulo conciso y botón restablecer */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-700/80 pb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-lilac-100 dark:bg-lilac-950/60 text-lilac-600 dark:text-lilac-400 flex items-center justify-center shrink-0">
+              <Boxes className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                Motivos Rápidos de Ajuste de Inventario
+              </h2>
+              <p className="text-xs text-slate-400 dark:text-slate-400">
+                Botones de acceso rápido para ajuste de existencias con asignación de teclas de atajo.
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-base font-bold text-slate-800 dark:text-white">
-              Motivos Rápidos de Ajuste de Inventario
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Configura los botones de acceso rápido que aparecen al ajustar existencias. Puedes
-              definir motivos que reemplazan el texto y complementos que se van añadiendo para
-              formar una frase. Además, puedes asignar una tecla rápida a cada motivo para aplicarlo sin mouse.
-            </p>
-          </div>
+
+          <button
+            type="button"
+            onClick={handleRestoreDefaults}
+            className="px-3 py-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shrink-0 self-start sm:self-center"
+            title="Restablecer motivos a los valores iniciales"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Restablecer por Defecto</span>
+          </button>
         </div>
 
-        <div className="mt-3 p-3.5 bg-lilac-50/60 dark:bg-slate-800/60 border border-lilac-100 dark:border-slate-800 rounded-2xl flex items-start gap-3">
-          <Info className="w-4 h-4 text-lilac-600 dark:text-lilac-400 shrink-0 mt-0.5" />
-          <div className="text-xs text-lilac-900 dark:text-slate-200 leading-relaxed">
-            <span className="font-bold">Comportamiento:</span>
-            <ul className="list-disc list-inside mt-1 space-y-0.5 text-lilac-800 dark:text-slate-300">
-              <li>
-                <strong>Motivo Principal (Reemplazar):</strong> Al hacer clic en la pantalla de
-                ajuste, sustituye todo lo escrito por ese motivo.
-              </li>
-              <li>
-                <strong>Complemento (Añadir a la frase):</strong> Al hacer clic, se agrega la
-                palabra o detalle al texto actual separado por un espacio, permitiendo armar
-                frases detalladas con varios clics.
-              </li>
-              <li>
-                <strong>Tecla Rápida:</strong> Al terminar de ingresar la cantidad con Enter en el ajuste de stock, presionar la tecla asignada aplica el motivo instantáneamente.
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
-
-      {/* Add New Reason Card */}
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-lilac-100 dark:border-slate-800 shadow-sm flex flex-col gap-4">
-        <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
-          <Plus className="w-4 h-4 text-lilac-600 dark:text-lilac-400" />
-          <span>Agregar Nuevo Motivo o Complemento</span>
-        </h3>
-
-        <form onSubmit={handleAddReason} className="flex flex-col sm:flex-row items-center gap-3">
+        {/* Barra compacta para agregar nuevo motivo o complemento */}
+        <form
+          onSubmit={handleAddReason}
+          className="flex flex-col sm:flex-row items-center gap-3 p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/70 dark:border-slate-700/80"
+        >
           <input
             type="text"
             value={newText}
             onChange={(e) => setNewText(e.target.value)}
             placeholder="Texto del motivo (ej: Merma por rotura, en bodega)..."
-            className="flex-1 w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-lilac-500 focus:bg-white dark:focus:bg-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none transition-all"
+            className="flex-1 w-full px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-lilac-500 focus:bg-white dark:focus:bg-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none transition-all"
           />
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
             {/* Grabador de tecla rápida */}
             <div className="relative shrink-0">
               {isRecordingNewShortcut ? (
-                <div className="flex items-center gap-1.5 px-3 py-2 bg-amber-50 dark:bg-slate-800 border-2 border-amber-400 rounded-xl animate-pulse">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 dark:bg-slate-800 border-2 border-amber-400 rounded-xl animate-pulse">
                   <Keyboard className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                   <input
                     type="text"
@@ -280,21 +428,21 @@ export const InventorySettingsTab: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsRecordingNewShortcut(false)}
-                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                   >
                     <X className="w-3 h-3" />
                   </button>
                 </div>
               ) : newShortcut ? (
-                <div className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl">
+                <div className="flex items-center gap-1 px-2.5 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl">
                   <span className="text-[10px] text-slate-400 font-semibold">Tecla:</span>
-                  <kbd className="px-1.5 py-0.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded font-mono font-bold text-xs text-lilac-700 dark:text-lilac-300">
+                  <kbd className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded font-mono font-bold text-xs text-lilac-700 dark:text-lilac-300">
                     {newShortcut}
                   </kbd>
                   <button
                     type="button"
                     onClick={() => setNewShortcut('')}
-                    className="text-slate-400 hover:text-rose-500 ml-0.5"
+                    className="text-slate-400 hover:text-rose-500 ml-0.5 cursor-pointer"
                     title="Quitar tecla"
                   >
                     <X className="w-3 h-3" />
@@ -304,7 +452,7 @@ export const InventorySettingsTab: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsRecordingNewShortcut(true)}
-                  className="px-2.5 py-2 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-750 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="px-2.5 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
                   title="Asignar una tecla rápida a este motivo"
                 >
                   <Keyboard className="w-3.5 h-3.5 text-slate-400" />
@@ -313,7 +461,8 @@ export const InventorySettingsTab: React.FC = () => {
               )}
             </div>
 
-            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl shrink-0 border border-slate-200 dark:border-slate-700">
+            {/* Selector Tipo */}
+            <div className="flex items-center gap-1 bg-white dark:bg-slate-800 p-1 rounded-xl shrink-0 border border-slate-200 dark:border-slate-700">
               <button
                 type="button"
                 onClick={() => setNewType('replace')}
@@ -342,32 +491,12 @@ export const InventorySettingsTab: React.FC = () => {
           <button
             type="submit"
             disabled={!newText.trim()}
-            className="w-full sm:w-auto px-4 py-2.5 bg-lilac-600 hover:bg-lilac-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 shrink-0 cursor-pointer disabled:cursor-not-allowed"
+            className="w-full sm:w-auto px-4 py-2 bg-lilac-600 hover:bg-lilac-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 shrink-0 cursor-pointer disabled:cursor-not-allowed"
           >
             <Plus className="w-4 h-4" />
             <span>Agregar</span>
           </button>
         </form>
-      </div>
-
-      {/* List of Configured Reasons */}
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-lilac-100 dark:border-slate-800 shadow-sm flex flex-col gap-6">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
-            <Layers className="w-4 h-4 text-lilac-600 dark:text-lilac-400" />
-            <span>Motivos Configurados ({reasons.length})</span>
-          </h3>
-
-          <button
-            type="button"
-            onClick={handleRestoreDefaults}
-            className="px-3 py-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
-            title="Restablecer motivos a los valores iniciales"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Restablecer por Defecto</span>
-          </button>
-        </div>
 
         {/* 1. Motivos Principales */}
         <div className="flex flex-col gap-3">
@@ -591,23 +720,10 @@ export const InventorySettingsTab: React.FC = () => {
             </div>
           )}
         </div>
-
-        {/* Save Button */}
-        <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={isSaving}
-            className="px-6 py-2.5 bg-lilac-600 hover:bg-lilac-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer disabled:cursor-not-allowed"
-          >
-            <Save className="w-4 h-4" />
-            <span>{isSaving ? 'Guardando...' : 'Guardar Configuración de Inventario'}</span>
-          </button>
-        </div>
       </div>
 
       {/* Excel Export Configuration Card */}
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-lilac-100 dark:border-slate-800 shadow-sm flex flex-col gap-4">
+      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-lilac-100 dark:border-slate-700 shadow-sm flex flex-col gap-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
             <FileSpreadsheet className="w-5 h-5" />
@@ -641,34 +757,34 @@ export const InventorySettingsTab: React.FC = () => {
             {exportPrefix.trim() || 'Productos'}_{new Date().toISOString().slice(0, 10)}.xlsx
           </span>
         </div>
-
-        <div className="flex justify-end pt-2">
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={isSaving}
-            className="px-5 py-2 bg-lilac-600 hover:bg-lilac-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer disabled:cursor-not-allowed"
-          >
-            <Save className="w-3.5 h-3.5" />
-            <span>Guardar Prefijo</span>
-          </button>
-        </div>
       </div>
 
       {/* Performance & Pagination Configuration Card */}
-      <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-lilac-100 dark:border-slate-800 shadow-sm flex flex-col gap-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-lilac-50 dark:bg-slate-800 text-lilac-600 dark:text-lilac-400 flex items-center justify-center shrink-0">
-            <Gauge className="w-5 h-5" />
+      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-lilac-100 dark:border-slate-700 shadow-sm flex flex-col gap-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-lilac-50 dark:bg-slate-800 text-lilac-600 dark:text-lilac-400 flex items-center justify-center shrink-0">
+              <Gauge className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-800 dark:text-white">
+                Rendimiento y Carga de Productos
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Optimiza la fluidez y velocidad en computadores de menores recursos configurando la carga automática y el tamaño de los lotes de productos.
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-bold text-slate-800 dark:text-white">
-              Rendimiento y Carga de Productos
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Optimiza la fluidez y velocidad en computadores de menores recursos configurando la carga automática y el tamaño de los lotes de productos.
-            </p>
-          </div>
+
+          <button
+            type="button"
+            onClick={handleRestorePerformanceDefaults}
+            className="px-3 py-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
+            title="Restablecer valores recomendados de rendimiento"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Restablecer por Defecto</span>
+          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-1">
@@ -808,27 +924,7 @@ export const InventorySettingsTab: React.FC = () => {
             </div>
           </div>
         </div>
-
-        <div className="flex justify-end pt-2 border-t border-slate-100 dark:border-slate-800">
-          <button
-            type="button"
-            onClick={handleSavePerformance}
-            disabled={isSavingPerformance}
-            className="px-5 py-2.5 bg-lilac-600 hover:bg-lilac-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2 cursor-pointer disabled:cursor-not-allowed"
-          >
-            <Save className="w-4 h-4" />
-            <span>{isSavingPerformance ? 'Guardando...' : 'Guardar Configuración de Rendimiento'}</span>
-          </button>
-        </div>
       </div>
-
-      {/* Toast Flotante de Guardado Exitoso (Bottom-Right, sin Layout Shift) */}
-      {savedMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-700 text-emerald-950 dark:text-emerald-200 p-3.5 rounded-2xl shadow-2xl flex items-center gap-2.5 text-xs animate-in fade-in slide-in-from-bottom-3 duration-200 select-none">
-          <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-          <span className="font-bold">{savedMessage}</span>
-        </div>
-      )}
     </div>
   )
 }
