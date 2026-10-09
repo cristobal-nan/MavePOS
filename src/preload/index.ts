@@ -33,7 +33,8 @@ import {
   PrinterInfo,
   PrinterConfig,
   PrintResult,
-  ExportExcelResult
+  ExportExcelResult,
+  ImportExcelOptions
 } from '../shared/types'
 
 // Domain API interfaces
@@ -58,7 +59,7 @@ export interface CatalogAPI {
   deleteSupplier: (id: number) => Promise<boolean>
   selectExcelFile: () => Promise<string | null>
   parseExcelFile: (filePath: string) => Promise<ExcelParsePreview>
-  importExcelFile: (filePath: string, customMapping?: Partial<ExcelColumnMapping>) => Promise<ImportReportResult>
+  importExcelFile: (filePath: string, customMapping?: Partial<ExcelColumnMapping>, options?: ImportExcelOptions) => Promise<ImportReportResult>
   exportExcel: (defaultPrefix?: string, productIds?: number[]) => Promise<{ filePath: string; totalExported: number } | null>
   openContainingFolder: (filePath: string) => Promise<boolean>
 }
@@ -225,7 +226,7 @@ export interface WindowAPI {
 
   selectExcelFile: () => Promise<string | null>
   parseExcelFile: (filePath: string) => Promise<ExcelParsePreview>
-  importExcelFile: (filePath: string, customMapping?: Partial<ExcelColumnMapping>) => Promise<ImportReportResult>
+  importExcelFile: (filePath: string, customMapping?: Partial<ExcelColumnMapping>, options?: ImportExcelOptions) => Promise<ImportReportResult>
   exportExcel: (defaultPrefix?: string, productIds?: number[]) => Promise<{ filePath: string; totalExported: number } | null>
   openContainingFolder: (filePath: string) => Promise<boolean>
 
@@ -267,7 +268,7 @@ const catalog: CatalogAPI = {
 
   selectExcelFile: () => ipcRenderer.invoke('excel:selectFile'),
   parseExcelFile: (filePath) => ipcRenderer.invoke('excel:parseFile', filePath),
-  importExcelFile: (filePath, customMapping) => ipcRenderer.invoke('excel:importFile', filePath, customMapping),
+  importExcelFile: (filePath, customMapping, options) => ipcRenderer.invoke('excel:importFile', filePath, customMapping, options),
   exportExcel: (defaultPrefix, productIds) => ipcRenderer.invoke('excel:exportProducts', defaultPrefix, productIds),
   openContainingFolder: (filePath) => ipcRenderer.invoke('excel:openContainingFolder', filePath)
 }

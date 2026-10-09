@@ -10,7 +10,9 @@ import {
   RotateCcw,
   Layers,
   FileDown,
-  Info
+  Info,
+  ShieldCheck,
+  Boxes
 } from 'lucide-react'
 import { ExcelParsePreview, ImportReportResult } from '@shared/types'
 import { useModalStack } from '../utils/modalStack'
@@ -53,6 +55,7 @@ export const ExcelUnifiedModal: React.FC<ExcelUnifiedModalProps> = ({
   const [isImporting, setIsImporting] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
+  const [updateStock, setUpdateStock] = useState<boolean>(false)
 
   const resetImportState = (): void => {
     setStep('select')
@@ -63,6 +66,7 @@ export const ExcelUnifiedModal: React.FC<ExcelUnifiedModalProps> = ({
     setImportError(null)
     setIsParsing(false)
     setIsImporting(false)
+    setUpdateStock(false)
   }
 
   const handleClose = (): void => {
@@ -117,7 +121,7 @@ export const ExcelUnifiedModal: React.FC<ExcelUnifiedModalProps> = ({
     setImportError(null)
 
     try {
-      const result = await window.api.catalog.importExcelFile(filePath)
+      const result = await window.api.catalog.importExcelFile(filePath, undefined, { updateStock })
       setReportResult(result)
       setStep('result')
       onSuccess(result)
@@ -395,6 +399,55 @@ export const ExcelUnifiedModal: React.FC<ExcelUnifiedModalProps> = ({
                   </span>
                 </div>
 
+                {/* Selector de tratamiento de stock: Switch / Checkbox */}
+                <div className="bg-slate-50 dark:bg-slate-800/80 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5">
+                      <input
+                        type="checkbox"
+                        id="update-stock-checkbox"
+                        checked={updateStock}
+                        onChange={(e) => setUpdateStock(e.target.checked)}
+                        className="w-4 h-4 text-lilac-600 rounded border-slate-300 dark:border-slate-600 focus:ring-lilac-500 cursor-pointer"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="update-stock-checkbox"
+                        className="text-xs font-bold text-slate-800 dark:text-white cursor-pointer select-none flex items-center gap-1.5"
+                      >
+                        {updateStock ? (
+                          <Boxes className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                        ) : (
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        )}
+                        <span>Actualizar existencias de inventario</span>
+                      </label>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        {updateStock ? (
+                          <span className="text-amber-700 dark:text-amber-400 font-medium">
+                            Se reemplazarán las existencias de los productos existentes según la columna del archivo Excel y se registrará el movimiento en Kardex.
+                          </span>
+                        ) : (
+                          <span className="text-emerald-700 dark:text-emerald-400 font-medium">
+                            El stock actual de tus productos registrados se conservará intacto. Solo se actualizarán nombres, precios, costos y catálogo (los productos nuevos se crearán con su stock inicial).
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  <span
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold shrink-0 border self-start sm:self-auto ${
+                      updateStock
+                        ? 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
+                        : 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                    }`}
+                  >
+                    {updateStock ? 'Modificar existencias' : 'Mantener stock actual'}
+                  </span>
+                </div>
+
                 <div className="flex-1 overflow-auto border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 shadow-xs">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 sticky top-0 font-bold border-b border-slate-200 dark:border-slate-700">
@@ -471,6 +524,37 @@ export const ExcelUnifiedModal: React.FC<ExcelUnifiedModalProps> = ({
                   <div className="bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
                     <span className="text-xs text-slate-400 dark:text-slate-400 block font-medium">Total Filas</span>
                     <span className="text-xl font-bold text-slate-800 dark:text-slate-200">{reportResult.totalRows}</span>
+                  </div>
+                </div>
+
+                {/* Indicador del tratamiento de stock aplicado */}
+                <div
+                  className={`mt-3 w-full max-w-md p-3 rounded-2xl border text-xs flex items-center gap-2.5 text-left ${
+                    reportResult.stockModeApplied === 'keep'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
+                      : 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200'
+                  }`}
+                >
+                  {reportResult.stockModeApplied === 'keep' ? (
+                    <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  ) : (
+                    <Boxes className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                  )}
+                  <div className="flex-1">
+                    <p className="font-bold">
+                      {reportResult.stockModeApplied === 'keep'
+                        ? 'Inventario protegido'
+                        : 'Existencias actualizadas'}
+                    </p>
+                    <p className="text-[11px] opacity-90 mt-0.5">
+                      {reportResult.stockModeApplied === 'keep'
+                        ? `Se conservó el stock de los productos existentes intacto.${
+                            (reportResult.stockModifiedCount ?? 0) > 0
+                              ? ` Se asignó stock inicial a ${reportResult.stockModifiedCount} productos nuevos.`
+                              : ''
+                          }`
+                        : `Se modificó el stock de ${reportResult.stockModifiedCount ?? 0} producto(s) según el archivo Excel y se registró en Kardex.`}
+                    </p>
                   </div>
                 </div>
 

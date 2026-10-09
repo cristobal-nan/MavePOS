@@ -509,4 +509,89 @@ describe('Fase 10: Importación de Catálogo desde Excel (.xlsx)', () => {
       }
     })
   })
+
+  describe('Tratamiento de Stock (updateStock: true vs false)', () => {
+    it('cuando updateStock es false (Mantener stock), conserva el stock de existentes intacto y asigna stock inicial a nuevos', () => {
+      // 1. Producto existente con stock = 25
+      productService.upsertProduct({
+        code: 'PROD-EXISTENTE',
+        name: 'Hilo Tradicional',
+        sale_price: 2500,
+        cost_price: 1000,
+        stock: 25,
+        min_stock: 5
+      })
+
+      // 2. Excel con producto existente (indica stock 99) y producto nuevo (indica stock 14)
+      createTestWorkbook([
+        ['Código', 'Producto', 'P. Costo', 'P. Venta', 'Existencia', 'Inv. Mínimo', 'Departamento'],
+        ['PROD-EXISTENTE', 'Hilo Tradicional Actualizado', '1100', '2800', '99', '8', 'Hilos'],
+        ['PROD-NUEVO', 'Aguja de Tejer #5', '500', '1200', '14', '2', 'Accesorios']
+      ])
+
+      const report = excelService.importExcel(tempFilePath, undefined, { updateStock: false })
+
+      expect(report.totalRows).toBe(2)
+      expect(report.createdCount).toBe(1)
+      expect(report.updatedCount).toBe(1)
+      expect(report.stockModeApplied).toBe('keep')
+      expect(report.stockModifiedCount).toBe(1) // Solo el nuevo producto recibió carga de stock
+
+      // Verificar que el producto existente conservó su stock intacto de 25 (no 99)
+      const existingProd = productService.getProductByCode('PROD-EXISTENTE')
+      expect(existingProd?.stock).toBe(25)
+      expect(existingProd?.sale_price).toBe(2800) // Precio sí se actualizó
+      expect(existingProd?.name).toBe('Hilo Tradicional Actualizado') // Nombre sí se actualizó
+
+      // Verificar que NO se crearon movimientos de importación en Kardex para el producto existente
+      const existingMovements = db
+        .prepare('SELECT * FROM inventory_movements WHERE product_code = ? AND type = ?')
+        .all('PROD-EXISTENTE', 'importacion')
+      expect(existingMovements).toHaveLength(0)
+
+      // Verificar que el producto nuevo sí se creó con el stock inicial de 14
+      const newProd = productService.getProductByCode('PROD-NUEVO')
+      expect(newProd?.stock).toBe(14)
+
+      const newMovements = db
+        .prepare('SELECT * FROM inventory_movements WHERE product_code = ? AND type = ?')
+        .all('PROD-NUEVO', 'importacion') as any[]
+      expect(newMovements).toHaveLength(1)
+      expect(newMovements[0].delta).toBe(14)
+    })
+
+    it('cuando updateStock es true (Modificar stock), reemplaza las existencias de existentes y genera auditoría en Kardex', () => {
+      // 1. Producto existente con stock = 20
+      productService.upsertProduct({
+        code: 'PROD-MODIFICAR',
+        name: 'Lana Grossa',
+        sale_price: 4000,
+        cost_price: 2000,
+        stock: 20,
+        min_stock: 5
+      })
+
+      // 2. Excel con nueva existencia = 55
+      createTestWorkbook([
+        ['Código', 'Producto', 'P. Costo', 'P. Venta', 'Existencia', 'Inv. Mínimo', 'Departamento'],
+        ['PROD-MODIFICAR', 'Lana Grossa 2026', '2200', '4500', '55', '10', 'Lanas']
+      ])
+
+      const report = excelService.importExcel(tempFilePath, undefined, { updateStock: true })
+
+      expect(report.totalRows).toBe(1)
+      expect(report.updatedCount).toBe(1)
+      expect(report.stockModeApplied).toBe('modify')
+      expect(report.stockModifiedCount).toBe(1)
+
+      const prod = productService.getProductByCode('PROD-MODIFICAR')
+      expect(prod?.stock).toBe(55)
+
+      const movements = db
+        .prepare('SELECT * FROM inventory_movements WHERE product_code = ? AND type = ?')
+        .all('PROD-MODIFICAR', 'importacion') as any[]
+      expect(movements).toHaveLength(1)
+      expect(movements[0].delta).toBe(35) // 55 - 20 = 35
+    })
+  })
 })

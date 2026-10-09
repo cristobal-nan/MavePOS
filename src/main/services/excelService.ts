@@ -6,7 +6,8 @@ import {
   ExcelParsePreview,
   ImportReportResult,
   ImportErrorDetail,
-  ExportExcelResult
+  ExportExcelResult,
+  ImportExcelOptions
 } from '../../shared/types'
 import { normalizeSearchName } from '../db/utils'
 
@@ -156,7 +157,11 @@ export class ExcelService {
    * Imports products from an Excel file into the SQLite database.
    * Runs in a single WAL transaction for ultra-fast processing (10.000+ rows in ~2s).
    */
-  importExcel(filePath: string, customMapping?: Partial<ExcelColumnMapping>): ImportReportResult {
+  importExcel(
+    filePath: string,
+    customMapping?: Partial<ExcelColumnMapping>,
+    options?: ImportExcelOptions
+  ): ImportReportResult {
     const workbook = XLSX.readFile(filePath, {
       type: 'file',
       cellDates: false,
@@ -216,10 +221,12 @@ export class ExcelService {
     const prodTypeIdx = mapping.product_type ? headers.indexOf(mapping.product_type) : -1
     const suppliersIdx = mapping.suppliers ? headers.indexOf(mapping.suppliers) : -1
 
+    const updateStock = options?.updateStock ?? true
     let createdCount = 0
     let updatedCount = 0
     let skippedCount = 0
     let departmentsCreated = 0
+    let stockModifiedCount = 0
     const errors: ImportErrorDetail[] = []
 
     const now = new Date().toISOString()
@@ -422,7 +429,9 @@ export class ExcelService {
 
         if (existing) {
           targetProductId = existing.id
-          // Update existing product
+          // Determinar existencia: si updateStock es true, usa el valor del Excel; si es false, conserva existing.stock
+          const targetStock = updateStock ? stock : existing.stock
+
           updateProductStmt.run(
             name,
             searchName,
@@ -433,21 +442,24 @@ export class ExcelService {
             salePrice,
             costPrice,
             categoryId,
-            stock,
+            targetStock,
             minStock,
             now,
             existing.id
           )
 
-          // Record inventory movement if stock changed
-          const delta = stock - existing.stock
-          if (delta !== 0) {
-            insertMovementStmt.run(code, delta, 'Importación Excel (reemplazo de existencia)', now)
+          // Registrar movimiento de inventario en Kardex solo si updateStock es true y hubo variación
+          if (updateStock) {
+            const delta = stock - existing.stock
+            if (delta !== 0) {
+              insertMovementStmt.run(code, delta, 'Importación Excel (reemplazo de existencia)', now)
+              stockModifiedCount++
+            }
           }
 
           updatedCount++
         } else {
-          // Insert new product
+          // Insert new product (productos nuevos siempre reciben el stock que viene en el archivo)
           const insertRes = insertProductStmt.run(
             code,
             name,
@@ -469,6 +481,7 @@ export class ExcelService {
           // Record initial inventory movement
           if (stock !== 0) {
             insertMovementStmt.run(code, stock, 'Carga inicial por importación Excel', now)
+            stockModifiedCount++
           }
 
           createdCount++
@@ -511,6 +524,8 @@ export class ExcelService {
       updatedCount,
       skippedCount,
       departmentsCreated,
+      stockModifiedCount,
+      stockModeApplied: updateStock ? 'modify' : 'keep',
       errors
     }
   }

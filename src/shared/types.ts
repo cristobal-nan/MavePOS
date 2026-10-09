@@ -421,12 +421,18 @@ export interface ImportErrorDetail {
   reason: string
 }
 
+export interface ImportExcelOptions {
+  updateStock?: boolean
+}
+
 export interface ImportReportResult {
   totalRows: number
   createdCount: number
   updatedCount: number
   skippedCount: number
   departmentsCreated: number
+  stockModifiedCount?: number
+  stockModeApplied?: 'modify' | 'keep'
   errors: ImportErrorDetail[]
 }
 

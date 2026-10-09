@@ -6,7 +6,8 @@ import {
   ProductInput,
   ProductSearchOptions,
   GroupAsVariableInput,
-  ExcelColumnMapping
+  ExcelColumnMapping,
+  ImportExcelOptions
 } from '../../shared/types'
 
 export function registerCatalogIpc(
@@ -109,9 +110,12 @@ export function registerCatalogIpc(
     return excelService.parseExcelFile(filePath)
   })
 
-  ipcMain.handle('excel:importFile', (_event, filePath: string, customMapping?: Partial<ExcelColumnMapping>) => {
-    return excelService.importExcel(filePath, customMapping)
-  })
+  ipcMain.handle(
+    'excel:importFile',
+    (_event, filePath: string, customMapping?: Partial<ExcelColumnMapping>, options?: ImportExcelOptions) => {
+      return excelService.importExcel(filePath, customMapping, options)
+    }
+  )
 
   ipcMain.handle('excel:exportProducts', async (_event, defaultPrefix?: string, productIds?: number[]) => {
     const today = new Date().toISOString().slice(0, 10)
