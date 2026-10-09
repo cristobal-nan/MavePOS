@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Printer, Archive, RefreshCw, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react'
+import { Printer, Archive, RefreshCw, CheckCircle2, AlertTriangle, Loader2, Eye } from 'lucide-react'
 import { PrinterConfig, PrinterInfo } from '@shared/types'
 import { useSettingsStore, DirtyFieldChange } from '../../store/settingsStore'
+import { ThermalTicketPreviewModal } from '../../components/ThermalTicketPreviewModal'
 
 const DEFAULT_CONFIG: PrinterConfig = {
   thermalType: 'epson',
@@ -21,6 +22,7 @@ export const PrinterSettingsTab: React.FC = () => {
   const [isTestingPrinter, setIsTestingPrinter] = useState(false)
   const [isOpeningDrawer, setIsOpeningDrawer] = useState(false)
   const [printerFeedback, setPrinterFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
 
   const registerSubTabState = useSettingsStore((s) => s.registerSubTabState)
   const clearSubTabState = useSettingsStore((s) => s.clearSubTabState)
@@ -392,6 +394,16 @@ export const PrinterSettingsTab: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={() => setIsPreviewOpen(true)}
+              className="px-4 py-2 bg-lilac-50 hover:bg-lilac-100 dark:bg-lilac-950/40 dark:hover:bg-lilac-900/60 text-lilac-700 dark:text-lilac-300 border border-lilac-200 dark:border-lilac-800 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer shadow-2xs"
+              title="Previsualizar cómo se verá el ticket térmico en pantalla"
+            >
+              <Eye className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
+              <span>Previsualizar Ticket</span>
+            </button>
+
+            <button
+              type="button"
               onClick={handleTestPrinter}
               disabled={isTestingPrinter}
               className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50 cursor-pointer"
@@ -420,6 +432,14 @@ export const PrinterSettingsTab: React.FC = () => {
           </div>
         </div>
       </form>
+
+      {/* Modal de Previsualización de Ticket Térmico */}
+      <ThermalTicketPreviewModal
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        initialPaperWidth={printerConfig.paperWidth}
+        printerConfig={printerConfig}
+      />
 
       {/* Toast Flotante Fijo (Bottom-Right, Cero Layout Shift) */}
       {printerFeedback && (
