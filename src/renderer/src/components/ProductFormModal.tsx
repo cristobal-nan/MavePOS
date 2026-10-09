@@ -37,7 +37,7 @@ interface CodeConflictTooltipProps {
 
 const CodeConflictTooltip: React.FC<CodeConflictTooltipProps> = ({
   message,
-  position = 'top-right'
+  position = 'top-left'
 }) => {
   const isRight = position === 'top-right'
   return (
@@ -1426,7 +1426,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       {codeConflictName && (
                         <CodeConflictTooltip
                           message={`En uso por: ${codeConflictName}`}
-                          position="top-right"
+                          position="top-left"
                         />
                       )}
                       <input
@@ -1571,7 +1571,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     {codeConflictName && (
                       <CodeConflictTooltip
                         message={`En uso por: ${codeConflictName}`}
-                        position="top-right"
+                        position="top-left"
                       />
                     )}
                     <input
