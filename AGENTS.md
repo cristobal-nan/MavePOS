@@ -110,11 +110,18 @@ Documento vinculante de reglas de negocio, integridad técnica y comportamiento 
 
 ## 6. Reglas de Interfaz y UX (Cero Layout Shift & Edición Fluida)
 
+- **Estabilidad Dimensional y Modales de Geometría Fija (Cero Layout Shift Estricto):**
+  - **Prohibido terminantemente que un modal o contenedor cambie de altura, brinque o se expanda al interactuar:** Toda ventana modal o tarjeta de trabajo debe conservar dimensiones y alturas estables e invariables mientras el usuario escribe, navega o interactúa.
+  - **Contenido Reactivo con Espacio Reservado:** Todo texto, cálculo o subtotal reactivo en tiempo real (ej: totales acumulados, conteos, resúmenes) **DEBE estar maquetado de antemano de forma permanente y fija** (mostrando valor base `$0`, `0 un.` o placeholder `—`). **NUNCA** condicionar su renderizado (`{cond && <p>...}`) de modo que su aparición/desaparición empuje los bordes o alargue el modal.
+- **Validaciones en Inputs y Formularios (Sin líneas verticales nuevas):**
+  - **Avisos en la misma línea de la etiqueta (`label`):** Si un campo particular falla una validación (ej: código duplicado, formato incorrecto), el aviso se ubica **a la derecha en la misma fila del título del campo** (`flex items-center justify-between mb-1 gap-2`), con texto conciso truncado (`truncate`) y detalle completo en el atributo `title` (tooltip nativo).
+  - **Prohibido terminantemente insertar líneas nuevas debajo del input:** No colocar spans o párrafos de error debajo de los campos que expandan la altura de la tarjeta o desalineen columnas vecinas. El input reforzará el error tiñendo su borde (`border-rose-500 focus:border-rose-600`).
+  - **Tablas y Filas Densas:** En tablas de datos o listas de items (ej: variaciones), los errores se marcan exclusivamente mediante borde coloreado en el input, tooltip `title` y/o punto indicador flotante absoluto (`absolute`), preservando siempre fija la altura de la fila.
 - **Prohibido terminantemente Banners Inline que causen Layout Shift:**
   - **NUNCA** colocar mensajes condicionales de éxito, error o guardado arriba o entre tarjetas que empujen el contenido hacia abajo al aparecer o desaparecer.
-  - El feedback visual se maneja exclusivamente de dos formas:
+  - El feedback visual de acciones se maneja exclusivamente de dos formas:
     1. **En el propio botón accionado:** Spinner de carga (`Loader2` animado) mientras procesa, y confirmación temporal en verde (`bg-emerald-600`, icono `CheckCircle2` y texto tipo *"¡Guardado!"* o *"¡Respaldo Realizado!"* durante 2 a 3 segundos).
-    2. **Toast flotante con posición fija:** Contenedor fuera del flujo del documento (`fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-3 duration-200 select-none`).
+    2. **Toast flotante con posición fija:** Contenedor fuera del flujo del documento (`fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-3 duration-200 select-none`), con auto-cierre temporizado (ej: 3 a 4 segundos).
 - **Inputs Numéricos y Edición Fluida:**
   - Permitir escribir y borrar libremente mientras el input está enfocado (no forzar mínimos, clamps ni autocompletados restrictivos en `onChange`).
   - Las restricciones (mínimo, máximo, enteros o redondeos) se evalúan y aplican exclusivamente en `onBlur` o al presionar guardar.
