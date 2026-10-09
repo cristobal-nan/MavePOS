@@ -245,15 +245,13 @@ export const CommonProductModal: React.FC<CommonProductModalProps> = ({
             </div>
           </div>
 
-          {/* Subtotal Informativo */}
-          {totalEstimado > 0 && (
-            <div className="pt-2 px-1 flex items-center justify-between text-xs border-t border-slate-100 dark:border-slate-800">
-              <span className="text-slate-500 dark:text-slate-400">Total a sumar en carrito:</span>
-              <span className="font-black text-slate-800 dark:text-slate-100 text-sm">
-                {formatCLP(totalEstimado)}
-              </span>
-            </div>
-          )}
+          {/* Subtotal Informativo (siempre visible para mantener altura fija y cero layout shift) */}
+          <div className="pt-2 px-1 flex items-center justify-between text-xs border-t border-slate-100 dark:border-slate-800">
+            <span className="text-slate-500 dark:text-slate-400">Total a sumar en carrito:</span>
+            <span className="font-black text-slate-800 dark:text-slate-100 text-sm">
+              {formatCLP(totalEstimado)}
+            </span>
+          </div>
 
           {/* Botones de Acción */}
           <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100 dark:border-slate-800">
