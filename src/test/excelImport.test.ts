@@ -160,7 +160,7 @@ describe('Fase 10: Importación de Catálogo desde Excel (.xlsx)', () => {
         ['780100', 'Hilo Algodón Premium 2026', '1200', '3500', '50', '10', 'Lanas']
       ])
 
-      const report = excelService.importExcel(tempFilePath)
+      const report = excelService.importExcel(tempFilePath, undefined, { duplicateCodeAction: 'allow_update' })
 
       expect(report.totalRows).toBe(1)
       expect(report.createdCount).toBe(0)
@@ -529,7 +529,7 @@ describe('Fase 10: Importación de Catálogo desde Excel (.xlsx)', () => {
         ['PROD-NUEVO', 'Aguja de Tejer #5', '500', '1200', '14', '2', 'Accesorios']
       ])
 
-      const report = excelService.importExcel(tempFilePath, undefined, { updateStock: false })
+      const report = excelService.importExcel(tempFilePath, undefined, { updateStock: false, duplicateCodeAction: 'allow_update' })
 
       expect(report.totalRows).toBe(2)
       expect(report.createdCount).toBe(1)
@@ -577,7 +577,7 @@ describe('Fase 10: Importación de Catálogo desde Excel (.xlsx)', () => {
         ['PROD-MODIFICAR', 'Lana Grossa 2026', '2200', '4500', '55', '10', 'Lanas']
       ])
 
-      const report = excelService.importExcel(tempFilePath, undefined, { updateStock: true })
+      const report = excelService.importExcel(tempFilePath, undefined, { updateStock: true, duplicateCodeAction: 'allow_update' })
 
       expect(report.totalRows).toBe(1)
       expect(report.updatedCount).toBe(1)

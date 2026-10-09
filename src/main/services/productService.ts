@@ -82,6 +82,41 @@ export class ProductService {
     product.suppliers = suppRows
   }
 
+  generateAvailableDeletedCode(baseCode: string): string {
+    const cleanBase = baseCode.replace(/_deleted\d*$/, '')
+    let index = 1
+    let candidate = `${cleanBase}_deleted${index}`
+    while (this.db.prepare('SELECT 1 FROM products WHERE code = ?').get(candidate)) {
+      index++
+      candidate = `${cleanBase}_deleted${index}`
+    }
+    return candidate
+  }
+
+  checkProductCodeAvailable(code: string, excludeProductId?: number): { available: boolean; conflictProductName?: string } {
+    const trimmed = (code || '').trim()
+    if (!trimmed) return { available: true }
+
+    if (trimmed.toUpperCase() === 'COMÚN' || trimmed.toUpperCase() === 'COMUN') {
+      return { available: false, conflictProductName: 'Código reservado exclusivamente por el sistema' }
+    }
+
+    let query = 'SELECT id, name FROM products WHERE code = ? COLLATE NOCASE'
+    const params: any[] = [trimmed]
+
+    if (excludeProductId) {
+      query += ' AND id != ?'
+      params.push(excludeProductId)
+    }
+
+    const match = this.db.prepare(query).get(...params) as { id: number; name: string } | undefined
+    if (match) {
+      return { available: false, conflictProductName: match.name }
+    }
+
+    return { available: true }
+  }
+
   getProductByCode(code: string, includeInactive = false): Product | null {
     const trimmed = (code || '').trim()
     if (!trimmed) return null
@@ -182,8 +217,24 @@ export class ProductService {
     let existing: Product | undefined
     if (input.id) {
       existing = this.db.prepare('SELECT * FROM products WHERE id = ?').get(input.id) as Product | undefined
-    } else if (trimmedCode) {
-      existing = this.db.prepare('SELECT * FROM products WHERE code = ?').get(trimmedCode) as Product | undefined
+      if (!existing) {
+        throw new Error(`Producto con ID ${input.id} no encontrado para actualizar.`)
+      }
+    }
+
+    if (trimmedCode) {
+      let duplicateQuery = 'SELECT id, name FROM products WHERE code = ? COLLATE NOCASE'
+      const duplicateParams: any[] = [trimmedCode]
+      if (input.id) {
+        duplicateQuery += ' AND id != ?'
+        duplicateParams.push(input.id)
+      }
+      const duplicate = this.db.prepare(duplicateQuery).get(...duplicateParams) as { id: number; name: string } | undefined
+      if (duplicate) {
+        throw new Error(
+          `El código '${trimmedCode}' ya está registrado en el producto '${duplicate.name}'. Cada producto debe tener un código único.`
+        )
+      }
     }
 
     let targetId: number
@@ -349,6 +400,22 @@ export class ProductService {
     parentInput: ProductInput,
     variationsInput: ProductInput[]
   ): { parent: Product; variations: Product[] } {
+    // Validar duplicados entre las variaciones mismas del formulario
+    const seenVariationCodes = new Map<string, number>()
+    for (let i = 0; i < variationsInput.length; i++) {
+      const vCode = variationsInput[i].code?.trim()
+      if (vCode) {
+        const upper = vCode.toUpperCase()
+        if (seenVariationCodes.has(upper)) {
+          const firstIdx = seenVariationCodes.get(upper)! + 1
+          throw new Error(
+            `El código '${vCode}' está repetido en la variación #${i + 1} y en la variación #${firstIdx}. Cada variación debe tener un código único.`
+          )
+        }
+        seenVariationCodes.set(upper, i)
+      }
+    }
+
     const tx = this.db.transaction(() => {
       const parent = this.upsertProduct({
         ...parentInput,
@@ -401,9 +468,29 @@ export class ProductService {
       }
       if (!prod) return false
 
-      this.db.prepare('UPDATE products SET active = 0, updated_at = ? WHERE id = ?').run(now, prod.id)
+      this.db.exec('PRAGMA defer_foreign_keys = ON;')
+
+      if (prod.code && prod.code !== 'COMÚN') {
+        const deletedCode = this.generateAvailableDeletedCode(prod.code)
+        this.db.prepare('UPDATE products SET code = ?, active = 0, updated_at = ? WHERE id = ?').run(deletedCode, now, prod.id)
+        this.db.prepare('UPDATE inventory_movements SET product_code = ? WHERE product_code = ?').run(deletedCode, prod.code)
+        this.db.prepare('UPDATE sale_items SET product_code = ? WHERE product_code = ?').run(deletedCode, prod.code)
+      } else {
+        this.db.prepare('UPDATE products SET active = 0, updated_at = ? WHERE id = ?').run(now, prod.id)
+      }
+
       if (prod.product_type === 'variable') {
-        this.db.prepare('UPDATE products SET active = 0, updated_at = ? WHERE parent_id = ?').run(now, prod.id)
+        const children = this.db.prepare('SELECT id, code FROM products WHERE parent_id = ?').all(prod.id) as { id: number; code: string | null }[]
+        for (const child of children) {
+          if (child.code && child.code !== 'COMÚN') {
+            const childDeletedCode = this.generateAvailableDeletedCode(child.code)
+            this.db.prepare('UPDATE products SET code = ?, active = 0, updated_at = ? WHERE id = ?').run(childDeletedCode, now, child.id)
+            this.db.prepare('UPDATE inventory_movements SET product_code = ? WHERE product_code = ?').run(childDeletedCode, child.code)
+            this.db.prepare('UPDATE sale_items SET product_code = ? WHERE product_code = ?').run(childDeletedCode, child.code)
+          } else {
+            this.db.prepare('UPDATE products SET active = 0, updated_at = ? WHERE id = ?').run(now, child.id)
+          }
+        }
       }
       return true
     })
@@ -570,24 +657,29 @@ export class ProductService {
 
     const now = new Date().toISOString()
     const tx = this.db.transaction(() => {
+      this.db.exec('PRAGMA defer_foreign_keys = ON;')
       const placeholders = productIds.map(() => '?').join(',')
-      // Soft-delete direct products
-      const deleteDirect = this.db.prepare(`
-        UPDATE products
-        SET active = 0, updated_at = ?
-        WHERE id IN (${placeholders})
-      `)
-      const res = deleteDirect.run(now, ...productIds)
 
-      // Also cascade to variations if any deleted product was a variable parent
-      const deleteChildren = this.db.prepare(`
-        UPDATE products
-        SET active = 0, updated_at = ?
-        WHERE parent_id IN (${placeholders})
-      `)
-      deleteChildren.run(now, ...productIds)
+      // Obtener todos los productos afectados (directos y variaciones hijas de padres variables)
+      const targetProducts = this.db
+        .prepare(`
+          SELECT id, code FROM products
+          WHERE id IN (${placeholders}) OR parent_id IN (${placeholders})
+        `)
+        .all(...productIds, ...productIds) as { id: number; code: string | null }[]
 
-      return { deletedCount: res.changes }
+      for (const prod of targetProducts) {
+        if (prod.code && prod.code !== 'COMÚN') {
+          const deletedCode = this.generateAvailableDeletedCode(prod.code)
+          this.db.prepare('UPDATE products SET code = ?, active = 0, updated_at = ? WHERE id = ?').run(deletedCode, now, prod.id)
+          this.db.prepare('UPDATE inventory_movements SET product_code = ? WHERE product_code = ?').run(deletedCode, prod.code)
+          this.db.prepare('UPDATE sale_items SET product_code = ? WHERE product_code = ?').run(deletedCode, prod.code)
+        } else {
+          this.db.prepare('UPDATE products SET active = 0, updated_at = ? WHERE id = ?').run(now, prod.id)
+        }
+      }
+
+      return { deletedCount: targetProducts.length }
     })
 
     return tx()

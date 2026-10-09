@@ -25,6 +25,10 @@ export function registerCatalogIpc(
     return productService.getProductByCode(code, includeInactive)
   })
 
+  ipcMain.handle('products:checkCodeAvailable', (_event, code: string, excludeProductId?: number) => {
+    return productService.checkProductCodeAvailable(code, excludeProductId)
+  })
+
   ipcMain.handle('products:delete', (_event, code: string) => {
     return productService.softDeleteProduct(code)
   })

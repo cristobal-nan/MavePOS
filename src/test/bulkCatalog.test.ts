@@ -196,13 +196,17 @@ describe('Reorganización Post-Importación de Catálogo (Operaciones en Lote)',
       const res = productService.bulkSoftDelete([p1.id!, p2.id!])
       expect(res.deletedCount).toBe(2)
 
-      // Ya no deben figurar como activos
+      // Ya no deben figurar como activos con los códigos originales
       expect(productService.getProductByCode('DEL-1', false)).toBeNull()
       expect(productService.getProductByCode('DEL-2', false)).toBeNull()
 
-      // Pero sí existen con includeInactive = true (auditoría/kardex)
-      expect(productService.getProductByCode('DEL-1', true)?.active).toBe(0)
-      expect(productService.getProductByCode('DEL-2', true)?.active).toBe(0)
+      // Los códigos originales quedan libres para reutilización
+      expect(productService.checkProductCodeAvailable('DEL-1').available).toBe(true)
+      expect(productService.checkProductCodeAvailable('DEL-2').available).toBe(true)
+
+      // Pero sí existen con includeInactive = true bajo su sufijo _deleted (auditoría/kardex)
+      expect(productService.getProductByCode('DEL-1_deleted1', true)?.active).toBe(0)
+      expect(productService.getProductByCode('DEL-2_deleted1', true)?.active).toBe(0)
     })
   })
 

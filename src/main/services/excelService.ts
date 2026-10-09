@@ -222,12 +222,14 @@ export class ExcelService {
     const suppliersIdx = mapping.suppliers ? headers.indexOf(mapping.suppliers) : -1
 
     const updateStock = options?.updateStock ?? true
+    const duplicateCodeAction = options?.duplicateCodeAction ?? 'create_only'
     let createdCount = 0
     let updatedCount = 0
     let skippedCount = 0
     let departmentsCreated = 0
     let stockModifiedCount = 0
     const errors: ImportErrorDetail[] = []
+    const seenCodesInFile = new Map<string, number>()
 
     const now = new Date().toISOString()
 
@@ -268,9 +270,9 @@ export class ExcelService {
       `)
 
       const findProductStmt = this.db.prepare(`
-        SELECT id, stock, sale_price, cost_price, min_stock, category_id, product_type, parent_id
+        SELECT id, name, stock, sale_price, cost_price, min_stock, category_id, product_type, parent_id
         FROM products
-        WHERE code = ?
+        WHERE code = ? COLLATE NOCASE AND active = 1
       `)
 
       const insertVariableStmt = this.db.prepare(`
@@ -357,6 +359,19 @@ export class ExcelService {
           continue
         }
 
+        const upperCode = code.toUpperCase()
+        if (seenCodesInFile.has(upperCode)) {
+          const prevRow = seenCodesInFile.get(upperCode)!
+          errors.push({
+            row: rowNumber,
+            code,
+            reason: `Fila omitida: El código '${code}' ya aparece duplicado en la fila ${prevRow} de este archivo.`
+          })
+          skippedCount++
+          continue
+        }
+        seenCodesInFile.set(upperCode, rowNumber)
+
         // Extract name
         const rawName = nameIdx >= 0 ? row[nameIdx] : undefined
         const name = rawName !== undefined && rawName !== null ? String(rawName).trim() : ''
@@ -424,10 +439,20 @@ export class ExcelService {
         }
 
         const searchName = normalizeSearchName(name)
-        const existing = findProductStmt.get(code) as { id: number; stock: number; parent_id: number | null } | undefined
+        const existing = findProductStmt.get(code) as { id: number; name: string; stock: number; parent_id: number | null } | undefined
         let targetProductId: number
 
         if (existing) {
+          if (duplicateCodeAction === 'create_only') {
+            errors.push({
+              row: rowNumber,
+              code,
+              reason: `Fila omitida: El código '${code}' ya existe en el sistema (producto '${existing.name}').`
+            })
+            skippedCount++
+            continue
+          }
+
           targetProductId = existing.id
           // Determinar existencia: si updateStock es true, usa el valor del Excel; si es false, conserva existing.stock
           const targetStock = updateStock ? stock : existing.stock

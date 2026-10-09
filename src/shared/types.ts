@@ -423,6 +423,7 @@ export interface ImportErrorDetail {
 
 export interface ImportExcelOptions {
   updateStock?: boolean
+  duplicateCodeAction?: 'create_only' | 'allow_update'
 }
 
 export interface ImportReportResult {

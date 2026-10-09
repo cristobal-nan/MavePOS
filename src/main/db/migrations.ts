@@ -262,6 +262,41 @@ const MIGRATIONS: Migration[] = [
         VALUES ('COMÚN', 'Producto Común', 'producto comun', 'simple', 0, NULL, 0, 0, 0, datetime('now'), datetime('now'))
       `).run()
     }
+  },
+  {
+    version: 12,
+    up: (db) => {
+      // Liberar códigos de productos archivados preexistentes (active = 0)
+      db.exec('PRAGMA defer_foreign_keys = ON;')
+      const inactiveProducts = db
+        .prepare(`
+          SELECT id, code
+          FROM products
+          WHERE active = 0
+            AND code IS NOT NULL
+            AND code != 'COMÚN'
+            AND code NOT LIKE '%_deleted%'
+          ORDER BY id ASC
+        `)
+        .all() as { id: number; code: string }[]
+
+      const updateProdStmt = db.prepare('UPDATE products SET code = ? WHERE id = ?')
+      const updateInvStmt = db.prepare('UPDATE inventory_movements SET product_code = ? WHERE product_code = ?')
+      const updateSaleStmt = db.prepare('UPDATE sale_items SET product_code = ? WHERE product_code = ?')
+
+      for (const prod of inactiveProducts) {
+        let index = 1
+        let newCode = `${prod.code}_deleted${index}`
+        while (db.prepare('SELECT 1 FROM products WHERE code = ?').get(newCode)) {
+          index++
+          newCode = `${prod.code}_deleted${index}`
+        }
+
+        updateProdStmt.run(newCode, prod.id)
+        updateInvStmt.run(newCode, prod.code)
+        updateSaleStmt.run(newCode, prod.code)
+      }
+    }
   }
 ]
 

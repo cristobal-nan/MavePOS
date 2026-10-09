@@ -42,6 +42,7 @@ export interface CatalogAPI {
   saveProduct: (input: ProductInput) => Promise<Product>
   saveVariableProduct: (parent: ProductInput, variations: ProductInput[]) => Promise<{ parent: Product; variations: Product[] }>
   getByCode: (code: string, includeInactive?: boolean) => Promise<Product | null>
+  checkProductCodeAvailable: (code: string, excludeProductId?: number) => Promise<{ available: boolean; conflictProductName?: string }>
   getById: (id: number, includeInactive?: boolean) => Promise<Product | null>
   getVariations: (parentId: number, includeInactive?: boolean) => Promise<Product[]>
   deleteProduct: (codeOrId: string | number) => Promise<boolean>
@@ -163,6 +164,7 @@ export interface WindowAPI {
   saveProduct: (input: ProductInput) => Promise<Product>
   saveVariableProduct: (parent: ProductInput, variations: ProductInput[]) => Promise<{ parent: Product; variations: Product[] }>
   getProductByCode: (code: string, includeInactive?: boolean) => Promise<Product | null>
+  checkProductCodeAvailable: (code: string, excludeProductId?: number) => Promise<{ available: boolean; conflictProductName?: string }>
   getProductById: (id: number, includeInactive?: boolean) => Promise<Product | null>
   getVariations: (parentId: number, includeInactive?: boolean) => Promise<Product[]>
   deleteProduct: (codeOrId: string | number) => Promise<boolean>
@@ -247,6 +249,8 @@ const catalog: CatalogAPI = {
   saveProduct: (input) => ipcRenderer.invoke('products:save', input),
   saveVariableProduct: (parent, variations) => ipcRenderer.invoke('products:saveVariable', parent, variations),
   getByCode: (code, includeInactive) => ipcRenderer.invoke('products:getByCode', code, includeInactive),
+  checkProductCodeAvailable: (code, excludeProductId) =>
+    ipcRenderer.invoke('products:checkCodeAvailable', code, excludeProductId),
   getById: (id, includeInactive) => ipcRenderer.invoke('products:getById', id, includeInactive),
   getVariations: (parentId, includeInactive) => ipcRenderer.invoke('products:getVariations', parentId, includeInactive),
   deleteProduct: (codeOrId) => ipcRenderer.invoke('products:delete', codeOrId),
@@ -389,6 +393,7 @@ const api: WindowAPI = {
   saveProduct: catalog.saveProduct,
   saveVariableProduct: catalog.saveVariableProduct,
   getProductByCode: catalog.getByCode,
+  checkProductCodeAvailable: catalog.checkProductCodeAvailable,
   getProductById: catalog.getById,
   getVariations: catalog.getVariations,
   deleteProduct: catalog.deleteProduct,

@@ -56,6 +56,7 @@ export const ExcelUnifiedModal: React.FC<ExcelUnifiedModalProps> = ({
   const [importError, setImportError] = useState<string | null>(null)
   const [isDragOver, setIsDragOver] = useState(false)
   const [updateStock, setUpdateStock] = useState<boolean>(false)
+  const [duplicateCodeAction, setDuplicateCodeAction] = useState<'create_only' | 'allow_update'>('create_only')
 
   const resetImportState = (): void => {
     setStep('select')
@@ -67,6 +68,7 @@ export const ExcelUnifiedModal: React.FC<ExcelUnifiedModalProps> = ({
     setIsParsing(false)
     setIsImporting(false)
     setUpdateStock(false)
+    setDuplicateCodeAction('create_only')
   }
 
   const handleClose = (): void => {
@@ -121,7 +123,10 @@ export const ExcelUnifiedModal: React.FC<ExcelUnifiedModalProps> = ({
     setImportError(null)
 
     try {
-      const result = await window.api.catalog.importExcelFile(filePath, undefined, { updateStock })
+      const result = await window.api.catalog.importExcelFile(filePath, undefined, {
+        updateStock,
+        duplicateCodeAction
+      })
       setReportResult(result)
       setStep('result')
       onSuccess(result)
@@ -325,10 +330,7 @@ export const ExcelUnifiedModal: React.FC<ExcelUnifiedModalProps> = ({
             <div className="mb-4 bg-blue-50/80 dark:bg-slate-800/80 border border-blue-200 dark:border-blue-900/60 rounded-2xl p-3 flex items-start gap-2.5">
               <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
               <div className="text-[11px] text-blue-900 dark:text-blue-200 leading-snug">
-                <strong>Lógica de importación por SKU/Código:</strong> Si un producto del archivo Excel ya
-                existe en el sistema, <u>actualiza sus datos</u> (nombre, precios, categoría, proveedores) y
-                reemplaza su stock registrando el movimiento de auditoría. Si el código no existe, <u>lo crea nuevo</u>.
-                Los productos existentes que no estén en el archivo <strong>no se eliminan ni modifican</strong>.
+                <strong>Lógica de importación por SKU/Código:</strong> Por defecto, se crean únicamente productos nuevos para evitar sobreescrituras accidentales. En el paso siguiente podrás elegir si deseas permitir actualizar productos existentes o solo crear nuevos.
               </div>
             </div>
 
@@ -445,6 +447,55 @@ export const ExcelUnifiedModal: React.FC<ExcelUnifiedModalProps> = ({
                     }`}
                   >
                     {updateStock ? 'Modificar existencias' : 'Mantener stock actual'}
+                  </span>
+                </div>
+
+                {/* Selector de política de códigos existentes: Switch / Checkbox */}
+                <div className="bg-slate-50 dark:bg-slate-800/80 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5">
+                      <input
+                        type="checkbox"
+                        id="duplicate-code-action-checkbox"
+                        checked={duplicateCodeAction === 'allow_update'}
+                        onChange={(e) => setDuplicateCodeAction(e.target.checked ? 'allow_update' : 'create_only')}
+                        className="w-4 h-4 text-lilac-600 rounded border-slate-300 dark:border-slate-600 focus:ring-lilac-500 cursor-pointer"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="duplicate-code-action-checkbox"
+                        className="text-xs font-bold text-slate-800 dark:text-white cursor-pointer select-none flex items-center gap-1.5"
+                      >
+                        {duplicateCodeAction === 'allow_update' ? (
+                          <RotateCcw className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                        ) : (
+                          <ShieldCheck className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
+                        )}
+                        <span>Permitir actualizar productos existentes por código</span>
+                      </label>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        {duplicateCodeAction === 'allow_update' ? (
+                          <span className="text-amber-700 dark:text-amber-400 font-medium">
+                            Si un código ya existe en el sistema, se actualizarán los datos de ese producto con la información del archivo.
+                          </span>
+                        ) : (
+                          <span className="text-lilac-700 dark:text-lilac-300 font-medium">
+                            Modo seguro: Solo se crearán productos nuevos. Si un código ya existe en el sistema, la fila será omitida y reportada sin modificar tus productos actuales.
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  <span
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold shrink-0 border self-start sm:self-auto ${
+                      duplicateCodeAction === 'allow_update'
+                        ? 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
+                        : 'bg-lilac-50 text-lilac-800 border-lilac-200 dark:bg-slate-700 dark:text-lilac-300 dark:border-slate-600'
+                    }`}
+                  >
+                    {duplicateCodeAction === 'allow_update' ? 'Actualizar existentes' : 'Solo crear nuevos'}
                   </span>
                 </div>
 

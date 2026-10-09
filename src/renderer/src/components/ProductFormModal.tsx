@@ -118,9 +118,66 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [codeConflictError, setCodeConflictError] = useState<string | null>(null)
+  const [variationCodeErrors, setVariationCodeErrors] = useState<Record<number, string>>({})
 
   const isEditingVariation = Boolean(product && (product.product_type === 'variation' || product.parent_id))
   const isEditingSimple = Boolean(product && product.product_type === 'simple')
+
+  const handleCodeBlur = async (): Promise<void> => {
+    const trimmed = code.trim()
+    if (!trimmed) {
+      setCodeConflictError(null)
+      return
+    }
+    try {
+      const res = await window.api.catalog.checkProductCodeAvailable(trimmed, product?.id)
+      if (!res.available) {
+        setCodeConflictError(`El código "${trimmed}" ya está registrado en el producto "${res.conflictProductName}".`)
+      } else {
+        setCodeConflictError(null)
+      }
+    } catch (err) {
+      console.error('Error al verificar disponibilidad del código:', err)
+    }
+  }
+
+  const handleVariationCodeBlur = async (index: number): Promise<void> => {
+    const v = variations[index]
+    if (!v) return
+    const trimmed = v.code.trim()
+    if (!trimmed) {
+      setVariationCodeErrors((prev) => {
+        const next = { ...prev }
+        delete next[index]
+        return next
+      })
+      return
+    }
+    try {
+      const res = await window.api.catalog.checkProductCodeAvailable(trimmed, v.id)
+      setVariationCodeErrors((prev) => {
+        const next = { ...prev }
+        if (!res.available) {
+          next[index] = `En uso por "${res.conflictProductName}".`
+        } else {
+          delete next[index]
+        }
+        return next
+      })
+    } catch (err) {
+      console.error('Error al verificar código de variación:', err)
+    }
+  }
+
+  const variationCodeCounts = React.useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const v of variations) {
+      const c = v.code.trim().toUpperCase()
+      if (c) counts.set(c, (counts.get(c) || 0) + 1)
+    }
+    return counts
+  }, [variations])
 
   useEffect(() => {
     if (product) {
@@ -244,6 +301,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setFocusVariationIndex(null)
     }
     setError(null)
+    setCodeConflictError(null)
+    setVariationCodeErrors({})
     setIsStockBlockedModalOpen(false)
     setStockBlockedInfo(null)
     setIsConfirmDeleteProductModalOpen(false)
@@ -739,6 +798,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     let finalValue = value
     if (field === 'code') {
       finalValue = value.toUpperCase()
+      if (variationCodeErrors[index]) {
+        setVariationCodeErrors((prev) => {
+          const next = { ...prev }
+          delete next[index]
+          return next
+        })
+      }
     } else if (field === 'attributeValue') {
       finalValue = capitalizeWords(value)
     }
@@ -948,6 +1014,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         return
       }
 
+      const checkCode = await window.api.catalog.checkProductCodeAvailable(code.trim(), product.id)
+      if (!checkCode.available) {
+        setCodeConflictError(`El código "${code.trim()}" ya está registrado en el producto "${checkCode.conflictProductName}".`)
+        setError(`El código "${code.trim()}" ya está registrado en el producto "${checkCode.conflictProductName}".`)
+        return
+      }
+
       const parsedSalePrice = parseCLP(salePrice)
       if (parsedSalePrice <= 0 && parseCLP(parentSalePrice) <= 0) {
         setError('El precio de venta debe ser un número entero mayor a 0.')
@@ -975,6 +1048,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       }
       if (!code.trim()) {
         setError('El código de barras / SKU es obligatorio.')
+        return
+      }
+
+      const checkCode = await window.api.catalog.checkProductCodeAvailable(code.trim(), product?.id)
+      if (!checkCode.available) {
+        setCodeConflictError(`El código "${code.trim()}" ya está registrado en el producto "${checkCode.conflictProductName}".`)
+        setError(`El código "${code.trim()}" ya está registrado en el producto "${checkCode.conflictProductName}".`)
         return
       }
 
@@ -1038,6 +1118,29 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         const vPrice = parseCLP(v.salePrice)
         if (vPrice <= 0) {
           setError(`El precio de venta de la variación "${v.attributeValue}" debe ser mayor a 0.`)
+          return
+        }
+      }
+
+      // Validar duplicados dentro de la misma tabla de variaciones
+      const seenCodes = new Map<string, number>()
+      for (let i = 0; i < variations.length; i++) {
+        const v = variations[i]
+        const c = v.code.trim().toUpperCase()
+        if (seenCodes.has(c)) {
+          const prevIdx = seenCodes.get(c)!
+          setError(`El código "${v.code.trim()}" está repetido en la variación #${prevIdx + 1} ("${variations[prevIdx].attributeValue || 'Variación'}") y la variación #${i + 1} ("${v.attributeValue || 'Variación'}"). Cada variación debe tener un código único.`)
+          return
+        }
+        seenCodes.set(c, i)
+      }
+
+      // Validar que ningún código de las variaciones exista ya en base de datos
+      for (let i = 0; i < variations.length; i++) {
+        const v = variations[i]
+        const check = await window.api.catalog.checkProductCodeAvailable(v.code.trim(), v.id)
+        if (!check.available) {
+          setError(`El código "${v.code.trim()}" (variación #${i + 1} "${v.attributeValue}") ya está registrado en el producto "${check.conflictProductName}".`)
           return
         }
       }
@@ -1288,7 +1391,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       ref={codeInputRef}
                       type="text"
                       value={code}
-                      onChange={(e) => setCode(e.target.value.toUpperCase())}
+                      onChange={(e) => {
+                        setCode(e.target.value.toUpperCase())
+                        if (codeConflictError) setCodeConflictError(null)
+                      }}
+                      onBlur={handleCodeBlur}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault()
@@ -1297,11 +1404,22 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         }
                       }}
                       placeholder="Ej: 780123456"
-                      className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl font-mono text-slate-900 dark:text-white font-bold focus:outline-none focus:border-lilac-500 uppercase placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-2xs"
+                      className={`w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border rounded-xl font-mono text-slate-900 dark:text-white font-bold focus:outline-none uppercase placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-2xs ${
+                        codeConflictError
+                          ? 'border-rose-500 focus:border-rose-600 dark:border-rose-500'
+                          : 'border-slate-300 dark:border-slate-700 focus:border-lilac-500'
+                      }`}
                     />
-                    <span className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 block font-medium">
-                      Conserva historial en el kardex.
-                    </span>
+                    {codeConflictError ? (
+                      <span className="text-[11px] text-rose-600 dark:text-rose-400 font-semibold mt-1 flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3 shrink-0" />
+                        <span>{codeConflictError}</span>
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 block font-medium">
+                        Conserva historial en el kardex.
+                      </span>
+                    )}
                   </div>
 
                   {/* Valor del Atributo */}
@@ -1420,7 +1538,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     ref={codeInputRef}
                     type="text"
                     value={code}
-                    onChange={(e) => setCode(e.target.value.toUpperCase())}
+                    onChange={(e) => {
+                      setCode(e.target.value.toUpperCase())
+                      if (codeConflictError) setCodeConflictError(null)
+                    }}
+                    onBlur={handleCodeBlur}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault()
@@ -1429,13 +1551,22 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       }
                     }}
                     placeholder="Ej: 780123456"
-                    className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl font-mono font-bold focus:outline-none focus:border-lilac-500 uppercase text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-2xs"
+                    className={`w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border rounded-xl font-mono font-bold focus:outline-none uppercase text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-2xs ${
+                      codeConflictError
+                        ? 'border-rose-500 focus:border-rose-600 dark:border-rose-500'
+                        : 'border-slate-300 dark:border-slate-700 focus:border-lilac-500'
+                    }`}
                   />
-                  {product && (
+                  {codeConflictError ? (
+                    <span className="text-[11px] text-rose-600 dark:text-rose-400 font-semibold mt-1 flex items-center gap-1">
+                      <AlertTriangle className="w-3 h-3 shrink-0" />
+                      <span>{codeConflictError}</span>
+                    </span>
+                  ) : product ? (
                     <span className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 block font-medium">
                       Si modificas el código, se mantendrán intactos los movimientos en el kardex y ventas pasadas.
                     </span>
-                  )}
+                  ) : null}
                 </div>
 
                 <div className="md:col-span-2">
@@ -1732,6 +1863,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                               type="text"
                               value={v.code}
                               onChange={(e) => handleVariationChange(idx, 'code', e.target.value)}
+                              onBlur={() => handleVariationCodeBlur(idx)}
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter') {
                                   e.preventDefault()
@@ -1740,8 +1872,21 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                                 }
                               }}
                               placeholder="Código *"
-                              className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-mono font-bold focus:outline-none focus:border-lilac-500 uppercase placeholder:normal-case placeholder:font-sans placeholder:text-slate-400 dark:placeholder:text-slate-500 text-slate-900 dark:text-white text-left shadow-2xs"
+                              className={`w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border rounded-lg text-xs font-mono font-bold focus:outline-none uppercase placeholder:normal-case placeholder:font-sans placeholder:text-slate-400 dark:placeholder:text-slate-500 text-slate-900 dark:text-white text-left shadow-2xs ${
+                                (variationCodeCounts.get(v.code.trim().toUpperCase()) || 0) > 1 || variationCodeErrors[idx]
+                                  ? 'border-rose-500 focus:border-rose-600 dark:border-rose-500'
+                                  : 'border-slate-300 dark:border-slate-700 focus:border-lilac-500'
+                              }`}
                             />
+                            {(variationCodeCounts.get(v.code.trim().toUpperCase()) || 0) > 1 ? (
+                              <span className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold block mt-0.5 truncate" title="Código repetido en esta lista">
+                                Duplicado en lista
+                              </span>
+                            ) : variationCodeErrors[idx] ? (
+                              <span className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold block mt-0.5 truncate" title={variationCodeErrors[idx]}>
+                                {variationCodeErrors[idx]}
+                              </span>
+                            ) : null}
                           </div>
                           <div className="col-span-4">
                             <input

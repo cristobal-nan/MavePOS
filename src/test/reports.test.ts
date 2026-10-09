@@ -238,7 +238,9 @@ describe('Fase 11: Reportes, Métricas, Gráficos y Exportación Excel', () => {
       })
 
       // El proveedor sube los precios de LANA-01: costo pasa a $4.500 y precio a $7.000
+      const lana01 = productService.getProductByCode('LANA-01')!
       productService.upsertProduct({
+        id: lana01.id,
         code: 'LANA-01',
         name: 'Lana Merino Extrafina',
         sale_price: 7000,
@@ -373,7 +375,9 @@ describe('Fase 11: Reportes, Métricas, Gráficos y Exportación Excel', () => {
       const s2 = supplierService.saveSupplier('Ukryl')
 
       // Asociar LANA-01 a Revesderecho
+      const lana01 = productService.getProductByCode('LANA-01')!
       productService.upsertProduct({
+        id: lana01.id,
         code: 'LANA-01',
         name: 'Lana Merino Extrafina',
         sale_price: 5000,
@@ -385,7 +389,9 @@ describe('Fase 11: Reportes, Métricas, Gráficos y Exportación Excel', () => {
       })
 
       // Asociar HILO-01 a Ukryl
+      const hilo01 = productService.getProductByCode('HILO-01')!
       productService.upsertProduct({
+        id: hilo01.id,
         code: 'HILO-01',
         name: 'Hilo de Algodón Mercerizado',
         sale_price: 2000,
@@ -437,6 +443,7 @@ describe('Fase 11: Reportes, Métricas, Gráficos y Exportación Excel', () => {
 
       // CAMBIO DE PROVEEDOR EN CATÁLOGO: ahora LANA-01 también lo provee Ukryl (N:M)
       productService.upsertProduct({
+        id: lana01.id,
         code: 'LANA-01',
         name: 'Lana Merino Extrafina',
         sale_price: 5000,

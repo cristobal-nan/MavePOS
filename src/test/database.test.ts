@@ -101,14 +101,25 @@ describe('Fase 2: Datos, Esquema, Servicios y Backup', () => {
       expect(prod.active).toBe(1)
     })
 
-    it('realiza UPSERT: actualiza datos de un producto si el código ya existe', () => {
-      productService.upsertProduct({
+    it('impide crear un nuevo producto si el código ya existe y permite actualizarlo pasando su id', () => {
+      const created = productService.upsertProduct({
         code: 'PROD001',
         name: 'Algodón Rústico Azul',
         sale_price: 3500
       })
 
+      // Intentar crear otro producto con el mismo código lanza error
+      expect(() => {
+        productService.upsertProduct({
+          code: 'PROD001',
+          name: 'Algodón Rústico Azul Marino',
+          sale_price: 3990
+        })
+      }).toThrow(/ya está registrado en el producto/)
+
+      // Actualizar el producto existente pasando su id funciona correctamente
       const updated = productService.upsertProduct({
+        id: created.id,
         code: 'PROD001',
         name: 'Algodón Rústico Azul Marino',
         sale_price: 3990,
@@ -122,8 +133,8 @@ describe('Fase 2: Datos, Esquema, Servicios y Backup', () => {
       expect(updated.stock).toBe(45)
     })
 
-    it('realiza SOFT DELETE (active = 0) preservando la fila en base de datos', () => {
-      productService.upsertProduct({
+    it('realiza SOFT DELETE (active = 0) liberando el código original y preservando la fila en base de datos', () => {
+      const prod = productService.upsertProduct({
         code: 'PROD_DEL',
         name: 'Producto a eliminar',
         sale_price: 1500
@@ -140,10 +151,14 @@ describe('Fase 2: Datos, Esquema, Servicios y Backup', () => {
       const activeList = productService.getActiveProducts()
       expect(activeList.some((p) => p.code === 'PROD_DEL')).toBe(false)
 
-      // Query including inactive returns it with active = 0
-      const storedProd = productService.getProductByCode('PROD_DEL', true)
+      // El código original 'PROD_DEL' queda inmediatamente libre para ser reutilizado
+      expect(productService.checkProductCodeAvailable('PROD_DEL').available).toBe(true)
+
+      // La fila eliminada se conserva en base de datos con active = 0 y código liberado
+      const storedProd = productService.getProductById(prod.id!, true)
       expect(storedProd).not.toBeNull()
       expect(storedProd?.active).toBe(0)
+      expect(storedProd?.code).toBe('PROD_DEL_deleted1')
     })
 
     it('si se vuelve a hacer upsert de un producto eliminado, se reactiva (active = 1)', () => {
