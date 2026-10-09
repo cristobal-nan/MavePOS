@@ -537,6 +537,10 @@ export interface PrinterInfo {
   status: number
 }
 
+export type ThermalFontFamily = 'font_a' | 'font_b'
+export type ThermalBodySize = 'normal' | 'compact'
+export type ThermalHeaderEmphasis = 'double' | 'normal'
+
 export interface PrinterConfig {
   thermalType: ThermalPrinterType
   thermalInterfaceType: ThermalInterfaceType
@@ -545,6 +549,9 @@ export interface PrinterConfig {
   openDrawerOnPrint: boolean
   autoPrintOnSale: boolean
   normalPrinterName?: string
+  thermalFontFamily?: ThermalFontFamily
+  thermalBodySize?: ThermalBodySize
+  thermalHeaderEmphasis?: ThermalHeaderEmphasis
 }
 
 export interface PrintResult {

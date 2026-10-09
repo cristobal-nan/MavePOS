@@ -10,7 +10,13 @@ import {
   Clock,
   Scissors
 } from 'lucide-react'
-import { PrinterConfig, SaleDetail } from '@shared/types'
+import {
+  PrinterConfig,
+  SaleDetail,
+  ThermalFontFamily,
+  ThermalBodySize,
+  ThermalHeaderEmphasis
+} from '@shared/types'
 import { formatCLP } from '../utils/formatters'
 import { useModalStack } from '../utils/modalStack'
 
@@ -38,6 +44,15 @@ export const ThermalTicketPreviewModal: React.FC<ThermalTicketPreviewModalProps>
   })
 
   const [paperWidth, setPaperWidth] = useState<'80mm' | '58mm'>(initialPaperWidth)
+  const [fontFamily, setFontFamily] = useState<ThermalFontFamily>(
+    printerConfig?.thermalFontFamily || 'font_a'
+  )
+  const [bodySize, setBodySize] = useState<ThermalBodySize>(
+    printerConfig?.thermalBodySize || 'normal'
+  )
+  const [headerEmphasis, setHeaderEmphasis] = useState<ThermalHeaderEmphasis>(
+    printerConfig?.thermalHeaderEmphasis || 'double'
+  )
   const [ticketMode, setTicketMode] = useState<TicketMode>('sale')
   const [saleSource, setSaleSource] = useState<SaleSource>('sample')
 
@@ -58,15 +73,20 @@ export const ThermalTicketPreviewModal: React.FC<ThermalTicketPreviewModalProps>
   const [isPrinting, setIsPrinting] = useState(false)
   const [printFeedback, setPrintFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  // Sincronizar ancho inicial cuando se abre el modal
+  // Sincronizar configuración cuando se abre el modal
   useEffect(() => {
     if (isOpen) {
-      if (initialPaperWidth) {
+      if (printerConfig) {
+        if (printerConfig.paperWidth) setPaperWidth(printerConfig.paperWidth)
+        if (printerConfig.thermalFontFamily) setFontFamily(printerConfig.thermalFontFamily)
+        if (printerConfig.thermalBodySize) setBodySize(printerConfig.thermalBodySize)
+        if (printerConfig.thermalHeaderEmphasis) setHeaderEmphasis(printerConfig.thermalHeaderEmphasis)
+      } else if (initialPaperWidth) {
         setPaperWidth(initialPaperWidth)
       }
       setPrintFeedback(null)
     }
-  }, [isOpen, initialPaperWidth])
+  }, [isOpen, initialPaperWidth, printerConfig])
 
   // Cargar datos del negocio desde la tabla settings
   useEffect(() => {
@@ -174,7 +194,8 @@ export const ThermalTicketPreviewModal: React.FC<ThermalTicketPreviewModalProps>
   const activeSale = saleSource === 'last_sale' && lastSaleDetail ? lastSaleDetail : sampleSale
   const activeChange = saleSource === 'last_sale' ? 0 : sampleChange
 
-  const widthChars = paperWidth === '80mm' ? 48 : 32
+  const widthChars =
+    paperWidth === '58mm' ? (fontFamily === 'font_b' ? 42 : 32) : (fontFamily === 'font_b' ? 56 : 48)
 
   const showFeedback = (type: 'success' | 'error', text: string): void => {
     setPrintFeedback({ type, text })
@@ -190,7 +211,10 @@ export const ThermalTicketPreviewModal: React.FC<ThermalTicketPreviewModalProps>
     setPrintFeedback(null)
     const effectiveConfig: Partial<PrinterConfig> = {
       ...(printerConfig || {}),
-      paperWidth
+      paperWidth,
+      thermalFontFamily: fontFamily,
+      thermalBodySize: bodySize,
+      thermalHeaderEmphasis: headerEmphasis
     }
 
     try {
@@ -317,31 +341,123 @@ export const ThermalTicketPreviewModal: React.FC<ThermalTicketPreviewModalProps>
             </div>
           )}
 
-          {/* Selector de Ancho: 80mm vs 58mm */}
-          <div className="flex items-center gap-1 bg-white dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
-            <button
-              type="button"
-              onClick={() => setPaperWidth('80mm')}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-                paperWidth === '80mm'
-                  ? 'bg-lilac-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
-              }`}
-            >
-              80 mm (48 cols)
-            </button>
+          {/* Selectores de Configuración y Formato en Tiempo Real */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Ancho: 80mm vs 58mm */}
+            <div className="flex items-center gap-1 bg-white dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => setPaperWidth('80mm')}
+                className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                  paperWidth === '80mm'
+                    ? 'bg-lilac-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                }`}
+                title="Papel de 80 mm"
+              >
+                80 mm
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setPaperWidth('58mm')}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-                paperWidth === '58mm'
-                  ? 'bg-lilac-600 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
-              }`}
-            >
-              58 mm (32 cols)
-            </button>
+              <button
+                type="button"
+                onClick={() => setPaperWidth('58mm')}
+                className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                  paperWidth === '58mm'
+                    ? 'bg-lilac-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                }`}
+                title="Papel de 58 mm"
+              >
+                58 mm
+              </button>
+            </div>
+
+            {/* Fuente: Fuente A vs Fuente B */}
+            <div className="flex items-center gap-1 bg-white dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => setFontFamily('font_a')}
+                className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                  fontFamily === 'font_a'
+                    ? 'bg-lilac-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                }`}
+                title="Fuente A (Estándar nítida)"
+              >
+                Fuente A
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setFontFamily('font_b')}
+                className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                  fontFamily === 'font_b'
+                    ? 'bg-lilac-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                }`}
+                title="Fuente B (Condensada / compacta)"
+              >
+                Fuente B
+              </button>
+            </div>
+
+            {/* Tamaño Cuerpo: Normal vs Compacto */}
+            <div className="flex items-center gap-1 bg-white dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => setBodySize('normal')}
+                className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                  bodySize === 'normal'
+                    ? 'bg-lilac-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                }`}
+                title="Interlineado estándar"
+              >
+                Espaciado Normal
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBodySize('compact')}
+                className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                  bodySize === 'compact'
+                    ? 'bg-lilac-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                }`}
+                title="Interlineado compacto / ahorro de papel"
+              >
+                Compacto
+              </button>
+            </div>
+
+            {/* Énfasis: Doble Alto vs Normal */}
+            <div className="flex items-center gap-1 bg-white dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => setHeaderEmphasis('double')}
+                className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                  headerEmphasis === 'double'
+                    ? 'bg-lilac-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                }`}
+                title="Doble alto en nombre de negocio y total"
+              >
+                Doble Alto
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setHeaderEmphasis('normal')}
+                className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                  headerEmphasis === 'normal'
+                    ? 'bg-lilac-600 text-white shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                }`}
+                title="Tamaño uniforme sin doble alto"
+              >
+                Uniforme
+              </button>
+            </div>
           </div>
         </div>
 
@@ -357,7 +473,13 @@ export const ThermalTicketPreviewModal: React.FC<ThermalTicketPreviewModalProps>
           {/* Papel Térmico Físico (Clase protegida .thermal-ticket-paper) */}
           <div
             className={`thermal-ticket-paper bg-white text-slate-900 font-mono shadow-2xl rounded-sm p-5 border border-slate-300 select-text transition-all duration-200 relative ${
-              paperWidth === '80mm' ? 'w-[370px] text-[12px]' : 'w-[270px] text-[11px]'
+              paperWidth === '80mm'
+                ? fontFamily === 'font_b'
+                  ? 'w-[370px] text-[11px] tracking-tight'
+                  : 'w-[370px] text-[12px] tracking-normal'
+                : fontFamily === 'font_b'
+                  ? 'w-[270px] text-[10px] tracking-tight'
+                  : 'w-[270px] text-[11px] tracking-normal'
             }`}
           >
             {/* Efecto dentado guillotina superior */}
@@ -368,8 +490,16 @@ export const ThermalTicketPreviewModal: React.FC<ThermalTicketPreviewModalProps>
 
             {ticketMode === 'test' ? (
               /* ================== TICKET DE PRUEBA (DIAGNÓSTICO) ================== */
-              <div className="flex flex-col gap-1 leading-snug">
-                <div className="text-center font-black text-sm uppercase">
+              <div
+                className={`flex flex-col ${
+                  bodySize === 'compact' ? 'gap-0.5 leading-tight' : 'gap-1 leading-snug'
+                }`}
+              >
+                <div
+                  className={`text-center font-black uppercase ${
+                    headerEmphasis === 'double' ? 'text-sm sm:text-base tracking-wide' : 'text-xs'
+                  }`}
+                >
                   *** TICKET DE PRUEBA ***
                 </div>
                 <div className="text-center font-bold text-xs">
@@ -382,6 +512,9 @@ export const ThermalTicketPreviewModal: React.FC<ThermalTicketPreviewModalProps>
 
                 <div>Impresora térmica: CONECTADA</div>
                 <div>Ancho configurado: {paperWidth} ({widthChars} columnas)</div>
+                <div>Fuente: {fontFamily === 'font_b' ? 'Fuente B (Condensada)' : 'Fuente A (Estándar)'}</div>
+                <div>Cuerpo: {bodySize === 'compact' ? 'Compacto' : 'Estándar'}</div>
+                <div>Énfasis: {headerEmphasis === 'normal' ? 'Normal' : 'Doble Alto'}</div>
                 <div className="flex items-center gap-1 text-[11px] text-slate-600">
                   <Clock className="w-3 h-3 text-slate-400 inline" />
                   <span>{new Date().toLocaleString('es-CL')}</span>
@@ -402,10 +535,20 @@ export const ThermalTicketPreviewModal: React.FC<ThermalTicketPreviewModalProps>
               </div>
             ) : (
               /* ================== TICKET DE VENTA ================== */
-              <div className="flex flex-col gap-1 leading-snug">
+              <div
+                className={`flex flex-col ${
+                  bodySize === 'compact' ? 'gap-0.5 leading-tight' : 'gap-1 leading-snug'
+                }`}
+              >
                 {/* 1. Encabezado Datos Comerciales */}
                 <div className="text-center">
-                  <div className="font-black text-sm uppercase tracking-wide">
+                  <div
+                    className={`font-black uppercase ${
+                      headerEmphasis === 'double'
+                        ? 'text-sm sm:text-base tracking-wide'
+                        : 'text-xs tracking-normal font-bold'
+                    }`}
+                  >
                     {businessInfo.name || 'PUNTO DE VENTA'}
                   </div>
                   {businessInfo.rut && <div>RUT: {businessInfo.rut}</div>}
@@ -445,7 +588,11 @@ export const ThermalTicketPreviewModal: React.FC<ThermalTicketPreviewModalProps>
                 </div>
 
                 {/* 4. Lista de Ítems */}
-                <div className="flex flex-col gap-1.5">
+                <div
+                  className={`flex flex-col ${
+                    bodySize === 'compact' ? 'gap-0.5' : 'gap-1.5'
+                  }`}
+                >
                   {(activeSale.items || []).map((it, idx) => {
                     const qty = it.quantity - (it.returned_qty || 0)
                     if (qty <= 0) return null
@@ -459,9 +606,11 @@ export const ThermalTicketPreviewModal: React.FC<ThermalTicketPreviewModalProps>
                           </span>
                           <span className="font-bold shrink-0">{formatCLP(itemTotal)}</span>
                         </div>
-                        <div className="text-[10px] text-slate-500 pl-4">
-                          ({formatCLP(it.unit_price)} c/u)
-                        </div>
+                        {it.unit_price && (
+                          <div className="text-[10px] text-slate-500 pl-4">
+                            ({formatCLP(it.unit_price)} c/u)
+                          </div>
+                        )}
                       </div>
                     )
                   })}
@@ -472,8 +621,17 @@ export const ThermalTicketPreviewModal: React.FC<ThermalTicketPreviewModalProps>
                 </div>
 
                 {/* 5. Totales y Formas de Pago */}
-                <div className="text-right font-black text-sm my-0.5">
-                  TOTAL: {formatCLP(activeSale.total)}
+                <div className="flex justify-between items-baseline my-0.5">
+                  <span className="font-bold">TOTAL:</span>
+                  <span
+                    className={`font-black ${
+                      headerEmphasis === 'double'
+                        ? 'text-sm sm:text-base'
+                        : 'text-xs sm:text-sm'
+                    }`}
+                  >
+                    {formatCLP(activeSale.total)}
+                  </span>
                 </div>
 
                 <div className="mt-1">
@@ -529,7 +687,12 @@ export const ThermalTicketPreviewModal: React.FC<ThermalTicketPreviewModalProps>
         {/* Footer & Acciones */}
         <div className="px-6 py-3.5 bg-white dark:bg-slate-850 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 shrink-0">
           <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-            Formato: <span className="font-bold text-slate-800 dark:text-slate-200">{paperWidth}</span> ({widthChars} caracteres por línea)
+            Formato: <span className="font-bold text-slate-800 dark:text-slate-200">{paperWidth}</span> ({widthChars} cols) •{' '}
+            <span className="font-semibold text-slate-700 dark:text-slate-300">
+              {fontFamily === 'font_b' ? 'Fuente B' : 'Fuente A'}
+            </span>{' '}
+            • {bodySize === 'compact' ? 'Compacto' : 'Espaciado Normal'} •{' '}
+            {headerEmphasis === 'normal' ? 'Uniforme' : 'Doble Alto'}
           </div>
 
           <div className="flex items-center gap-2">

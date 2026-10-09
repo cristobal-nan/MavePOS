@@ -1,4 +1,9 @@
-import { SaleDetail } from '../../../shared/types'
+import {
+  SaleDetail,
+  ThermalFontFamily,
+  ThermalBodySize,
+  ThermalHeaderEmphasis
+} from '../../../shared/types'
 import { formatCLP } from '../../../shared/finance'
 
 export interface BusinessInfo {
@@ -18,6 +23,9 @@ export interface BuildThermalReceiptOptions {
   change?: number
   openDrawerOnPrint?: boolean
   business: BusinessInfo
+  fontFamily?: ThermalFontFamily
+  bodySize?: ThermalBodySize
+  headerEmphasis?: ThermalHeaderEmphasis
 }
 
 export interface BuildTestTicketOptions {
@@ -25,13 +33,26 @@ export interface BuildTestTicketOptions {
   widthChars: number
   paperWidth: string
   businessName: string
+  fontFamily?: ThermalFontFamily
+  bodySize?: ThermalBodySize
+  headerEmphasis?: ThermalHeaderEmphasis
 }
 
 /**
  * Builds ESC/POS receipt layout for 58mm or 80mm thermal receipt printers.
  */
 export function buildThermalReceipt(options: BuildThermalReceiptOptions): void {
-  const { printer, widthChars, saleDetail, change = 0, openDrawerOnPrint, business } = options
+  const {
+    printer,
+    widthChars,
+    saleDetail,
+    change = 0,
+    openDrawerOnPrint,
+    business,
+    fontFamily = 'font_a',
+    bodySize = 'normal',
+    headerEmphasis = 'double'
+  } = options
 
   const businessName = business.name || 'PUNTO DE VENTA'
   const businessRut = business.rut || ''
@@ -41,12 +62,39 @@ export function buildThermalReceipt(options: BuildThermalReceiptOptions): void {
   const businessEmail = business.email || ''
   const footerMsg = business.footerMessage || '¡Gracias por su preferencia!'
 
+  // Aplicar tipo de fuente
+  if (fontFamily === 'font_b') {
+    printer.setTypeFontB()
+  } else {
+    printer.setTypeFontA()
+  }
+
+  // Aplicar interlineado según tamaño de cuerpo
+  if (bodySize === 'compact') {
+    try {
+      printer.setLineSpacing(24)
+    } catch {
+      // Ignorar si el tipo de driver no soporta setLineSpacing
+    }
+  } else {
+    try {
+      printer.resetLineSpacing()
+    } catch {
+      // Ignorar
+    }
+  }
+
   // 1. Header: Business info
   printer.alignCenter()
   printer.bold(true)
-  printer.setTextDoubleHeight()
+  if (headerEmphasis === 'double') {
+    printer.setTextDoubleHeight()
+  }
   printer.println(businessName)
   printer.setTextNormal()
+  if (fontFamily === 'font_b') {
+    printer.setTypeFontB()
+  }
   printer.bold(false)
 
   if (businessRut) printer.println(`RUT: ${businessRut}`)
@@ -94,9 +142,14 @@ export function buildThermalReceipt(options: BuildThermalReceiptOptions): void {
   // 4. Totals and Payments
   printer.alignRight()
   printer.bold(true)
-  printer.setTextDoubleHeight()
+  if (headerEmphasis === 'double') {
+    printer.setTextDoubleHeight()
+  }
   printer.println(`TOTAL: ${formatCLP(saleDetail.total)}`)
   printer.setTextNormal()
+  if (fontFamily === 'font_b') {
+    printer.setTypeFontB()
+  }
   printer.bold(false)
 
   printer.alignLeft()
@@ -150,13 +203,46 @@ export function buildThermalReceipt(options: BuildThermalReceiptOptions): void {
  * Builds ESC/POS layout for printer diagnostic testing.
  */
 export function buildThermalTestTicket(options: BuildTestTicketOptions): void {
-  const { printer, widthChars, paperWidth, businessName } = options
+  const {
+    printer,
+    widthChars,
+    paperWidth,
+    businessName,
+    fontFamily = 'font_a',
+    bodySize = 'normal',
+    headerEmphasis = 'double'
+  } = options
+
+  if (fontFamily === 'font_b') {
+    printer.setTypeFontB()
+  } else {
+    printer.setTypeFontA()
+  }
+
+  if (bodySize === 'compact') {
+    try {
+      printer.setLineSpacing(24)
+    } catch {
+      // Safe fallback
+    }
+  } else {
+    try {
+      printer.resetLineSpacing()
+    } catch {
+      // Safe fallback
+    }
+  }
 
   printer.alignCenter()
   printer.bold(true)
-  printer.setTextDoubleHeight()
+  if (headerEmphasis === 'double') {
+    printer.setTextDoubleHeight()
+  }
   printer.println('*** TICKET DE PRUEBA ***')
   printer.setTextNormal()
+  if (fontFamily === 'font_b') {
+    printer.setTypeFontB()
+  }
   printer.println(businessName || 'MAVE POS')
   printer.bold(false)
   printer.println('-'.repeat(widthChars))
@@ -164,6 +250,9 @@ export function buildThermalTestTicket(options: BuildTestTicketOptions): void {
   printer.alignLeft()
   printer.println('Impresora térmica: CONECTADA')
   printer.println(`Ancho configurado: ${paperWidth} (${widthChars} columnas)`)
+  printer.println(`Fuente: ${fontFamily === 'font_b' ? 'Fuente B (Condensada)' : 'Fuente A (Estándar)'}`)
+  printer.println(`Cuerpo: ${bodySize === 'compact' ? 'Compacto' : 'Estándar'}`)
+  printer.println(`Énfasis: ${headerEmphasis === 'normal' ? 'Normal' : 'Doble Alto'}`)
   printer.println(`Fecha y Hora: ${new Date().toLocaleString('es-CL')}`)
   printer.println('-'.repeat(widthChars))
 

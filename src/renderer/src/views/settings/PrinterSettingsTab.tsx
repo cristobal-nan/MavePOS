@@ -1,5 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Printer, Archive, RefreshCw, CheckCircle2, AlertTriangle, Loader2, Eye } from 'lucide-react'
+import {
+  Printer,
+  Archive,
+  RefreshCw,
+  CheckCircle2,
+  AlertTriangle,
+  Loader2,
+  Eye,
+  Type
+} from 'lucide-react'
 import { PrinterConfig, PrinterInfo } from '@shared/types'
 import { useSettingsStore, DirtyFieldChange } from '../../store/settingsStore'
 import { ThermalTicketPreviewModal } from '../../components/ThermalTicketPreviewModal'
@@ -11,7 +20,10 @@ const DEFAULT_CONFIG: PrinterConfig = {
   paperWidth: '80mm',
   openDrawerOnPrint: true,
   autoPrintOnSale: false,
-  normalPrinterName: ''
+  normalPrinterName: '',
+  thermalFontFamily: 'font_a',
+  thermalBodySize: 'normal',
+  thermalHeaderEmphasis: 'double'
 }
 
 export const PrinterSettingsTab: React.FC = () => {
@@ -95,6 +107,24 @@ export const PrinterSettingsTab: React.FC = () => {
       changes.push({
         field: 'Impresora Estándar Windows',
         value: printerConfig.normalPrinterName || '(ninguna)'
+      })
+    }
+    if (printerConfig.thermalFontFamily !== initialConfig.thermalFontFamily) {
+      changes.push({
+        field: 'Fuente Térmica',
+        value: printerConfig.thermalFontFamily === 'font_b' ? 'Fuente B (Condensada)' : 'Fuente A (Estándar)'
+      })
+    }
+    if (printerConfig.thermalBodySize !== initialConfig.thermalBodySize) {
+      changes.push({
+        field: 'Tamaño del Cuerpo',
+        value: printerConfig.thermalBodySize === 'compact' ? 'Compacto' : 'Estándar'
+      })
+    }
+    if (printerConfig.thermalHeaderEmphasis !== initialConfig.thermalHeaderEmphasis) {
+      changes.push({
+        field: 'Énfasis Encabezado y Total',
+        value: printerConfig.thermalHeaderEmphasis === 'normal' ? 'Normal' : 'Doble Alto'
       })
     }
 
@@ -295,6 +325,133 @@ export const PrinterSettingsTab: React.FC = () => {
                 >
                   <span className="block text-xs">58 mm</span>
                   <span className="block text-[10px] text-slate-400 mt-0.5">32 columnas</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Card: Tipografía y Formato del Ticket Térmico */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-lilac-100 dark:border-slate-800 p-6 shadow-sm space-y-5">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div className="flex items-center gap-2">
+              <Type className="w-4 h-4 text-lilac-600 dark:text-lilac-400" />
+              <h2 className="text-sm font-bold text-slate-800 dark:text-white">Tipografía y Formato del Ticket Térmico</h2>
+            </div>
+            <span className="text-xs text-slate-400">Personalización de fuentes, interlineado y tamaños ESC/POS</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 text-xs">
+            {/* 1. Selector de Fuente ESC/POS */}
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Tipo de Fuente ESC/POS
+              </label>
+              <div className="grid grid-cols-1 gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={() => setPrinterConfig({ ...printerConfig, thermalFontFamily: 'font_a' })}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    printerConfig.thermalFontFamily !== 'font_b'
+                      ? 'border-lilac-500 bg-lilac-50/70 dark:bg-lilac-950/40 text-lilac-900 dark:text-lilac-200 font-bold'
+                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
+                  }`}
+                >
+                  <span className="block text-xs font-bold">Fuente A (Estándar)</span>
+                  <span className="block text-[10px] text-slate-400 mt-0.5">
+                    Máxima nitidez y legibilidad (32 / 48 cols)
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPrinterConfig({ ...printerConfig, thermalFontFamily: 'font_b' })}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    printerConfig.thermalFontFamily === 'font_b'
+                      ? 'border-lilac-500 bg-lilac-50/70 dark:bg-lilac-950/40 text-lilac-900 dark:text-lilac-200 font-bold'
+                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
+                  }`}
+                >
+                  <span className="block text-xs font-bold">Fuente B (Condensada)</span>
+                  <span className="block text-[10px] text-slate-400 mt-0.5">
+                    Letra angosta, entran más palabras (42 / 56 cols)
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* 2. Selector de Tamaño de Cuerpo / Ítems */}
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Tamaño del Cuerpo / Ítems
+              </label>
+              <div className="grid grid-cols-1 gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={() => setPrinterConfig({ ...printerConfig, thermalBodySize: 'normal' })}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    printerConfig.thermalBodySize !== 'compact'
+                      ? 'border-lilac-500 bg-lilac-50/70 dark:bg-lilac-950/40 text-lilac-900 dark:text-lilac-200 font-bold'
+                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
+                  }`}
+                >
+                  <span className="block text-xs font-bold">Estándar</span>
+                  <span className="block text-[10px] text-slate-400 mt-0.5">
+                    Interlineado tradicional espaciado
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPrinterConfig({ ...printerConfig, thermalBodySize: 'compact' })}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    printerConfig.thermalBodySize === 'compact'
+                      ? 'border-lilac-500 bg-lilac-50/70 dark:bg-lilac-950/40 text-lilac-900 dark:text-lilac-200 font-bold'
+                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
+                  }`}
+                >
+                  <span className="block text-xs font-bold">Compacto</span>
+                  <span className="block text-[10px] text-slate-400 mt-0.5">
+                    Ahorro de papel con interlineado estrecho
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* 3. Selector de Énfasis Encabezado y Total */}
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Énfasis de Encabezado y Total
+              </label>
+              <div className="grid grid-cols-1 gap-2 mt-1">
+                <button
+                  type="button"
+                  onClick={() => setPrinterConfig({ ...printerConfig, thermalHeaderEmphasis: 'double' })}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    printerConfig.thermalHeaderEmphasis !== 'normal'
+                      ? 'border-lilac-500 bg-lilac-50/70 dark:bg-lilac-950/40 text-lilac-900 dark:text-lilac-200 font-bold'
+                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
+                  }`}
+                >
+                  <span className="block text-xs font-bold">Doble Alto</span>
+                  <span className="block text-[10px] text-slate-400 mt-0.5">
+                    Tienda y total destacados en tamaño grande
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPrinterConfig({ ...printerConfig, thermalHeaderEmphasis: 'normal' })}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    printerConfig.thermalHeaderEmphasis === 'normal'
+                      ? 'border-lilac-500 bg-lilac-50/70 dark:bg-lilac-950/40 text-lilac-900 dark:text-lilac-200 font-bold'
+                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600'
+                  }`}
+                >
+                  <span className="block text-xs font-bold">Normal</span>
+                  <span className="block text-[10px] text-slate-400 mt-0.5">
+                    Mismo tamaño uniforme en todo el ticket
+                  </span>
                 </button>
               </div>
             </div>

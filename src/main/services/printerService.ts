@@ -56,6 +56,12 @@ export class PrinterService {
     const openDrawerOnPrint = this.settingsService.get('printer_cash_drawer_enabled', 'true') === 'true'
     const autoPrintOnSale = this.settingsService.get('printer_auto_print_ticket', 'false') === 'true'
     const normalPrinterName = this.settingsService.get('printer_normal_name', '') || undefined
+    const thermalFontFamily =
+      (this.settingsService.get('printer_thermal_font_family', 'font_a') as any) || 'font_a'
+    const thermalBodySize =
+      (this.settingsService.get('printer_thermal_body_size', 'normal') as any) || 'normal'
+    const thermalHeaderEmphasis =
+      (this.settingsService.get('printer_thermal_header_emphasis', 'double') as any) || 'double'
 
     return {
       thermalType,
@@ -64,7 +70,10 @@ export class PrinterService {
       paperWidth,
       openDrawerOnPrint,
       autoPrintOnSale,
-      normalPrinterName
+      normalPrinterName,
+      thermalFontFamily,
+      thermalBodySize,
+      thermalHeaderEmphasis
     }
   }
 
@@ -92,6 +101,15 @@ export class PrinterService {
     }
     if (config.normalPrinterName !== undefined) {
       this.settingsService.set('printer_normal_name', config.normalPrinterName)
+    }
+    if (config.thermalFontFamily !== undefined) {
+      this.settingsService.set('printer_thermal_font_family', config.thermalFontFamily)
+    }
+    if (config.thermalBodySize !== undefined) {
+      this.settingsService.set('printer_thermal_body_size', config.thermalBodySize)
+    }
+    if (config.thermalHeaderEmphasis !== undefined) {
+      this.settingsService.set('printer_thermal_header_emphasis', config.thermalHeaderEmphasis)
     }
   }
 
@@ -122,7 +140,8 @@ export class PrinterService {
   createPrinterInstance(customConfig?: Partial<PrinterConfig>): any {
     const config = { ...this.getPrinterConfig(), ...customConfig }
     const printerType = config.thermalType === 'star' ? PrinterTypes.STAR : PrinterTypes.EPSON
-    const widthChars = config.paperWidth === '58mm' ? 32 : 48
+    const isFontB = config.thermalFontFamily === 'font_b'
+    const widthChars = config.paperWidth === '58mm' ? (isFontB ? 42 : 32) : (isFontB ? 56 : 48)
 
     const printer = new (ThermalPrinter as any)({
       type: printerType,
@@ -144,7 +163,10 @@ export class PrinterService {
       saleDetail,
       change,
       openDrawerOnPrint: printerObj.config.openDrawerOnPrint,
-      business: this.getBusinessInfo()
+      business: this.getBusinessInfo(),
+      fontFamily: printerObj.config.thermalFontFamily,
+      bodySize: printerObj.config.thermalBodySize,
+      headerEmphasis: printerObj.config.thermalHeaderEmphasis
     })
   }
 
@@ -256,7 +278,10 @@ export class PrinterService {
         printer,
         widthChars,
         paperWidth: printerObj.config.paperWidth,
-        businessName
+        businessName,
+        fontFamily: printerObj.config.thermalFontFamily,
+        bodySize: printerObj.config.thermalBodySize,
+        headerEmphasis: printerObj.config.thermalHeaderEmphasis
       })
 
       const buffer = printer.getBuffer()

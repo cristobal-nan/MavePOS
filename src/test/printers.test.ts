@@ -36,6 +36,9 @@ describe('Fase 9: Impresión y Tickets Térmicos (ESC/POS y Periféricos)', () =
       expect(config.openDrawerOnPrint).toBe(true)
       expect(config.autoPrintOnSale).toBe(false)
       expect(config.normalPrinterName).toBeUndefined()
+      expect(config.thermalFontFamily).toBe('font_a')
+      expect(config.thermalBodySize).toBe('normal')
+      expect(config.thermalHeaderEmphasis).toBe('double')
     })
 
     it('guarda y recupera parámetros de configuración de impresora térmica y cajón', () => {
@@ -46,7 +49,10 @@ describe('Fase 9: Impresión y Tickets Térmicos (ESC/POS y Periféricos)', () =
         paperWidth: '58mm',
         openDrawerOnPrint: false,
         autoPrintOnSale: true,
-        normalPrinterName: 'HP LaserJet Pro'
+        normalPrinterName: 'HP LaserJet Pro',
+        thermalFontFamily: 'font_b',
+        thermalBodySize: 'compact',
+        thermalHeaderEmphasis: 'normal'
       })
 
       const config = printerService.getPrinterConfig()
@@ -58,19 +64,48 @@ describe('Fase 9: Impresión y Tickets Térmicos (ESC/POS y Periféricos)', () =
       expect(config.openDrawerOnPrint).toBe(false)
       expect(config.autoPrintOnSale).toBe(true)
       expect(config.normalPrinterName).toBe('HP LaserJet Pro')
+      expect(config.thermalFontFamily).toBe('font_b')
+      expect(config.thermalBodySize).toBe('compact')
+      expect(config.thermalHeaderEmphasis).toBe('normal')
     })
   })
 
   describe('Instanciación y Ancho de Columnas (createPrinterInstance)', () => {
-    it('configura 48 columnas para papel térmico de 80mm', () => {
-      const { widthChars, config } = printerService.createPrinterInstance({ paperWidth: '80mm' })
+    it('configura 48 columnas para papel térmico de 80mm en Fuente A', () => {
+      const { widthChars, config } = printerService.createPrinterInstance({
+        paperWidth: '80mm',
+        thermalFontFamily: 'font_a'
+      })
       expect(widthChars).toBe(48)
       expect(config.paperWidth).toBe('80mm')
+      expect(config.thermalFontFamily).toBe('font_a')
     })
 
-    it('configura 32 columnas para papel térmico de 58mm', () => {
-      const { widthChars, config } = printerService.createPrinterInstance({ paperWidth: '58mm' })
+    it('configura 32 columnas para papel térmico de 58mm en Fuente A', () => {
+      const { widthChars, config } = printerService.createPrinterInstance({
+        paperWidth: '58mm',
+        thermalFontFamily: 'font_a'
+      })
       expect(widthChars).toBe(32)
+      expect(config.paperWidth).toBe('58mm')
+    })
+
+    it('configura 56 columnas para papel térmico de 80mm en Fuente B (Condensada)', () => {
+      const { widthChars, config } = printerService.createPrinterInstance({
+        paperWidth: '80mm',
+        thermalFontFamily: 'font_b'
+      })
+      expect(widthChars).toBe(56)
+      expect(config.paperWidth).toBe('80mm')
+      expect(config.thermalFontFamily).toBe('font_b')
+    })
+
+    it('configura 42 columnas para papel térmico de 58mm en Fuente B (Condensada)', () => {
+      const { widthChars, config } = printerService.createPrinterInstance({
+        paperWidth: '58mm',
+        thermalFontFamily: 'font_b'
+      })
+      expect(widthChars).toBe(42)
       expect(config.paperWidth).toBe('58mm')
     })
   })

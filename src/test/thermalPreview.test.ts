@@ -3,25 +3,21 @@ import { formatCLP } from '../shared/finance'
 import { BusinessInfo } from '../main/services/printing/ticketTemplates'
 
 describe('Previsualización de Tickets Térmicos (80mm vs 58mm)', () => {
-  describe('Dimensiones y Columnas de Papel', () => {
-    it('asigna exactamente 48 columnas para papel de 80mm', () => {
-      const paperWidth = '80mm'
-      const widthChars = paperWidth === '80mm' ? 48 : 32
-      const separator = '-'.repeat(widthChars)
+  describe('Dimensiones y Columnas de Papel por Fuente', () => {
+    it('asigna 48 columnas para papel de 80mm en Fuente A y 56 en Fuente B', () => {
+      const getCols = (width: '80mm' | '58mm', font: 'font_a' | 'font_b') =>
+        width === '58mm' ? (font === 'font_b' ? 42 : 32) : font === 'font_b' ? 56 : 48
 
-      expect(widthChars).toBe(48)
-      expect(separator.length).toBe(48)
-      expect(separator).toBe('------------------------------------------------')
+      expect(getCols('80mm', 'font_a')).toBe(48)
+      expect(getCols('80mm', 'font_b')).toBe(56)
     })
 
-    it('asigna exactamente 32 columnas para papel de 58mm', () => {
-      const paperWidth: '80mm' | '58mm' = '58mm'
-      const widthChars = paperWidth === '80mm' ? 48 : 32
-      const separator = '-'.repeat(widthChars)
+    it('asigna 32 columnas para papel de 58mm en Fuente A y 42 en Fuente B', () => {
+      const getCols = (width: '80mm' | '58mm', font: 'font_a' | 'font_b') =>
+        width === '58mm' ? (font === 'font_b' ? 42 : 32) : font === 'font_b' ? 56 : 48
 
-      expect(widthChars).toBe(32)
-      expect(separator.length).toBe(32)
-      expect(separator).toBe('--------------------------------')
+      expect(getCols('58mm', 'font_a')).toBe(32)
+      expect(getCols('58mm', 'font_b')).toBe(42)
     })
   })
 
