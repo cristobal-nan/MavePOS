@@ -124,6 +124,7 @@ export const INITIAL_SCHEMA = `
   CREATE TABLE IF NOT EXISTS inventory_movements (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     product_code TEXT NOT NULL REFERENCES products(code),
+    item_name TEXT NULL,
     delta INTEGER NOT NULL,
     type TEXT NOT NULL CHECK(type IN ('venta', 'devolucion', 'ajuste', 'importacion', 'inicial')),
     reason TEXT NOT NULL,
@@ -149,4 +150,10 @@ export const INITIAL_SCHEMA = `
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
   );
+
+  INSERT OR IGNORE INTO products (
+    code, name, search_name, product_type, sale_price, cost_price,
+    stock, min_stock, active, created_at, updated_at
+  )
+  VALUES ('COMÚN', 'Producto Común', 'producto comun', 'simple', 0, NULL, 0, 0, 0, datetime('now'), datetime('now'));
 `

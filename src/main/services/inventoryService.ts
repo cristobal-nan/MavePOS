@@ -156,12 +156,12 @@ export class InventoryService {
       ranked AS (
         SELECT
           am.*,
-          p.name AS product_name,
+          COALESCE(am.item_name, p.name) AS product_name,
           p.attribute_value,
           parent.name AS parent_name,
           s.folio AS sale_folio,
-          (am.current_product_stock - am.delta_after_this) AS stock_after,
-          (am.current_product_stock - am.delta_after_this - am.delta) AS stock_before
+          CASE WHEN am.product_code = 'COMÚN' THEN 0 ELSE (am.current_product_stock - am.delta_after_this) END AS stock_after,
+          CASE WHEN am.product_code = 'COMÚN' THEN 0 ELSE (am.current_product_stock - am.delta_after_this - am.delta) END AS stock_before
         FROM all_movements_for_these_products am
         LEFT JOIN products p ON am.product_code = p.code
         LEFT JOIN products parent ON p.parent_id = parent.id
@@ -216,7 +216,7 @@ export class InventoryService {
       WITH ranked AS (
         SELECT
           m.*,
-          p.name AS product_name,
+          COALESCE(m.item_name, p.name) AS product_name,
           p.attribute_value,
           parent.name AS parent_name,
           s.folio AS sale_folio,

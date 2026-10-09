@@ -172,6 +172,10 @@ export class ProductService {
       throw new Error('Una variación debe estar asociada a un producto padre')
     }
 
+    if (trimmedCode && (trimmedCode.toUpperCase() === 'COMÚN' || trimmedCode.toUpperCase() === 'COMUN')) {
+      throw new Error("El código 'COMÚN' está reservado exclusivamente por el sistema.")
+    }
+
     const searchName = normalizeSearchName(trimmedName)
     const now = new Date().toISOString()
 

@@ -13,7 +13,8 @@ import {
   ArrowUpRight,
   ArrowLeftRight,
   CheckCircle2,
-  X
+  X,
+  PackagePlus
 } from 'lucide-react'
 import { ProductSearchResult } from '@shared/types'
 import { formatCLP, formatDateTime } from '../utils/formatters'
@@ -24,6 +25,7 @@ import { ProductSearchModal } from '../components/ProductSearchModal'
 import { CheckoutModal } from '../components/CheckoutModal'
 import { SalesHistoryModal } from './history/SalesHistoryModal'
 import { CashWithdrawalModal } from './history/CashWithdrawalModal'
+import { CommonProductModal } from '../components/CommonProductModal'
 import { useModalStack } from '../utils/modalStack'
 
 export const SalesView: React.FC = () => {
@@ -35,6 +37,7 @@ export const SalesView: React.FC = () => {
     createTicket,
     selectTicket,
     addItem,
+    addCommonItem,
     updateQuantity,
     removeItem,
     deleteTicket,
@@ -80,6 +83,7 @@ export const SalesView: React.FC = () => {
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false)
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
   const [isWithdrawalModalOpen, setIsWithdrawalModalOpen] = useState(false)
+  const [isCommonProductModalOpen, setIsCommonProductModalOpen] = useState(false)
   const [isConfirmExactModalOpen, setIsConfirmExactModalOpen] = useState(false)
   const [isFinalizingExact, setIsFinalizingExact] = useState(false)
 
@@ -100,6 +104,7 @@ export const SalesView: React.FC = () => {
     code: string
     name: string
     variant_label?: string | null
+    index?: number
   } | null>(null)
 
   // Modal de confirmación para descartar ticket o cancelar cambio
@@ -184,15 +189,19 @@ export const SalesView: React.FC = () => {
     }, 2200)
   }
 
-  const handleDecreaseQuantity = (it: { product_code: string; name: string; quantity: number; variant_label?: string | null }): void => {
+  const handleDecreaseQuantity = (
+    it: { product_code: string; name: string; quantity: number; variant_label?: string | null },
+    index?: number
+  ): void => {
     if (it.quantity <= 1) {
       setItemToDelete({
         code: it.product_code,
         name: it.name,
-        variant_label: it.variant_label
+        variant_label: it.variant_label,
+        index
       })
     } else {
-      updateQuantity(it.product_code, it.quantity - 1)
+      updateQuantity(it.product_code, it.quantity - 1, index)
     }
   }
 
@@ -223,6 +232,7 @@ export const SalesView: React.FC = () => {
         !isCheckoutModalOpen &&
         !isHistoryModalOpen &&
         !isWithdrawalModalOpen &&
+        !isCommonProductModalOpen &&
         !isConfirmExactModalOpen &&
         !itemToDelete &&
         !ticketToDiscard &&
@@ -241,6 +251,7 @@ export const SalesView: React.FC = () => {
     isCheckoutModalOpen,
     isHistoryModalOpen,
     isWithdrawalModalOpen,
+    isCommonProductModalOpen,
     isConfirmExactModalOpen,
     itemToDelete,
     ticketToDiscard,
@@ -262,6 +273,10 @@ export const SalesView: React.FC = () => {
 
   const itemRowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map())
 
+  const getItemRowKey = (it: { product_code: string; name: string; unit_price: number }, index: number): string => {
+    return it.product_code === 'COMÚN' ? `COMUN-${index}-${it.name}-${it.unit_price}` : it.product_code
+  }
+
   // Scroll selected product in ticket into view smoothly
   useEffect(() => {
     if (selectedProductCode && itemRowRefs.current.has(selectedProductCode)) {
@@ -273,8 +288,16 @@ export const SalesView: React.FC = () => {
   useEffect(() => {
     if (activeTicket.items.length === 0) {
       setSelectedProductCode(null)
-    } else if (!selectedProductCode || !activeTicket.items.some((i) => i.product_code === selectedProductCode)) {
-      setSelectedProductCode(activeTicket.items[activeTicket.items.length - 1].product_code)
+    } else {
+      const exists = activeTicket.items.some((i, idx) => {
+        const k = getItemRowKey(i, idx)
+        return k === selectedProductCode || i.product_code === selectedProductCode
+      })
+      if (!selectedProductCode || !exists) {
+        const lastIdx = activeTicket.items.length - 1
+        const last = activeTicket.items[lastIdx]
+        setSelectedProductCode(getItemRowKey(last, lastIdx))
+      }
     }
   }, [activeTicket.items, selectedProductCode])
 
@@ -378,6 +401,7 @@ export const SalesView: React.FC = () => {
         isCheckoutModalOpen ||
         isHistoryModalOpen ||
         isWithdrawalModalOpen ||
+        isCommonProductModalOpen ||
         isConfirmExactModalOpen ||
         Boolean(itemToDelete) ||
         Boolean(ticketToDiscard) ||
@@ -389,11 +413,17 @@ export const SalesView: React.FC = () => {
           e.preventDefault()
           e.stopPropagation()
           if (activeTicket.items.length > 0) {
-            const currentIndex = activeTicket.items.findIndex((i) => i.product_code === selectedProductCode)
+            const currentIndex = activeTicket.items.findIndex((i, idx) => {
+              const k = getItemRowKey(i, idx)
+              return k === selectedProductCode || i.product_code === selectedProductCode
+            })
             if (currentIndex > 0) {
-              setSelectedProductCode(activeTicket.items[currentIndex - 1].product_code)
+              const prev = activeTicket.items[currentIndex - 1]
+              setSelectedProductCode(getItemRowKey(prev, currentIndex - 1))
             } else if (currentIndex === -1) {
-              setSelectedProductCode(activeTicket.items[activeTicket.items.length - 1].product_code)
+              const lastIdx = activeTicket.items.length - 1
+              const last = activeTicket.items[lastIdx]
+              setSelectedProductCode(getItemRowKey(last, lastIdx))
             }
           }
           return
@@ -403,11 +433,16 @@ export const SalesView: React.FC = () => {
           e.preventDefault()
           e.stopPropagation()
           if (activeTicket.items.length > 0) {
-            const currentIndex = activeTicket.items.findIndex((i) => i.product_code === selectedProductCode)
+            const currentIndex = activeTicket.items.findIndex((i, idx) => {
+              const k = getItemRowKey(i, idx)
+              return k === selectedProductCode || i.product_code === selectedProductCode
+            })
             if (currentIndex !== -1 && currentIndex < activeTicket.items.length - 1) {
-              setSelectedProductCode(activeTicket.items[currentIndex + 1].product_code)
+              const next = activeTicket.items[currentIndex + 1]
+              setSelectedProductCode(getItemRowKey(next, currentIndex + 1))
             } else if (currentIndex === -1) {
-              setSelectedProductCode(activeTicket.items[0].product_code)
+              const first = activeTicket.items[0]
+              setSelectedProductCode(getItemRowKey(first, 0))
             }
           }
           return
@@ -425,19 +460,26 @@ export const SalesView: React.FC = () => {
           if (isBarcodeFocused || isBodyOrNonInput) {
             e.preventDefault()
             e.stopPropagation()
-            const targetItem =
-              activeTicket.items.find((i) => i.product_code === selectedProductCode) ||
-              activeTicket.items[activeTicket.items.length - 1]
+            let targetIdx = activeTicket.items.findIndex((i, idx) => {
+              const k = getItemRowKey(i, idx)
+              return k === selectedProductCode || i.product_code === selectedProductCode
+            })
+            if (targetIdx === -1 && activeTicket.items.length > 0) {
+              targetIdx = activeTicket.items.length - 1
+            }
 
-            if (targetItem) {
+            if (targetIdx >= 0) {
+              const targetItem = activeTicket.items[targetIdx]
+              const isCommon = targetItem.product_code === 'COMÚN'
+
               if (isPlus) {
-                if (targetItem.quantity >= targetItem.stock) {
+                if (!isCommon && targetItem.quantity >= targetItem.stock) {
                   showMaxStockAlert(targetItem.name, targetItem.stock)
                 } else {
-                  updateQuantity(targetItem.product_code, targetItem.quantity + 1)
+                  updateQuantity(targetItem.product_code, targetItem.quantity + 1, targetIdx)
                 }
               } else {
-                handleDecreaseQuantity(targetItem)
+                handleDecreaseQuantity(targetItem, targetIdx)
               }
             }
             return
@@ -453,6 +495,12 @@ export const SalesView: React.FC = () => {
         if (e.key === 'F12') {
           e.preventDefault()
           handleCobrarClick()
+        }
+        // Ctrl+P: Producto Común
+        if (e.ctrlKey && e.key.toLowerCase() === 'p') {
+          e.preventDefault()
+          setIsCommonProductModalOpen(true)
+          return
         }
         // Ctrl+T: New Ticket
         if (e.ctrlKey && e.key.toLowerCase() === 't') {
@@ -644,6 +692,7 @@ export const SalesView: React.FC = () => {
         !isCheckoutModalOpen &&
         !isHistoryModalOpen &&
         !isWithdrawalModalOpen &&
+        !isCommonProductModalOpen &&
         !isConfirmExactModalOpen &&
         !itemToDelete
       ) {
@@ -980,24 +1029,26 @@ export const SalesView: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                activeTicket.items.map((it) => {
+                activeTicket.items.map((it, idx) => {
+                  const isCommon = it.product_code === 'COMÚN'
+                  const rowKey = getItemRowKey(it, idx)
                   const importe = it.unit_price * it.quantity
-                  // Existencia = stock actual - cantidad en venta
-                  const remainingStock = it.stock - it.quantity
-                  const isStockCritical = remainingStock < 0
-                  const isSelected = selectedProductCode === it.product_code
+                  // Existencia = stock actual - cantidad en venta (para COMÚN no aplica)
+                  const remainingStock = isCommon ? null : it.stock - it.quantity
+                  const isStockCritical = !isCommon && remainingStock !== null && remainingStock < 0
+                  const isSelected = selectedProductCode === rowKey || selectedProductCode === it.product_code
 
                   return (
                     <tr
-                      key={it.product_code}
+                      key={rowKey}
                       ref={(el) => {
                         if (el) {
-                          itemRowRefs.current.set(it.product_code, el)
+                          itemRowRefs.current.set(rowKey, el)
                         } else {
-                          itemRowRefs.current.delete(it.product_code)
+                          itemRowRefs.current.delete(rowKey)
                         }
                       }}
-                      onClick={() => setSelectedProductCode(it.product_code)}
+                      onClick={() => setSelectedProductCode(rowKey)}
                       className={`transition-colors cursor-pointer border-b border-black/60 ${
                         isSelected
                           ? 'product-row-highlighted bg-lilac-100/90 font-medium'
@@ -1005,7 +1056,15 @@ export const SalesView: React.FC = () => {
                       }`}
                     >
                       {/* Código */}
-                      <td className="py-2 px-3 font-mono text-slate-600">{it.product_code}</td>
+                      <td className="py-2 px-3 font-mono text-slate-600">
+                        {isCommon ? (
+                          <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-lilac-100 dark:bg-lilac-900/40 text-lilac-800 dark:text-lilac-300 border border-lilac-200 dark:border-lilac-700">
+                            COMÚN
+                          </span>
+                        ) : (
+                          it.product_code
+                        )}
+                      </td>
 
                       {/* Nombre & Variante */}
                       <td className="py-2 px-3">
@@ -1027,7 +1086,7 @@ export const SalesView: React.FC = () => {
                         <div className="inline-flex items-center border border-slate-200 rounded-lg overflow-hidden bg-slate-50">
                           <button
                             type="button"
-                            onClick={() => handleDecreaseQuantity(it)}
+                            onClick={() => handleDecreaseQuantity(it, idx)}
                             className="px-2 py-1 text-slate-600 hover:bg-lilac-100 hover:text-lilac-900 transition-colors"
                           >
                             <Minus className="w-3 h-3" />
@@ -1042,11 +1101,11 @@ export const SalesView: React.FC = () => {
                               }
                             }}
                             onFocus={(e) => {
-                              setSelectedProductCode(it.product_code)
+                              setSelectedProductCode(rowKey)
                               e.target.select()
                             }}
                             onClick={(e) => {
-                              setSelectedProductCode(it.product_code)
+                              setSelectedProductCode(rowKey)
                               ;(e.target as HTMLInputElement).select()
                             }}
                             onChange={(e) => {
@@ -1057,35 +1116,40 @@ export const SalesView: React.FC = () => {
                                 setItemToDelete({
                                   code: it.product_code,
                                   name: it.name,
-                                  variant_label: it.variant_label
+                                  variant_label: it.variant_label,
+                                  index: idx
                                 })
                                 return
                               }
-                              if ((Number(it.stock) || 0) <= 0) {
-                                showOutOfStockAlert(it.name)
-                                return
+                              if (!isCommon) {
+                                if ((Number(it.stock) || 0) <= 0) {
+                                  showOutOfStockAlert(it.name)
+                                  return
+                                }
+                                if (v > it.stock) {
+                                  showMaxStockAlert(it.name, it.stock)
+                                  updateQuantity(it.product_code, it.stock, idx)
+                                  return
+                                }
                               }
-                              if (v > it.stock) {
-                                showMaxStockAlert(it.name, it.stock)
-                                updateQuantity(it.product_code, it.stock)
-                                return
-                              }
-                              updateQuantity(it.product_code, v)
+                              updateQuantity(it.product_code, v, idx)
                             }}
                             className="w-12 text-center text-xs font-bold bg-white py-1 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                           <button
                             type="button"
                             onClick={() => {
-                              if ((Number(it.stock) || 0) <= 0) {
-                                showOutOfStockAlert(it.name)
-                                return
+                              if (!isCommon) {
+                                if ((Number(it.stock) || 0) <= 0) {
+                                  showOutOfStockAlert(it.name)
+                                  return
+                                }
+                                if (it.quantity >= it.stock) {
+                                  showMaxStockAlert(it.name, it.stock)
+                                  return
+                                }
                               }
-                              if (it.quantity >= it.stock) {
-                                showMaxStockAlert(it.name, it.stock)
-                                return
-                              }
-                              updateQuantity(it.product_code, it.quantity + 1)
+                              updateQuantity(it.product_code, it.quantity + 1, idx)
                             }}
                             className="px-2 py-1 text-slate-600 hover:bg-lilac-100 hover:text-lilac-900 transition-colors"
                           >
@@ -1101,17 +1165,21 @@ export const SalesView: React.FC = () => {
 
                       {/* Existencia Restante */}
                       <td className="py-2 px-3 text-right">
-                        <span
-                          className={`font-semibold ${
-                            isStockCritical
-                              ? 'text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md'
-                              : remainingStock <= 5
-                              ? 'text-amber-600'
-                              : 'text-slate-600'
-                          }`}
-                        >
-                          {remainingStock} un.
-                        </span>
+                        {isCommon ? (
+                          <span className="text-slate-400 font-medium">—</span>
+                        ) : (
+                          <span
+                            className={`font-semibold ${
+                              isStockCritical
+                                ? 'text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md'
+                                : remainingStock !== null && remainingStock <= 5
+                                ? 'text-amber-600'
+                                : 'text-slate-600'
+                            }`}
+                          >
+                            {remainingStock} un.
+                          </span>
+                        )}
                       </td>
 
                       {/* Eliminar fila */}
@@ -1122,7 +1190,8 @@ export const SalesView: React.FC = () => {
                             setItemToDelete({
                               code: it.product_code,
                               name: it.name,
-                              variant_label: it.variant_label
+                              variant_label: it.variant_label,
+                              index: idx
                             })
                           }}
                           className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
@@ -1147,20 +1216,31 @@ export const SalesView: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsHistoryModalOpen(true)}
-            className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/80 hover:bg-lilac-50 dark:hover:bg-slate-700 hover:border-lilac-300 dark:hover:border-slate-600 text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-lilac-700 dark:hover:text-lilac-300 flex items-center gap-2 transition-all shadow-sm cursor-pointer"
+            className="self-stretch px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/80 hover:bg-lilac-50 dark:hover:bg-slate-700 hover:border-lilac-300 dark:border-slate-600 text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-lilac-700 dark:hover:text-lilac-300 flex items-center gap-2 transition-all shadow-sm cursor-pointer"
           >
             <History className="w-4 h-4 text-lilac-600 dark:text-lilac-400" />
             <span>Historial de Ventas</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setIsWithdrawalModalOpen(true)}
-            className="px-3.5 py-2 rounded-xl border border-amber-200 dark:border-amber-700/60 bg-amber-50 dark:bg-slate-700/80 hover:bg-amber-100 dark:hover:bg-slate-700 text-xs font-bold text-amber-850 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-200 flex items-center gap-2 transition-all shadow-sm cursor-pointer"
-          >
-            <ArrowUpRight className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-            <span>Salida de Dinero</span>
-          </button>
+          <div className="flex flex-col gap-1.5">
+            <button
+              type="button"
+              onClick={() => setIsWithdrawalModalOpen(true)}
+              className="px-3.5 py-1.5 rounded-xl border border-amber-200 dark:border-amber-700/60 bg-amber-50 dark:bg-slate-700/80 hover:bg-amber-100 dark:hover:bg-slate-700 text-xs font-bold text-amber-850 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-200 flex items-center gap-2 transition-all shadow-sm cursor-pointer"
+            >
+              <ArrowUpRight className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              <span>Salida de Dinero</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsCommonProductModalOpen(true)}
+              className="px-3.5 py-1.5 rounded-xl border border-lilac-200 dark:border-lilac-700/60 bg-lilac-50 dark:bg-slate-700/80 hover:bg-lilac-100 dark:hover:bg-slate-700 text-xs font-bold text-lilac-850 dark:text-lilac-300 hover:text-lilac-900 dark:hover:text-lilac-200 flex items-center gap-2 transition-all shadow-sm cursor-pointer"
+            >
+              <PackagePlus className="w-4 h-4 text-lilac-600 dark:text-lilac-400" />
+              <span>Producto Común (Ctrl+P)</span>
+            </button>
+          </div>
         </div>
 
         {/* Right Totals & Cobrar Button */}
@@ -1289,6 +1369,18 @@ export const SalesView: React.FC = () => {
         isOpen={isWithdrawalModalOpen}
         onClose={() => {
           setIsWithdrawalModalOpen(false)
+          barcodeInputRef.current?.focus()
+        }}
+      />
+
+      <CommonProductModal
+        isOpen={isCommonProductModalOpen}
+        onClose={() => {
+          setIsCommonProductModalOpen(false)
+          barcodeInputRef.current?.focus()
+        }}
+        onAdd={(item) => {
+          addCommonItem(item)
           barcodeInputRef.current?.focus()
         }}
       />
@@ -1436,7 +1528,7 @@ export const SalesView: React.FC = () => {
                 type="button"
                 autoFocus
                 onClick={() => {
-                  removeItem(itemToDelete.code)
+                  removeItem(itemToDelete.code, itemToDelete.index)
                   setItemToDelete(null)
                   barcodeInputRef.current?.focus()
                 }}

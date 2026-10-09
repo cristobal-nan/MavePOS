@@ -243,6 +243,25 @@ const MIGRATIONS: Migration[] = [
         db.exec('ALTER TABLE cash_sessions ADD COLUMN transfer_difference INTEGER NULL DEFAULT 0;')
       }
     }
+  },
+  {
+    version: 11,
+    up: (db) => {
+      const cols = db.pragma('table_info(inventory_movements)') as { name: string }[]
+      const colNames = new Set(cols.map((c) => c.name))
+
+      if (!colNames.has('item_name')) {
+        db.exec('ALTER TABLE inventory_movements ADD COLUMN item_name TEXT NULL;')
+      }
+
+      db.prepare(`
+        INSERT OR IGNORE INTO products (
+          code, name, search_name, product_type, sale_price, cost_price,
+          stock, min_stock, active, created_at, updated_at
+        )
+        VALUES ('COMÚN', 'Producto Común', 'producto comun', 'simple', 0, NULL, 0, 0, 0, datetime('now'), datetime('now'))
+      `).run()
+    }
   }
 ]
 

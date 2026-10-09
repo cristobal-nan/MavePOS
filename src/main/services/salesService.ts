@@ -280,8 +280,8 @@ export class SalesService {
         UPDATE products SET stock = stock - ?, updated_at = ? WHERE code = ?
       `)
       const insertInvMovement = this.db.prepare(`
-        INSERT INTO inventory_movements (product_code, delta, type, reason, ref_sale_id, created_at)
-        VALUES (?, ?, 'venta', ?, ?, ?)
+        INSERT INTO inventory_movements (product_code, item_name, delta, type, reason, ref_sale_id, created_at)
+        VALUES (?, ?, ?, 'venta', ?, ?, ?)
       `)
 
       const savedItems: SaleItem[] = []
@@ -291,7 +291,14 @@ export class SalesService {
 
       for (const it of input.items) {
         const prodRow = getProductCost.get(it.product_code) as { cost_price: number | null } | undefined
-        const costPrice = prodRow && prodRow.cost_price !== undefined ? prodRow.cost_price : null
+        // Para Producto Común no se registra costo (null) para no distorsionar métricas de catálogo
+        const costPrice =
+          it.product_code === 'COMÚN'
+            ? null
+            : prodRow && prodRow.cost_price !== undefined
+            ? prodRow.cost_price
+            : null
+
         const itemRes = insertItem.run(saleId, it.product_code, it.name, it.unit_price, costPrice, it.quantity)
         savedItems.push({
           id: Number(itemRes.lastInsertRowid),
@@ -304,12 +311,15 @@ export class SalesService {
           returned_qty: 0
         })
 
-        // Decrement stock
-        updateStock.run(it.quantity, now, it.product_code)
+        // Descontar stock solo si no es Producto Común (producto común no tiene inventario físico en catálogo)
+        if (it.product_code !== 'COMÚN') {
+          updateStock.run(it.quantity, now, it.product_code)
+        }
 
-        // Register inventory movement
+        // Registrar movimiento en Kardex / movimientos del día con su descripción específica
         insertInvMovement.run(
           it.product_code,
+          it.name,
           -it.quantity,
           saleReason,
           saleId,

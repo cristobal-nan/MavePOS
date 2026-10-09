@@ -1531,14 +1531,20 @@ export const InventoryView: React.FC = () => {
                                 </span>
                               </td>
                               <td className="py-3 px-4 font-mono font-bold text-slate-700 dark:text-slate-300">
-                                {m.product_code}
+                                {m.product_code === 'COMÚN' ? (
+                                  <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-lilac-100 dark:bg-lilac-900/40 text-lilac-800 dark:text-lilac-300 border border-lilac-200 dark:border-lilac-700">
+                                    COMÚN
+                                  </span>
+                                ) : (
+                                  m.product_code
+                                )}
                               </td>
                               <td className="py-3 px-4 font-bold text-slate-800 dark:text-slate-100">
                                 {getProductDisplayName(m.product_name, m.parent_name)}
                               </td>
                               <td className="py-3 px-4 text-center">
                                 <span className="font-mono font-semibold text-slate-600 dark:text-slate-300 text-xs">
-                                  {m.stock_before !== undefined ? m.stock_before : '—'}
+                                  {m.product_code === 'COMÚN' ? '—' : m.stock_before !== undefined ? m.stock_before : '—'}
                                 </span>
                               </td>
                               <td className="py-3 px-4 text-center">
@@ -1553,7 +1559,7 @@ export const InventoryView: React.FC = () => {
                               </td>
                               <td className="py-3 px-4 text-center">
                                 <span className="font-mono font-bold text-slate-800 dark:text-slate-100 text-xs bg-slate-100/80 dark:bg-slate-700 dark:border dark:border-slate-600 px-2 py-0.5 rounded-md">
-                                  {m.stock_after !== undefined ? m.stock_after : '—'}
+                                  {m.product_code === 'COMÚN' ? '—' : m.stock_after !== undefined ? m.stock_after : '—'}
                                 </span>
                               </td>
                               <td className="py-3 px-4 text-slate-600 dark:text-slate-300">

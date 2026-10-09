@@ -4,6 +4,7 @@ import { runMigrations } from '../main/db/migrations'
 import { SalesService } from '../main/services/salesService'
 import { ProductService } from '../main/services/productService'
 import { CashService } from '../main/services/cashService'
+import { InventoryService } from '../main/services/inventoryService'
 
 describe('Fase 5: Módulo de Ventas (Importes, Totales, Pagos, Vuelto, Stock e Inventario)', () => {
   let db: Database.Database
@@ -301,6 +302,68 @@ describe('Fase 5: Módulo de Ventas (Importes, Totales, Pagos, Vuelto, Stock e I
       expect(s2.sale.ticket_number).toBe(1) // Mismo ticket #1 que en turno anterior
       expect(s2.sale.folio).toBe(2)          // Folio único global distinto
       expect(s2.sale.cash_session_id).toBe(cashSessionId2)
+    })
+  })
+
+  describe('Producto Común (fuera de catálogo)', () => {
+    it('permite vender un producto común y registra el movimiento de inventario con su descripción personalizada', () => {
+      const inventoryService = new InventoryService(db)
+
+      const result = salesService.completeSale({
+        ticket_number: 1,
+        cashSessionId,
+        items: [
+          {
+            product_code: 'COMÚN',
+            name: 'Arreglo costura express',
+            unit_price: 4500,
+            quantity: 2
+          }
+        ],
+        payments: [{ method: 'cash', amount: 9000 }]
+      })
+
+      expect(result.sale.total).toBe(9000)
+      expect(result.sale.folio).toBe(1)
+
+      // Verificar que se guardó en sale_items con código COMÚN y descripción
+      const saleItems = db
+        .prepare('SELECT * FROM sale_items WHERE sale_id = ?')
+        .all(result.sale.id) as any[]
+      expect(saleItems).toHaveLength(1)
+      expect(saleItems[0].product_code).toBe('COMÚN')
+      expect(saleItems[0].name).toBe('Arreglo costura express')
+      expect(saleItems[0].unit_price).toBe(4500)
+      expect(saleItems[0].quantity).toBe(2)
+      expect(saleItems[0].cost_price).toBeNull()
+
+      // Verificar que el movimiento en inventory_movements contiene item_name y código COMÚN
+      const movements = db
+        .prepare('SELECT * FROM inventory_movements WHERE product_code = ?')
+        .all('COMÚN') as any[]
+      expect(movements).toHaveLength(1)
+      expect(movements[0].product_code).toBe('COMÚN')
+      expect(movements[0].item_name).toBe('Arreglo costura express')
+      expect(movements[0].delta).toBe(-2)
+
+      // Verificar que getMovementsByDate devuelve el nombre personalizado
+      const dailyMovements = inventoryService.getMovementsByDate()
+      const commonMovement = dailyMovements.find((m) => m.product_code === 'COMÚN')
+      expect(commonMovement).toBeDefined()
+      expect(commonMovement?.product_name).toBe('Arreglo costura express')
+      expect(commonMovement?.stock_before).toBe(0)
+      expect(commonMovement?.stock_after).toBe(0)
+    })
+
+    it('no permite crear manualmente un producto regular con el código reservado COMÚN', () => {
+      expect(() => {
+        productService.upsertProduct({
+          code: 'COMÚN',
+          name: 'Producto ilegal',
+          sale_price: 1000,
+          stock: 5
+        })
+      }).toThrow(/código 'COMÚN' está reservado/i)
     })
   })
 })

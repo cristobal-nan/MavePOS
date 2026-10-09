@@ -26,8 +26,9 @@ interface SalesState {
   createExchangeTicket: (exchangeInfo: ExchangeInfo, cashSessionId?: number) => Promise<void>
   selectTicket: (index: number) => void
   addItem: (product: { code: string; name: string; sale_price: number; stock: number; variant_label?: string | null }, qty?: number) => void
-  updateQuantity: (productCode: string, qty: number) => void
-  removeItem: (productCode: string) => void
+  addCommonItem: (item: { description: string; price: number; quantity: number }) => void
+  updateQuantity: (productCode: string, qty: number, itemIndex?: number) => void
+  removeItem: (productCode: string, itemIndex?: number) => void
   clearCart: () => void
   putTicketOnStandby: (cashSessionId: number) => Promise<void>
   deleteTicket: (index: number) => Promise<void>
@@ -272,17 +273,68 @@ export const useSalesStore = create<SalesState>((set, get) => ({
     set({ tickets: updatedTickets })
   },
 
-  updateQuantity: (productCode: string, qty: number) => {
+  addCommonItem: (item) => {
+    const { tickets, activeTicketIndex } = get()
+    const currentTicket = tickets[activeTicketIndex]
+    if (!currentTicket) return
+
+    const cleanDesc = item.description.trim()
+    const existingIndex = currentTicket.items.findIndex(
+      (it) =>
+        it.product_code === 'COMÚN' &&
+        it.name.trim().toLowerCase() === cleanDesc.toLowerCase() &&
+        it.unit_price === item.price
+    )
+    let newItems: CartItem[]
+
+    if (existingIndex >= 0) {
+      newItems = currentTicket.items.map((it, idx) => {
+        if (idx === existingIndex) {
+          return { ...it, quantity: it.quantity + item.quantity }
+        }
+        return it
+      })
+    } else {
+      newItems = [
+        ...currentTicket.items,
+        {
+          product_code: 'COMÚN',
+          name: cleanDesc,
+          unit_price: item.price,
+          quantity: item.quantity,
+          stock: 999999,
+          variant_label: null
+        }
+      ]
+    }
+
+    const updatedTickets = tickets.map((t, idx) => {
+      if (idx === activeTicketIndex) {
+        return { ...t, items: newItems }
+      }
+      return t
+    })
+
+    set({ tickets: updatedTickets })
+  },
+
+  updateQuantity: (productCode: string, qty: number, itemIndex?: number) => {
     const { tickets, activeTicketIndex } = get()
     const currentTicket = tickets[activeTicketIndex]
     if (!currentTicket) return
 
     if (qty <= 0) {
-      get().removeItem(productCode)
+      get().removeItem(productCode, itemIndex)
       return
     }
 
-    const newItems = currentTicket.items.map((it) => {
+    const newItems = currentTicket.items.map((it, idx) => {
+      if (itemIndex !== undefined) {
+        if (idx === itemIndex) {
+          return { ...it, quantity: qty }
+        }
+        return it
+      }
       if (it.product_code === productCode) {
         return { ...it, quantity: qty }
       }
@@ -299,12 +351,17 @@ export const useSalesStore = create<SalesState>((set, get) => ({
     set({ tickets: updatedTickets })
   },
 
-  removeItem: (productCode: string) => {
+  removeItem: (productCode: string, itemIndex?: number) => {
     const { tickets, activeTicketIndex } = get()
     const currentTicket = tickets[activeTicketIndex]
     if (!currentTicket) return
 
-    const newItems = currentTicket.items.filter((it) => it.product_code !== productCode)
+    let newItems: CartItem[]
+    if (itemIndex !== undefined) {
+      newItems = currentTicket.items.filter((_, idx) => idx !== itemIndex)
+    } else {
+      newItems = currentTicket.items.filter((it) => it.product_code !== productCode)
+    }
 
     const updatedTickets = tickets.map((t, idx) => {
       if (idx === activeTicketIndex) {
