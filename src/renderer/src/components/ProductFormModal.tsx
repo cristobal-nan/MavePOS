@@ -30,6 +30,35 @@ interface VariationRow {
   minStock: string
 }
 
+interface CodeConflictTooltipProps {
+  message: string
+  position?: 'top-right' | 'top-left'
+}
+
+const CodeConflictTooltip: React.FC<CodeConflictTooltipProps> = ({
+  message,
+  position = 'top-right'
+}) => {
+  const isRight = position === 'top-right'
+  return (
+    <div
+      role="tooltip"
+      className={`absolute -top-7 ${
+        isRight ? 'right-1' : 'left-1'
+      } z-30 pointer-events-none flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-rose-600 dark:bg-rose-700 text-white text-[11px] font-semibold shadow-lg whitespace-nowrap animate-in fade-in zoom-in-95 duration-150`}
+      title={message}
+    >
+      <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-white" />
+      <span className="truncate max-w-[220px]">{message}</span>
+      <div
+        className={`absolute -bottom-1 ${
+          isRight ? 'right-4' : 'left-3'
+        } w-2 h-2 bg-rose-600 dark:bg-rose-700 rotate-45`}
+      />
+    </div>
+  )
+}
+
 interface ProductFormModalProps {
   product?: ProductSearchResult | null
   isOpen: boolean
@@ -167,7 +196,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setVariationCodeErrors((prev) => {
         const next = { ...prev }
         if (!res.available) {
-          next[index] = `En uso por "${res.conflictProductName}".`
+          next[index] = `En uso por: ${res.conflictProductName || 'Otro producto'}`
         } else {
           delete next[index]
         }
@@ -1148,6 +1177,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         const v = variations[i]
         const check = await window.api.catalog.checkProductCodeAvailable(v.code.trim(), v.id)
         if (!check.available) {
+          setVariationCodeErrors((prev) => ({
+            ...prev,
+            [i]: `En uso por: ${check.conflictProductName || 'Otro producto'}`
+          }))
           setError(`El código "${v.code.trim()}" (variación #${i + 1} "${v.attributeValue}") ya está registrado en el producto "${check.conflictProductName}".`)
           return
         }
@@ -1386,43 +1419,40 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   {/* Código de barras / SKU (Editable) */}
                   <div>
-                    <div className="flex items-center justify-between mb-1 gap-2">
-                      <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 shrink-0">
-                        Código de Barras / SKU *
-                      </label>
+                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1">
+                      Código de Barras / SKU *
+                    </label>
+                    <div className="relative">
                       {codeConflictName && (
-                        <span
-                          className="text-[11px] font-bold text-rose-600 dark:text-rose-400 truncate flex items-center gap-1 min-w-0"
-                          title={`En uso por: ${codeConflictName}`}
-                        >
-                          <AlertTriangle className="w-3 h-3 shrink-0" />
-                          <span className="truncate">En uso por: {codeConflictName}</span>
-                        </span>
+                        <CodeConflictTooltip
+                          message={`En uso por: ${codeConflictName}`}
+                          position="top-right"
+                        />
                       )}
+                      <input
+                        ref={codeInputRef}
+                        type="text"
+                        value={code}
+                        onChange={(e) => {
+                          setCode(e.target.value.toUpperCase())
+                          if (codeConflictName) setCodeConflictName(null)
+                        }}
+                        onBlur={handleCodeBlur}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            attributeValueInputRef.current?.focus()
+                            attributeValueInputRef.current?.select()
+                          }
+                        }}
+                        placeholder="Ej: 780123456"
+                        className={`w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border rounded-xl font-mono text-slate-900 dark:text-white font-bold focus:outline-none uppercase placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-2xs ${
+                          codeConflictName
+                            ? 'border-rose-500 focus:border-rose-600 dark:border-rose-500'
+                            : 'border-slate-300 dark:border-slate-700 focus:border-lilac-500'
+                        }`}
+                      />
                     </div>
-                    <input
-                      ref={codeInputRef}
-                      type="text"
-                      value={code}
-                      onChange={(e) => {
-                        setCode(e.target.value.toUpperCase())
-                        if (codeConflictName) setCodeConflictName(null)
-                      }}
-                      onBlur={handleCodeBlur}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          attributeValueInputRef.current?.focus()
-                          attributeValueInputRef.current?.select()
-                        }
-                      }}
-                      placeholder="Ej: 780123456"
-                      className={`w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border rounded-xl font-mono text-slate-900 dark:text-white font-bold focus:outline-none uppercase placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-2xs ${
-                        codeConflictName
-                          ? 'border-rose-500 focus:border-rose-600 dark:border-rose-500'
-                          : 'border-slate-300 dark:border-slate-700 focus:border-lilac-500'
-                      }`}
-                    />
                   </div>
 
                   {/* Valor del Atributo */}
@@ -1534,43 +1564,40 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               {/* Fila 1: Código (1/3) + Nombre (2/3) */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
-                  <div className="flex items-center justify-between mb-1 gap-2">
-                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 shrink-0">
-                      Código de Barras / SKU * {product ? '(Editable)' : ''}
-                    </label>
+                  <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1">
+                    Código de Barras / SKU * {product ? '(Editable)' : ''}
+                  </label>
+                  <div className="relative">
                     {codeConflictName && (
-                      <span
-                        className="text-[11px] font-bold text-rose-600 dark:text-rose-400 truncate flex items-center gap-1 min-w-0"
-                        title={`En uso por: ${codeConflictName}`}
-                      >
-                        <AlertTriangle className="w-3 h-3 shrink-0" />
-                        <span className="truncate">En uso por: {codeConflictName}</span>
-                      </span>
+                      <CodeConflictTooltip
+                        message={`En uso por: ${codeConflictName}`}
+                        position="top-right"
+                      />
                     )}
+                    <input
+                      ref={codeInputRef}
+                      type="text"
+                      value={code}
+                      onChange={(e) => {
+                        setCode(e.target.value.toUpperCase())
+                        if (codeConflictName) setCodeConflictName(null)
+                      }}
+                      onBlur={handleCodeBlur}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          nameInputRef.current?.focus()
+                          nameInputRef.current?.select()
+                        }
+                      }}
+                      placeholder="Ej: 780123456"
+                      className={`w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border rounded-xl font-mono font-bold focus:outline-none uppercase text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-2xs ${
+                        codeConflictName
+                          ? 'border-rose-500 focus:border-rose-600 dark:border-rose-500'
+                          : 'border-slate-300 dark:border-slate-700 focus:border-lilac-500'
+                      }`}
+                    />
                   </div>
-                  <input
-                    ref={codeInputRef}
-                    type="text"
-                    value={code}
-                    onChange={(e) => {
-                      setCode(e.target.value.toUpperCase())
-                      if (codeConflictName) setCodeConflictName(null)
-                    }}
-                    onBlur={handleCodeBlur}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault()
-                        nameInputRef.current?.focus()
-                        nameInputRef.current?.select()
-                      }
-                    }}
-                    placeholder="Ej: 780123456"
-                    className={`w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border rounded-xl font-mono font-bold focus:outline-none uppercase text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-2xs ${
-                      codeConflictName
-                        ? 'border-rose-500 focus:border-rose-600 dark:border-rose-500'
-                        : 'border-slate-300 dark:border-slate-700 focus:border-lilac-500'
-                    }`}
-                  />
                   {product && (
                     <span className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 block font-medium">
                       Si modificas el código, se mantendrán intactos los movimientos en el kardex y ventas pasadas.
@@ -1861,6 +1888,16 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         {/* Fila 1: Código (1/6), Nombre / Atributo (4/6), Precio Venta (1/6) */}
                         <div className="grid grid-cols-6 gap-2">
                           <div className="col-span-1 relative">
+                            {((variationCodeCounts.get(v.code.trim().toUpperCase()) || 0) > 1 || variationCodeErrors[idx]) && (
+                              <CodeConflictTooltip
+                                message={
+                                  (variationCodeCounts.get(v.code.trim().toUpperCase()) || 0) > 1
+                                    ? 'Código repetido en lista'
+                                    : variationCodeErrors[idx] || ''
+                                }
+                                position="top-left"
+                              />
+                            )}
                             <input
                               ref={(el) => {
                                 if (el && idx === focusVariationIndex) {
@@ -1880,11 +1917,6 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                                   variationAttrRefs.current[idx]?.select()
                                 }
                               }}
-                              title={
-                                (variationCodeCounts.get(v.code.trim().toUpperCase()) || 0) > 1
-                                  ? 'Código repetido en esta lista'
-                                  : variationCodeErrors[idx] || undefined
-                              }
                               placeholder="Código *"
                               className={`w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border rounded-lg text-xs font-mono font-bold focus:outline-none uppercase placeholder:normal-case placeholder:font-sans placeholder:text-slate-400 dark:placeholder:text-slate-500 text-slate-900 dark:text-white text-left shadow-2xs ${
                                 (variationCodeCounts.get(v.code.trim().toUpperCase()) || 0) > 1 || variationCodeErrors[idx]
@@ -1892,16 +1924,6 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                                   : 'border-slate-300 dark:border-slate-700 focus:border-lilac-500'
                               }`}
                             />
-                            {((variationCodeCounts.get(v.code.trim().toUpperCase()) || 0) > 1 || variationCodeErrors[idx]) && (
-                              <div
-                                className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 pointer-events-none"
-                                title={
-                                  (variationCodeCounts.get(v.code.trim().toUpperCase()) || 0) > 1
-                                    ? 'Código repetido en esta lista'
-                                    : variationCodeErrors[idx] || undefined
-                                }
-                              />
-                            )}
                           </div>
                           <div className="col-span-4">
                             <input
