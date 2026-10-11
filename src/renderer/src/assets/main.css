@@ -292,6 +292,16 @@ html.dark,
   border-color: rgba(255, 255, 255, 0.15) !important;
 }
 
+.dark input[class*="dark:bg-slate-900"],
+.dark select[class*="dark:bg-slate-900"],
+.dark textarea[class*="dark:bg-slate-900"],
+.dark input.dark\:bg-slate-900,
+.dark select.dark\:bg-slate-900,
+.dark textarea.dark\:bg-slate-900 {
+  background-color: #0f172a !important;
+}
+
+
 /* Estados hover de listas y botones en modo oscuro */
 .dark .hover\:bg-slate-50:hover,
 .dark .hover\:bg-slate-100:hover,

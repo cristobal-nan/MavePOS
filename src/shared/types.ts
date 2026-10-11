@@ -244,6 +244,29 @@ export interface InventoryMovementDetail extends InventoryMovement {
   attribute_value?: string | null
   stock_before?: number
   stock_after?: number
+  is_last_product_movement?: boolean
+  can_cancel?: boolean
+  cannot_cancel_reason?: string
+  can_edit_reason?: boolean
+  cannot_edit_reason?: string
+}
+
+export interface AdjustmentCancellationPreview {
+  can_cancel: boolean
+  reason?: string
+  movements_to_revert: InventoryMovementDetail[]
+  current_stock: number
+  projected_stock: number
+  product_code: string
+  product_name: string
+  total_delta: number
+}
+
+export interface CancelAdjustmentResult {
+  revertedMovement: InventoryMovement
+  revertedMovements: InventoryMovement[]
+  newStock: number
+  product_code: string
 }
 
 export interface AdjustStockInput {
@@ -293,6 +316,24 @@ export interface CashSession {
   card_difference?: number | null
   transfer_verified_amount?: number | null
   transfer_difference?: number | null
+}
+
+export interface DailyCashRecord {
+  dateKey: string
+  displayDate: string
+  sessions: CashSession[]
+  turnCount: number
+  firstOpenedAt: string
+  lastClosedAt: string | null
+  initialOpeningFund: number
+  finalClosingCash: number | null
+  totalSalesCash: number
+  totalSalesCard: number
+  totalSalesTransfer: number
+  totalSales: number
+  totalDifferenceCash: number
+  totalDifferenceCard: number
+  totalWithdrawal: number
 }
 
 export interface CashCutSummary {
@@ -541,6 +582,9 @@ export interface PrinterInfo {
 export type ThermalFontFamily = 'font_a' | 'font_b'
 export type ThermalBodySize = 'normal' | 'compact'
 export type ThermalHeaderEmphasis = 'double' | 'normal'
+export type ThermalPrintMode = 'graphic' | 'raw_escpos'
+export type ThermalItemsLayout = '2_cols' | '3_cols' | '4_cols'
+export type ThermalTotalSize = 'normal' | 'double'
 
 export interface PrinterConfig {
   thermalType: ThermalPrinterType
@@ -553,6 +597,10 @@ export interface PrinterConfig {
   thermalFontFamily?: ThermalFontFamily
   thermalBodySize?: ThermalBodySize
   thermalHeaderEmphasis?: ThermalHeaderEmphasis
+  thermalPrintMode?: ThermalPrintMode
+  thermalItemsLayout?: ThermalItemsLayout
+  thermalTotalSize?: ThermalTotalSize
+  thermalSystemFont?: string
 }
 
 export interface PrintResult {
