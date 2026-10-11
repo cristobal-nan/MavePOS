@@ -3,7 +3,7 @@ import Database from 'better-sqlite3'
 import { runMigrations } from '../main/db/migrations'
 import { SettingsService } from '../main/services/settingsService'
 import { PrinterService } from '../main/services/printerService'
-import { generateNormalReceiptHtml as generateHtmlPure } from '../main/services/printing/ticketTemplates'
+import { generateNormalReceiptHtml as generateHtmlPure, sanitizeForThermalEscPos } from '../main/services/printing/ticketTemplates'
 import { CASH_DRAWER_PULSE_BUFFER, getRawPrintExePath } from '../main/services/printing/rawPrinterHelper'
 import { SaleDetail } from '../shared/types'
 
@@ -176,6 +176,58 @@ describe('Fase 9: Impresión y Tickets Térmicos (ESC/POS y Periféricos)', () =
       const buffer = printerObj.printer.getBuffer()
       expect(buffer).toBeDefined()
       expect(buffer.length).toBeGreaterThan(0)
+    })
+  })
+
+  describe('Sanitización para Impresión Térmica ESC/POS (sanitizeForThermalEscPos)', () => {
+    it('elimina signos de apertura ¡ y ¿ y reemplaza tildes por letras ASCII estándar', () => {
+      const input = '¡Gracias por su compra! Café molido, té de jazmín y azúcar rubia.'
+      const result = sanitizeForThermalEscPos(input)
+
+      expect(result).toBe('Gracias por su compra! Cafe molido, te de jazmin y azucar rubia.')
+      expect(result).not.toContain('¡')
+      expect(result).not.toContain('á')
+      expect(result).not.toContain('é')
+      expect(result).not.toContain('í')
+      expect(result).not.toContain('ú')
+    })
+
+    it('convierte eñes a enes y normaliza comillas, guiones y puntos suspensivos', () => {
+      const input = '“Lana Española” — N° 5 … Niño & Niña'
+      const result = sanitizeForThermalEscPos(input)
+
+      expect(result).toBe('"Lana Espanola" - N 5 ... Nino & Nina')
+      expect(result).not.toContain('ñ')
+      expect(result).not.toContain('Ñ')
+      expect(result).not.toContain('“')
+      expect(result).not.toContain('”')
+      expect(result).not.toContain('—')
+      expect(result).not.toContain('…')
+    })
+
+    it('reemplaza espacios de no separación (U+00A0 de fechas es-CL) y garantiza caracteres estrictamente ASCII', () => {
+      // Fecha con narrow no-break space común en toLocaleString('es-CL')
+      const inputWithNBSP = '11-10-2026, 8:32:36 p.\u00A0m.'
+      const result = sanitizeForThermalEscPos(inputWithNBSP)
+
+      expect(result).toBe('11-10-2026, 8:32:36 p. m.')
+
+      // Verificar que ningún carácter tiene código > 127
+      for (let i = 0; i < result.length; i++) {
+        expect(result.charCodeAt(i)).toBeLessThanOrEqual(127)
+      }
+    })
+
+    it('limpia cualquier carácter diacrítico o Unicode no mapeado garantizando salida 100% segura para impresoras OEM', () => {
+      const input = '¡Atención! 100% Calidad — Óptimo & Éxito ★★★'
+      const result = sanitizeForThermalEscPos(input)
+
+      for (let i = 0; i < result.length; i++) {
+        const code = result.charCodeAt(i)
+        expect(code).toBeGreaterThanOrEqual(32)
+        expect(code).toBeLessThanOrEqual(126)
+      }
+      expect(result).toContain('Atencion! 100% Calidad - Optimo & Exito')
     })
   })
 
