@@ -43,7 +43,6 @@ export const CatalogView: React.FC = () => {
     setSelectedProductType,
     loadMetadata,
     fetchProducts,
-    deleteProduct,
     bulkDeleteProducts,
     seedSampleData
   } = useCatalogStore()
@@ -69,7 +68,6 @@ export const CatalogView: React.FC = () => {
   })
 
   // Modales de confirmación para eliminar productos y validación de stock
-  const [productToDelete, setProductToDelete] = useState<ProductSearchResult | null>(null)
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false)
   const [stockBlockedProduct, setStockBlockedProduct] = useState<ProductSearchResult | null>(null)
 
@@ -77,13 +75,6 @@ export const CatalogView: React.FC = () => {
     id: 'catalog-stock-blocked-modal',
     isOpen: !!stockBlockedProduct,
     onClose: () => setStockBlockedProduct(null),
-    closeOnBackdrop: true
-  })
-
-  const { handleBackdropClick: handleBackdropDeleteSingle } = useModalStack({
-    id: 'catalog-delete-single-modal',
-    isOpen: !!productToDelete,
-    onClose: () => setProductToDelete(null),
     closeOnBackdrop: true
   })
 
@@ -168,14 +159,6 @@ export const CatalogView: React.FC = () => {
     setIsProductModalOpen(true)
   }
 
-  const handleDeleteProduct = (product: ProductSearchResult): void => {
-    if (product.stock > 0) {
-      setStockBlockedProduct(product)
-      return
-    }
-    setProductToDelete(product)
-  }
-
   const handleGoToAdjustInventory = (): void => {
     if (!stockBlockedProduct) return
     const p = stockBlockedProduct
@@ -183,13 +166,6 @@ export const CatalogView: React.FC = () => {
     useInventoryStore.getState().setSelectedProduct(p)
     useInventoryStore.getState().setActiveTab('adjust')
     useUIStore.getState().setActiveTab('inventario')
-  }
-
-  const handleConfirmDeleteProduct = async (): Promise<void> => {
-    if (!productToDelete) return
-    const p = productToDelete
-    setProductToDelete(null)
-    await deleteProduct(p.id || p.code!)
   }
 
   const handleToggleSelect = (product: ProductSearchResult): void => {
@@ -435,7 +411,6 @@ export const CatalogView: React.FC = () => {
 
         <ProductSearch
           onEditProduct={handleEditProduct}
-          onDeleteProduct={handleDeleteProduct}
           showActions={true}
           enableMultiSelect={true}
           selectedIds={selectedProductIds}
@@ -572,76 +547,6 @@ export const CatalogView: React.FC = () => {
               >
                 <Boxes className="w-4 h-4" />
                 <span>Ir a Ajustar Inventario</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de confirmación para eliminar un producto individual */}
-      {productToDelete && (
-        <div
-          onClick={handleBackdropDeleteSingle}
-          className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 select-none animate-in fade-in duration-150"
-        >
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
-            <div className="px-6 py-4 bg-white dark:bg-slate-850 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-rose-100 dark:bg-slate-800 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
-                  <Trash2 className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">
-                    {productToDelete.product_type === 'variable'
-                      ? '¿Eliminar producto variable?'
-                      : '¿Eliminar producto?'}
-                  </h4>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-                    {productToDelete.code || 'Sin código'}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setProductToDelete(null)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="p-6 flex flex-col gap-3">
-              <div className="bg-rose-50 dark:bg-slate-800/80 border border-rose-200 dark:border-rose-900/60 rounded-xl p-3.5 flex flex-col gap-1 text-xs">
-                <span className="font-bold text-rose-900 dark:text-rose-200">
-                  {productToDelete.name}
-                </span>
-                <span className="text-rose-700 dark:text-rose-300 text-[11px]">
-                  {productToDelete.product_type === 'variable'
-                    ? 'Se desactivarán tanto el producto padre como todas sus variaciones asociadas.'
-                    : 'Se realizará un soft delete (se mantendrá en el historial/kardex pero no estará en ventas).'}
-                </span>
-              </div>
-              <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                ¿Confirmas que deseas desactivar este producto del catálogo activo?
-              </p>
-            </div>
-
-            <div className="px-6 py-4 bg-white dark:bg-slate-850 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setProductToDelete(null)}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors cursor-pointer"
-              >
-                Cancelar (Esc)
-              </button>
-              <button
-                type="button"
-                autoFocus
-                onClick={handleConfirmDeleteProduct}
-                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-md shadow-rose-600/25 flex items-center gap-2 transition-all cursor-pointer"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>Sí, Eliminar (Enter)</span>
               </button>
             </div>
           </div>

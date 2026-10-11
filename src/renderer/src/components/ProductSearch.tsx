@@ -21,7 +21,6 @@ import { useCatalogStore } from '../store/catalogStore'
 interface ProductSearchProps {
   onSelectProduct?: (product: ProductSearchResult) => void
   onEditProduct?: (product: ProductSearchResult) => void
-  onDeleteProduct?: (product: ProductSearchResult) => void
   showActions?: boolean
   selectedProductCode?: string | null
   placeholder?: string
@@ -38,7 +37,6 @@ interface ProductSearchProps {
 export const ProductSearch: React.FC<ProductSearchProps> = ({
   onSelectProduct,
   onEditProduct,
-  onDeleteProduct,
   showActions = true,
   selectedProductCode = null,
   placeholder = 'Buscar por nombre (ej: algod, %algod, algod%negro) o código exacto...',
@@ -791,14 +789,6 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                               className="px-2 py-0.5 text-[11px] text-lilac-700 dark:text-lilac-300 bg-lilac-50 dark:bg-slate-700 hover:bg-lilac-100 dark:hover:bg-slate-600 border border-transparent dark:border-slate-600 rounded font-medium transition-colors cursor-pointer"
                             >
                               Editar
-                            </button>
-                          )}
-                          {onDeleteProduct && (
-                            <button
-                              onClick={() => onDeleteProduct(p)}
-                              className="px-2 py-0.5 text-[11px] text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded font-medium transition-colors cursor-pointer"
-                            >
-                              Eliminar
                             </button>
                           )}
                         </div>

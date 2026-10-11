@@ -1227,9 +1227,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-lilac-100 dark:border-slate-800 max-w-3xl w-full overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150 select-text">
+      <div className="bg-slate-50 dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-3xl w-full overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150 select-text">
         {/* Modal Header */}
-        <div className="px-6 py-4 bg-white dark:bg-slate-850 border-b border-lilac-100 dark:border-slate-800 flex items-center justify-between shrink-0">
+        <div className="px-6 py-4 bg-white dark:bg-slate-850 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2 text-slate-800 dark:text-slate-100 font-bold text-base">
             <div className="w-8 h-8 rounded-lg bg-lilac-100 dark:bg-slate-800 text-lilac-600 dark:text-lilac-400 flex items-center justify-center">
               <Package className="w-4 h-4" />
@@ -1251,17 +1251,17 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5">
+        <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-5 bg-slate-50 dark:bg-slate-900 flex-1">
           {/* Selector de Tipo (Simple vs Variable) - Solo al crear nuevo producto */}
           {!product && (
             <div className="flex items-center gap-3 bg-slate-100/80 dark:bg-slate-800/80 p-1.5 rounded-xl border border-slate-200/60 dark:border-slate-700">
               <button
                 type="button"
                 onClick={() => setProductType('simple')}
-                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold border focus:outline-none focus-visible:outline-none transition-colors duration-100 flex items-center justify-center gap-1.5 cursor-pointer ${
                   productType === 'simple'
-                    ? 'bg-white dark:bg-slate-700 text-lilac-700 dark:text-lilac-300 shadow-sm border border-lilac-200 dark:border-slate-600'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                    ? 'bg-white dark:bg-slate-700 text-lilac-700 dark:text-lilac-300 shadow-sm border-lilac-200 dark:border-slate-600'
+                    : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/40'
                 }`}
               >
                 <Package className="w-3.5 h-3.5" />
@@ -1270,10 +1270,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               <button
                 type="button"
                 onClick={() => setProductType('variable')}
-                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold border focus:outline-none focus-visible:outline-none transition-colors duration-100 flex items-center justify-center gap-1.5 cursor-pointer ${
                   productType === 'variable'
-                    ? 'bg-white dark:bg-slate-700 text-lilac-700 dark:text-lilac-300 shadow-sm border border-lilac-200 dark:border-slate-600'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                    ? 'bg-white dark:bg-slate-700 text-lilac-700 dark:text-lilac-300 shadow-sm border-lilac-200 dark:border-slate-600'
+                    : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/40'
                 }`}
               >
                 <GitBranch className="w-3.5 h-3.5" />
@@ -1317,7 +1317,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       value={parentName}
                       onChange={(e) => setParentName(capitalizeWords(e.target.value))}
                       placeholder="Ej: Algodón Rústico"
-                      className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                      className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
                   </div>
                   <div>
@@ -1329,7 +1329,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       value={attributeName}
                       onChange={(e) => setAttributeName(capitalizeWords(e.target.value))}
                       placeholder="Ej: Color, Talla"
-                      className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-medium text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                      className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-medium text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
                   </div>
                 </div>
@@ -1360,7 +1360,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       value={parentSalePrice}
                       onChange={(e) => handleParentSalePriceChange(e.target.value)}
                       placeholder="Ej: 3.500"
-                      className="w-full px-3 py-2 text-sm font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                      className="w-full px-3 py-2 text-sm font-bold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
                     <span className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 block font-medium">
                       Precio general para las variaciones.
@@ -1377,7 +1377,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       value={parentCostPrice}
                       onChange={(e) => handleParentCostPriceChange(e.target.value)}
                       placeholder="Opcional"
-                      className="w-full px-3 py-2 text-sm font-medium text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                      className="w-full px-3 py-2 text-sm font-medium text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
                     <span className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 block font-medium">
                       Costo base general.
@@ -1395,7 +1395,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       value={parentMinStock}
                       onChange={(e) => handleParentMinStockChange(e.target.value)}
                       placeholder="5"
-                      className="w-full px-3 py-2 text-sm font-medium text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                      className="w-full px-3 py-2 text-sm font-medium text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
                     <span className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 block font-medium">
                       Alerta stock bajo para variaciones.
@@ -1446,7 +1446,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                           }
                         }}
                         placeholder="Ej: 780123456"
-                        className={`w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border rounded-xl font-mono text-slate-900 dark:text-white font-bold focus:outline-none uppercase placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-2xs ${
+                        className={`w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border rounded-xl font-mono text-slate-900 dark:text-white font-bold focus:outline-none uppercase placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-2xs ${
                           codeConflictName
                             ? 'border-rose-500 focus:border-rose-600 dark:border-rose-500'
                             : 'border-slate-300 dark:border-slate-700 focus:border-lilac-500'
@@ -1466,7 +1466,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       value={attributeValue}
                       onChange={(e) => setAttributeValue(capitalizeWords(e.target.value))}
                       placeholder="Ej: Azul Marino, Rojo, XL..."
-                      className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-slate-900 dark:text-white focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-2xs"
+                      className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl font-bold text-slate-900 dark:text-white focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-2xs"
                     />
                   </div>
                 </div>
@@ -1486,7 +1486,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         setSalePrice(val === 0 && !e.target.value.trim() ? '' : val.toLocaleString('es-CL'))
                       }}
                       placeholder="0"
-                      className="w-full px-3 py-2 text-sm font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                      className="w-full px-3 py-2 text-sm font-bold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
                   </div>
                   <div>
@@ -1502,7 +1502,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         setCostPrice(val === 0 && !e.target.value.trim() ? '' : val.toLocaleString('es-CL'))
                       }}
                       placeholder="Opcional"
-                      className="w-full px-3 py-2 text-sm font-medium text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                      className="w-full px-3 py-2 text-sm font-medium text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
                   </div>
                   <div>
@@ -1529,7 +1529,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         onChange={(e) => setStock(e.target.value)}
                         min="0"
                         placeholder="Stock inicial"
-                        className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                        className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                       />
                     )}
                   </div>
@@ -1543,7 +1543,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       value={minStock}
                       onChange={(e) => setMinStock(e.target.value)}
                       min="0"
-                      className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-medium text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                      className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-medium text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
                   </div>
                 </div>
@@ -1591,7 +1591,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         }
                       }}
                       placeholder="Ej: 780123456"
-                      className={`w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border rounded-xl font-mono font-bold focus:outline-none uppercase text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-2xs ${
+                      className={`w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border rounded-xl font-mono font-bold focus:outline-none uppercase text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-2xs ${
                         codeConflictName
                           ? 'border-rose-500 focus:border-rose-600 dark:border-rose-500'
                           : 'border-slate-300 dark:border-slate-700 focus:border-lilac-500'
@@ -1615,7 +1615,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     value={name}
                     onChange={(e) => setName(capitalizeWords(e.target.value))}
                     placeholder="Ej: Crochet Aluminio 4.0mm"
-                    className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-2xs"
+                    className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-2xs"
                   />
                 </div>
               </div>
@@ -1649,7 +1649,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       setSalePrice(val === 0 && !e.target.value.trim() ? '' : val.toLocaleString('es-CL'))
                     }}
                     placeholder="0"
-                    className="w-full px-3 py-2 text-sm font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                    className="w-full px-3 py-2 text-sm font-bold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                   />
                 </div>
 
@@ -1666,7 +1666,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       setCostPrice(val === 0 && !e.target.value.trim() ? '' : val.toLocaleString('es-CL'))
                     }}
                     placeholder="Opcional"
-                    className="w-full px-3 py-2 text-sm font-medium text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                    className="w-full px-3 py-2 text-sm font-medium text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                   />
                 </div>
 
@@ -1694,7 +1694,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       onChange={(e) => setStock(e.target.value)}
                       min="0"
                       placeholder="Stock inicial"
-                      className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                      className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
                   )}
                 </div>
@@ -1709,7 +1709,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     value={minStock}
                     onChange={(e) => setMinStock(e.target.value)}
                     min="0"
-                    className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-medium text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                    className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-medium text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                   />
                 </div>
               </div>
@@ -1739,7 +1739,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       value={name}
                       onChange={(e) => setName(capitalizeWords(e.target.value))}
                       placeholder="Ej: Algodón Rústico"
-                      className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-2xs"
+                      className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-2xs"
                     />
                   </div>
                   <div>
@@ -1751,7 +1751,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       value={attributeName}
                       onChange={(e) => setAttributeName(capitalizeWords(e.target.value))}
                       placeholder="Ej: Color, Talla, Grosor"
-                      className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-medium text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-2xs"
+                      className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-medium text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-2xs"
                     />
                   </div>
                 </div>
@@ -1796,7 +1796,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                           setSalePrice(val === 0 && !e.target.value.trim() ? '' : val.toLocaleString('es-CL'))
                         }}
                         placeholder="Ej: 3.500"
-                        className="w-full px-3 py-2 text-sm font-bold text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                        className="w-full px-3 py-2 text-sm font-bold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                       />
                     </div>
                     <div>
@@ -1812,7 +1812,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                           setCostPrice(val === 0 && !e.target.value.trim() ? '' : val.toLocaleString('es-CL'))
                         }}
                         placeholder="Opcional"
-                        className="w-full px-3 py-2 text-sm font-medium text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                        className="w-full px-3 py-2 text-sm font-medium text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                       />
                     </div>
                     <div>
@@ -1826,7 +1826,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         value={minStock}
                         onChange={(e) => setMinStock(e.target.value)}
                         placeholder="5"
-                        className="w-full px-3 py-2 text-sm font-medium text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                        className="w-full px-3 py-2 text-sm font-medium text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                       />
                     </div>
                   </div>
@@ -1918,7 +1918,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                                 }
                               }}
                               placeholder="Código *"
-                              className={`w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border rounded-lg text-xs font-mono font-bold focus:outline-none uppercase placeholder:normal-case placeholder:font-sans placeholder:text-slate-400 dark:placeholder:text-slate-500 text-slate-900 dark:text-white text-left shadow-2xs ${
+                              className={`w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border rounded-lg text-xs font-mono font-bold focus:outline-none uppercase placeholder:normal-case placeholder:font-sans placeholder:text-slate-400 dark:placeholder:text-slate-500 text-slate-900 dark:text-white text-left shadow-2xs ${
                                 (variationCodeCounts.get(v.code.trim().toUpperCase()) || 0) > 1 || variationCodeErrors[idx]
                                   ? 'border-rose-500 focus:border-rose-600 dark:border-rose-500'
                                   : 'border-slate-300 dark:border-slate-700 focus:border-lilac-500'
@@ -1934,7 +1934,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                               value={v.attributeValue}
                               onChange={(e) => handleVariationChange(idx, 'attributeValue', e.target.value)}
                               placeholder={`Nombre / Valor (${attributeName || 'Atributo'}) * (Ej: Negro, Azul, XL)`}
-                              className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs focus:outline-none focus:border-lilac-500 font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 text-left shadow-2xs"
+                              className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs focus:outline-none focus:border-lilac-500 font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 text-left shadow-2xs"
                             />
                           </div>
                           <div className="col-span-1">
@@ -1950,7 +1950,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                                 )
                               }}
                               placeholder="P. Venta *"
-                              className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500 placeholder:font-normal text-left shadow-2xs"
+                              className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500 placeholder:font-normal text-left shadow-2xs"
                             />
                           </div>
                         </div>
@@ -1970,7 +1970,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                                 )
                               }}
                               placeholder="P. Costo (opcional)"
-                              className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-left shadow-2xs"
+                              className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-left shadow-2xs"
                             />
                           </div>
                           <div className="flex-1">
@@ -1990,7 +1990,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                                 onChange={(e) => handleVariationChange(idx, 'stock', e.target.value)}
                                 min="0"
                                 placeholder="Stock"
-                                className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-left shadow-2xs"
+                                className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-left shadow-2xs"
                               />
                             )}
                           </div>
@@ -2001,7 +2001,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                               onChange={(e) => handleVariationChange(idx, 'minStock', e.target.value)}
                               min="0"
                               placeholder="Stock Mínimo"
-                              className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-left shadow-2xs"
+                              className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-left shadow-2xs"
                             />
                           </div>
                           <button
@@ -2034,7 +2034,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           )}
 
           {/* Footer buttons */}
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 shrink-0">
+          <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 shrink-0">
             {product ? (
               <button
                 type="button"

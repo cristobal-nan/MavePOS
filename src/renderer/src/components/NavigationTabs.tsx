@@ -52,15 +52,15 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
           <button
             key={tab.id}
             onClick={() => onSelectTab(tab.id)}
-            className={`h-9 px-4 rounded-lg flex items-center gap-2 text-sm font-medium transition-all duration-150 ${
+            className={`h-9 px-4 rounded-lg flex items-center gap-2 text-sm border focus:outline-none focus-visible:outline-none transition-colors duration-100 cursor-pointer ${
               isActive
-                ? 'bg-lilac-100 dark:bg-lilac-950/60 text-lilac-800 dark:text-lilac-200 shadow-sm border border-lilac-200 dark:border-lilac-800 font-semibold'
-                : 'text-slate-600 dark:text-slate-300 hover:text-lilac-900 dark:hover:text-lilac-200 hover:bg-lilac-50 dark:hover:bg-slate-700/60'
+                ? 'bg-lilac-100 dark:bg-lilac-950/60 text-lilac-800 dark:text-lilac-200 shadow-sm border-lilac-200 dark:border-lilac-800 font-semibold'
+                : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-slate-700/50'
             }`}
           >
             <Icon
               className={`w-4 h-4 transition-colors ${
-                isActive ? 'text-lilac-600 dark:text-lilac-400' : 'text-slate-400 dark:text-slate-400 group-hover:text-lilac-500'
+                isActive ? 'text-lilac-600 dark:text-lilac-400' : 'text-slate-400 dark:text-slate-400'
               }`}
             />
             <span>{tab.label}</span>

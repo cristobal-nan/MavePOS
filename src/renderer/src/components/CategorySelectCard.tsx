@@ -204,7 +204,7 @@ export const CategorySelectCard: React.FC<CategorySelectCardProps> = ({
                 value={filterQuery}
                 onChange={(e) => setFilterQuery(e.target.value)}
                 placeholder="Filtrar categorías..."
-                className="w-full pl-8 pr-7 py-1 text-[11px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-lilac-400 rounded-lg outline-none text-slate-800 dark:text-white"
+                className="w-full pl-8 pr-7 py-1 text-[11px] bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-lilac-400 rounded-lg outline-none text-slate-800 dark:text-white"
               />
               {filterQuery && (
                 <button
