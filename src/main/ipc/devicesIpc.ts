@@ -37,4 +37,9 @@ export function registerDevicesIpc(
   ipcMain.handle('printers:printNormal', (_event, saleDetail: SaleDetail, printerName?: string) => {
     return printerService.printNormalReceipt(saleDetail, printerName)
   })
+
+  ipcMain.handle('printers:printCashCut', (_event, data: any, customConfig?: Partial<PrinterConfig>) => {
+    return printerService.printCashCutReceipt(data, customConfig)
+  })
 }
+

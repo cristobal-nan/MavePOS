@@ -13,7 +13,10 @@ import {
   BusinessInfo,
   buildThermalReceipt,
   buildThermalTestTicket,
-  generateNormalReceiptHtml
+  buildThermalCashCutReceipt,
+  generateNormalReceiptHtml,
+  generateThermalReceiptHtml,
+  generateThermalCashCutHtml
 } from './printing/ticketTemplates'
 import {
   sendRawBufferToPrinter,
@@ -62,6 +65,14 @@ export class PrinterService {
       (this.settingsService.get('printer_thermal_body_size', 'normal') as any) || 'normal'
     const thermalHeaderEmphasis =
       (this.settingsService.get('printer_thermal_header_emphasis', 'double') as any) || 'double'
+    const thermalPrintMode =
+      (this.settingsService.get('printer_thermal_print_mode', 'graphic') as any) || 'graphic'
+    const thermalItemsLayout =
+      (this.settingsService.get('printer_thermal_items_layout', '2_cols') as any) || '2_cols'
+    const thermalTotalSize =
+      (this.settingsService.get('printer_thermal_total_size', 'double') as any) || 'double'
+    const thermalSystemFont =
+      this.settingsService.get('printer_thermal_system_font', 'Segoe UI, sans-serif') || 'Segoe UI, sans-serif'
 
     return {
       thermalType,
@@ -73,7 +84,11 @@ export class PrinterService {
       normalPrinterName,
       thermalFontFamily,
       thermalBodySize,
-      thermalHeaderEmphasis
+      thermalHeaderEmphasis,
+      thermalPrintMode,
+      thermalItemsLayout,
+      thermalTotalSize,
+      thermalSystemFont
     }
   }
 
@@ -110,6 +125,18 @@ export class PrinterService {
     }
     if (config.thermalHeaderEmphasis !== undefined) {
       this.settingsService.set('printer_thermal_header_emphasis', config.thermalHeaderEmphasis)
+    }
+    if (config.thermalPrintMode !== undefined) {
+      this.settingsService.set('printer_thermal_print_mode', config.thermalPrintMode)
+    }
+    if (config.thermalItemsLayout !== undefined) {
+      this.settingsService.set('printer_thermal_items_layout', config.thermalItemsLayout)
+    }
+    if (config.thermalTotalSize !== undefined) {
+      this.settingsService.set('printer_thermal_total_size', config.thermalTotalSize)
+    }
+    if (config.thermalSystemFont !== undefined) {
+      this.settingsService.set('printer_thermal_system_font', config.thermalSystemFont)
     }
   }
 
@@ -166,7 +193,9 @@ export class PrinterService {
       business: this.getBusinessInfo(),
       fontFamily: printerObj.config.thermalFontFamily,
       bodySize: printerObj.config.thermalBodySize,
-      headerEmphasis: printerObj.config.thermalHeaderEmphasis
+      headerEmphasis: printerObj.config.thermalHeaderEmphasis,
+      itemsLayout: printerObj.config.thermalItemsLayout,
+      totalSize: printerObj.config.thermalTotalSize
     })
   }
 
@@ -196,22 +225,119 @@ export class PrinterService {
   }
 
   /**
+   * Generates HTML markup for silent graphical thermal printing.
+   */
+  generateThermalGraphicHtml(
+    saleDetail: SaleDetail,
+    change = 0,
+    config?: Partial<PrinterConfig>
+  ): string {
+    const effective = { ...this.getPrinterConfig(), ...config }
+    return generateThermalReceiptHtml({
+      saleDetail,
+      business: this.getBusinessInfo(),
+      change,
+      paperWidth: effective.paperWidth,
+      fontFamily: effective.thermalSystemFont || 'Segoe UI, sans-serif',
+      bodySize: effective.thermalBodySize,
+      headerEmphasis: effective.thermalHeaderEmphasis,
+      itemsLayout: effective.thermalItemsLayout,
+      totalSize: effective.thermalTotalSize
+    })
+  }
+
+  /**
+   * Prints a thermal receipt silently via Windows Spooler graphics pipeline.
+   */
+  async printThermalGraphicSilent(
+    html: string,
+    printerName: string
+  ): Promise<PrintResult> {
+    return new Promise((resolve) => {
+      const printWin = new BrowserWindow({
+        show: false,
+        webPreferences: { nodeIntegration: false }
+      })
+
+      printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
+
+      printWin.webContents.on('did-finish-load', () => {
+        printWin.webContents.print(
+          {
+            silent: true,
+            deviceName: printerName,
+            printBackground: true,
+            margins: { marginType: 'none' }
+          },
+          (success, failureReason) => {
+            printWin.close()
+            if (!success) {
+              resolve({
+                success: false,
+                error: failureReason || 'Error al enviar a la impresora térmica de Windows.'
+              })
+            } else {
+              resolve({ success: true })
+            }
+          }
+        )
+      })
+    })
+  }
+
+  /**
    * Prints a thermal receipt for a sale.
+   * If thermalPrintMode is 'graphic' (default) and interface is a Windows printer,
+   * prints silently via graphic renderer and dispatches hybrid cash drawer pulse if needed.
    */
   async printThermalReceipt(
     saleDetail: SaleDetail,
     change = 0,
     customConfig?: Partial<PrinterConfig>
   ): Promise<PrintResult> {
-    const printerObj = this.createPrinterInstance(customConfig)
+    const config = { ...this.getPrinterConfig(), ...customConfig }
 
-    if (!printerObj.config.thermalInterface) {
+    if (!config.thermalInterface) {
       return {
         success: false,
         error: 'No se ha configurado ninguna impresora térmica de destino en Configuración.'
       }
     }
 
+    const isWindowsPrinter = config.thermalInterfaceType === 'windows_printer'
+    const printerName = config.thermalInterface.replace(/^printer:/i, '').trim()
+    const isGraphicMode = (config.thermalPrintMode ?? 'graphic') === 'graphic' && isWindowsPrinter
+
+    if (isGraphicMode) {
+      try {
+        const html = this.generateThermalGraphicHtml(saleDetail, change, config)
+        const printResult = await this.printThermalGraphicSilent(html, printerName)
+
+        if (!printResult.success) {
+          return printResult
+        }
+
+        // Modo Híbrido: Enviar pulso de cajón si está activado
+        if (config.openDrawerOnPrint) {
+          try {
+            await this.openCashDrawer(config)
+          } catch (drawerErr) {
+            console.warn('Aviso: Ticket impreso pero falló pulso de cajón:', drawerErr)
+          }
+        }
+
+        return { success: true }
+      } catch (err: any) {
+        console.error('Error imprimiendo ticket gráfico:', err)
+        return {
+          success: false,
+          error: err.message || 'Error al imprimir ticket térmico.'
+        }
+      }
+    }
+
+    // Fallback: Impresión nativa ESC/POS RAW
+    const printerObj = this.createPrinterInstance(customConfig)
     try {
       this.buildReceiptCommands(printerObj, saleDetail, change)
       const buffer = printerObj.printer.getBuffer()
@@ -221,7 +347,7 @@ export class PrinterService {
         `Venta #${saleDetail.folio ?? saleDetail.id}`
       )
     } catch (err: any) {
-      console.error('Error imprimiendo ticket térmico:', err)
+      console.error('Error imprimiendo ticket térmico ESC/POS:', err)
       return {
         success: false,
         error: err.message || 'Error de comunicación con la impresora térmica.'
@@ -261,15 +387,72 @@ export class PrinterService {
    * Prints a diagnostic test ticket to verify thermal printer connectivity and formatting.
    */
   async printTestTicket(customConfig?: Partial<PrinterConfig>): Promise<PrintResult> {
-    const printerObj = this.createPrinterInstance(customConfig)
+    const config = { ...this.getPrinterConfig(), ...customConfig }
 
-    if (!printerObj.config.thermalInterface) {
+    if (!config.thermalInterface) {
       return {
         success: false,
         error: 'Por favor selecciona una impresora térmica antes de realizar la prueba.'
       }
     }
 
+    const isWindowsPrinter = config.thermalInterfaceType === 'windows_printer'
+    const printerName = config.thermalInterface.replace(/^printer:/i, '').trim()
+    const isGraphicMode = (config.thermalPrintMode ?? 'graphic') === 'graphic' && isWindowsPrinter
+
+    if (isGraphicMode) {
+      try {
+        const dummySale: SaleDetail = {
+          id: 0,
+          folio: 1,
+          ticket_number: 1,
+          status: 'completed',
+          cash_session_id: null,
+          total: 12990,
+          created_at: new Date().toISOString(),
+          completed_at: new Date().toISOString(),
+          total_items: 3,
+          returned_items_count: 0,
+          items: [
+            {
+              id: 1,
+              sale_id: 0,
+              product_code: 'TEST-01',
+              name: 'Producto de Prueba 1',
+              quantity: 2,
+              returned_qty: 0,
+              unit_price: 4500
+            },
+            {
+              id: 2,
+              sale_id: 0,
+              product_code: 'TEST-02',
+              name: 'Producto de Prueba 2',
+              quantity: 1,
+              returned_qty: 0,
+              unit_price: 3990
+            }
+          ],
+          payments: [
+            {
+              id: 1,
+              sale_id: 0,
+              method: 'cash',
+              amount: 15000
+            }
+          ]
+        }
+        const html = this.generateThermalGraphicHtml(dummySale, 2010, config)
+        return await this.printThermalGraphicSilent(html, printerName)
+      } catch (err: any) {
+        return {
+          success: false,
+          error: err.message || 'Error en prueba de impresión gráfica.'
+        }
+      }
+    }
+
+    const printerObj = this.createPrinterInstance(customConfig)
     try {
       const { printer, widthChars } = printerObj
       const businessName = this.settingsService.get('business_name', 'MAVE POS') || 'MAVE POS'
@@ -281,7 +464,9 @@ export class PrinterService {
         businessName,
         fontFamily: printerObj.config.thermalFontFamily,
         bodySize: printerObj.config.thermalBodySize,
-        headerEmphasis: printerObj.config.thermalHeaderEmphasis
+        headerEmphasis: printerObj.config.thermalHeaderEmphasis,
+        itemsLayout: printerObj.config.thermalItemsLayout,
+        totalSize: printerObj.config.thermalTotalSize
       })
 
       const buffer = printer.getBuffer()
@@ -340,4 +525,75 @@ export class PrinterService {
       })
     })
   }
+
+  /**
+   * Prints a cash cut / session closing receipt via thermal printer (graphic or ESC/POS).
+   */
+  async printCashCutReceipt(
+    data: any,
+    customConfig?: Partial<PrinterConfig>
+  ): Promise<PrintResult> {
+    const config = { ...this.getPrinterConfig(), ...customConfig }
+
+    if (!config.thermalInterface) {
+      return {
+        success: false,
+        error: 'No se ha configurado ninguna impresora térmica de destino en Configuración.'
+      }
+    }
+
+    const isWindowsPrinter = config.thermalInterfaceType === 'windows_printer'
+    const printerName = config.thermalInterface.replace(/^printer:/i, '').trim()
+    const isGraphicMode = (config.thermalPrintMode ?? 'graphic') === 'graphic' && isWindowsPrinter
+
+    if (isGraphicMode) {
+      try {
+        const html = generateThermalCashCutHtml({
+          data,
+          business: this.getBusinessInfo(),
+          paperWidth: config.paperWidth,
+          fontFamily: config.thermalSystemFont || 'Segoe UI, sans-serif',
+          bodySize: config.thermalBodySize,
+          headerEmphasis: config.thermalHeaderEmphasis
+        })
+
+        const printResult = await this.printThermalGraphicSilent(html, printerName)
+        return printResult
+      } catch (err: any) {
+        console.error('Error imprimiendo comprobante de corte gráfico:', err)
+        return {
+          success: false,
+          error: err.message || 'Error al imprimir comprobante de corte.'
+        }
+      }
+    }
+
+    // Fallback: Impresión nativa ESC/POS RAW
+    const printerObj = this.createPrinterInstance(customConfig)
+    try {
+      buildThermalCashCutReceipt({
+        printer: printerObj.printer,
+        widthChars: printerObj.widthChars,
+        data,
+        business: this.getBusinessInfo(),
+        fontFamily: printerObj.config.thermalFontFamily,
+        bodySize: printerObj.config.thermalBodySize,
+        headerEmphasis: printerObj.config.thermalHeaderEmphasis
+      })
+
+      const buffer = printerObj.printer.getBuffer()
+      return await this.dispatchThermalBuffer(
+        buffer,
+        printerObj.config,
+        `Corte Caja #${data.sessionId}`
+      )
+    } catch (err: any) {
+      console.error('Error imprimiendo comprobante de corte ESC/POS:', err)
+      return {
+        success: false,
+        error: err.message || 'Error de comunicación con la impresora térmica.'
+      }
+    }
+  }
 }
+

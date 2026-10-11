@@ -39,6 +39,10 @@ describe('Fase 9: Impresión y Tickets Térmicos (ESC/POS y Periféricos)', () =
       expect(config.thermalFontFamily).toBe('font_a')
       expect(config.thermalBodySize).toBe('normal')
       expect(config.thermalHeaderEmphasis).toBe('double')
+      expect(config.thermalPrintMode).toBe('graphic')
+      expect(config.thermalItemsLayout).toBe('2_cols')
+      expect(config.thermalTotalSize).toBe('double')
+      expect(config.thermalSystemFont).toBe('Segoe UI, sans-serif')
     })
 
     it('guarda y recupera parámetros de configuración de impresora térmica y cajón', () => {
@@ -52,7 +56,11 @@ describe('Fase 9: Impresión y Tickets Térmicos (ESC/POS y Periféricos)', () =
         normalPrinterName: 'HP LaserJet Pro',
         thermalFontFamily: 'font_b',
         thermalBodySize: 'compact',
-        thermalHeaderEmphasis: 'normal'
+        thermalHeaderEmphasis: 'normal',
+        thermalPrintMode: 'raw_escpos',
+        thermalItemsLayout: '4_cols',
+        thermalTotalSize: 'normal',
+        thermalSystemFont: 'Consolas, monospace'
       })
 
       const config = printerService.getPrinterConfig()
@@ -67,6 +75,10 @@ describe('Fase 9: Impresión y Tickets Térmicos (ESC/POS y Periféricos)', () =
       expect(config.thermalFontFamily).toBe('font_b')
       expect(config.thermalBodySize).toBe('compact')
       expect(config.thermalHeaderEmphasis).toBe('normal')
+      expect(config.thermalPrintMode).toBe('raw_escpos')
+      expect(config.thermalItemsLayout).toBe('4_cols')
+      expect(config.thermalTotalSize).toBe('normal')
+      expect(config.thermalSystemFont).toBe('Consolas, monospace')
     })
   })
 
@@ -334,4 +346,121 @@ describe('Fase 9: Impresión y Tickets Térmicos (ESC/POS y Periféricos)', () =
       expect(hex).toContain('1d5600')
     })
   })
+
+  describe('Renderizado Gráfico Silencioso de Ticket Térmico (generateThermalGraphicHtml)', () => {
+    it('genera HTML con la tipografía del sistema, folio, totales y productos', () => {
+      settingsService.set('business_name', 'Mave Punto de Venta')
+      settingsService.set('business_rut', '77.111.222-3')
+
+      const mockSaleDetail: SaleDetail = {
+        id: 12,
+        folio: 204,
+        ticket_number: 5,
+        status: 'completed',
+        total: 10500,
+        cash_session_id: 1,
+        created_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        total_items: 2,
+        returned_items_count: 0,
+        items: [
+          {
+            id: 1,
+            sale_id: 12,
+            product_code: 'LANA-ROJA',
+            name: 'Lana Roja 100g',
+            quantity: 2,
+            returned_qty: 0,
+            unit_price: 5250
+          }
+        ],
+        payments: [
+          {
+            id: 1,
+            sale_id: 12,
+            method: 'cash',
+            amount: 15000
+          }
+        ]
+      }
+
+      const html = printerService.generateThermalGraphicHtml(mockSaleDetail, 4500, {
+        thermalSystemFont: 'Consolas, monospace',
+        thermalItemsLayout: '4_cols',
+        thermalTotalSize: 'double',
+        paperWidth: '80mm'
+      })
+
+      expect(html).toContain('Mave Punto de Venta')
+      expect(html).toContain('77.111.222-3')
+      expect(html).toContain('FOLIO: #204')
+      expect(html).toContain('Turno: #5')
+      expect(html).toContain('Consolas, monospace')
+      expect(html).toContain('Lana Roja 100g')
+      expect(html).toContain('$ 10.500')
+      expect(html).toContain('$ 4.500') // Vuelto
+      expect(html).toContain('width: 72mm')
+    })
+  })
+
+  describe('Comprobante Térmico de Corte de Caja (printCashCutReceipt)', () => {
+    const mockCashCutData = {
+      sessionId: 8,
+      openedAt: '2026-10-11T09:00:00.000Z',
+      closedAt: '2026-10-11T19:00:00.000Z',
+      openingFund: 50000,
+      salesCash: 120000,
+      salesCard: 85000,
+      salesTransfer: 35000,
+      salesTotal: 240000,
+      returnsTotal: 5000,
+      withdrawalsTotal: 20000,
+      closingCash: 145000,
+      expectedCash: 145000,
+      difference: 0,
+      withdrawalAmount: 95000,
+      nextOpeningFund: 50000,
+      notes: 'Turno sin novedades'
+    }
+
+    it('retorna error explicativo si no se ha configurado interfaz térmica', async () => {
+      const res = await printerService.printCashCutReceipt(mockCashCutData, { thermalInterface: '' })
+      expect(res.success).toBe(false)
+      expect(res.error).toMatch(/No se ha configurado ninguna impresora térmica/)
+    })
+
+    it('genera HTML con el desglose exacto de caja, fondos, diferencias y notas', async () => {
+      settingsService.set('business_name', 'Mave Textiles')
+      settingsService.set('business_rut', '76.543.210-K')
+
+      const { generateThermalCashCutHtml } = await import('../main/services/printing/ticketTemplates')
+      const html = generateThermalCashCutHtml({
+        data: mockCashCutData,
+        business: printerService.getBusinessInfo(),
+        paperWidth: '80mm',
+        fontFamily: 'Segoe UI, sans-serif'
+      })
+
+      expect(html).toContain('Mave Textiles')
+      expect(html).toContain('76.543.210-K')
+      expect(html).toContain('CORTE DE CAJA / CIERRE DE TURNO')
+      expect(html).toContain('Sesión #8')
+      expect(html).toContain('Fondo Inicial:')
+      expect(html).toContain('$ 50.000')
+      expect(html).toContain('Ventas Efectivo:')
+      expect(html).toContain('+$ 120.000')
+      expect(html).toContain('TOTAL VENTAS:')
+      expect(html).toContain('$ 240.000')
+      expect(html).toContain('EFECTIVO CONTADO:')
+      expect(html).toContain('$ 145.000')
+      expect(html).toContain('Efectivo Esperado:')
+      expect(html).toContain('Diferencia:')
+      expect(html).toContain('$ 0')
+      expect(html).toContain('Monto Retirado:')
+      expect(html).toContain('$ 95.000')
+      expect(html).toContain('Fondo Sig. Turno:')
+      expect(html).toContain('Turno sin novedades')
+    })
+  })
 })
+

@@ -15,6 +15,8 @@ import {
   CompleteSaleInput,
   CompletedSaleResult,
   AdjustStockInput,
+  AdjustmentCancellationPreview,
+  CancelAdjustmentResult,
   InventoryMovement,
   InventoryMovementDetail,
   MovementType,
@@ -96,6 +98,10 @@ export interface InventoryAPI {
   getLowStock: (limit?: number, offset?: number) => Promise<(ProductSearchResult & { min_stock: number })[]>
   getMovements: (dateStr?: string, type?: MovementType) => Promise<InventoryMovementDetail[]>
   getKardex: (productCode: string, limit?: number) => Promise<InventoryMovementDetail[]>
+  getRecentAdjustments: (limit?: number) => Promise<InventoryMovementDetail[]>
+  updateMovementReason: (movementId: number, newReason: string) => Promise<InventoryMovementDetail>
+  getAdjustmentCancellationPreview: (movementId: number) => Promise<AdjustmentCancellationPreview>
+  cancelAdjustment: (movementId: number) => Promise<CancelAdjustmentResult>
   exportMovementsExcel: (dateStr: string, movements: InventoryMovementDetail[]) => Promise<ExportExcelResult | null>
   exportKardexExcel: (
     productInfo: { code: string; name: string; category_name?: string | null; current_stock: number },
@@ -116,6 +122,7 @@ export interface DevicesAPI {
   openCashDrawer: (customConfig?: Partial<PrinterConfig>) => Promise<PrintResult>
   testThermal: (customConfig?: Partial<PrinterConfig>) => Promise<PrintResult>
   printNormal: (saleDetail: SaleDetail, printerName?: string) => Promise<PrintResult>
+  printCashCut: (data: any, customConfig?: Partial<PrinterConfig>) => Promise<PrintResult>
 }
 
 export interface SystemAPI {
@@ -220,6 +227,10 @@ export interface WindowAPI {
   getLowStockProducts: (limit?: number, offset?: number) => Promise<(ProductSearchResult & { min_stock: number })[]>
   getInventoryMovements: (dateStr?: string, type?: MovementType) => Promise<InventoryMovementDetail[]>
   getProductKardex: (productCode: string, limit?: number) => Promise<InventoryMovementDetail[]>
+  getRecentAdjustments: (limit?: number) => Promise<InventoryMovementDetail[]>
+  updateMovementReason: (movementId: number, newReason: string) => Promise<InventoryMovementDetail>
+  getAdjustmentCancellationPreview: (movementId: number) => Promise<AdjustmentCancellationPreview>
+  cancelAdjustment: (movementId: number) => Promise<CancelAdjustmentResult>
   exportMovementsExcel: (dateStr: string, movements: InventoryMovementDetail[]) => Promise<ExportExcelResult | null>
   exportKardexExcel: (
     productInfo: { code: string; name: string; category_name?: string | null; current_stock: number },
@@ -242,6 +253,7 @@ export interface WindowAPI {
   openCashDrawer: (customConfig?: Partial<PrinterConfig>) => Promise<PrintResult>
   testThermalPrinter: (customConfig?: Partial<PrinterConfig>) => Promise<PrintResult>
   printNormalReceipt: (saleDetail: SaleDetail, printerName?: string) => Promise<PrintResult>
+  printCashCut: (data: any, customConfig?: Partial<PrinterConfig>) => Promise<PrintResult>
 }
 
 // Concrete domain implementations
@@ -312,6 +324,12 @@ const inventory: InventoryAPI = {
   getLowStock: (limit, offset) => ipcRenderer.invoke('inventory:getLowStock', limit, offset),
   getMovements: (dateStr, type) => ipcRenderer.invoke('inventory:getMovements', dateStr, type),
   getKardex: (productCode, limit) => ipcRenderer.invoke('inventory:getKardex', productCode, limit),
+  getRecentAdjustments: (limit) => ipcRenderer.invoke('inventory:getRecentAdjustments', limit),
+  updateMovementReason: (movementId, newReason) =>
+    ipcRenderer.invoke('inventory:updateMovementReason', movementId, newReason),
+  getAdjustmentCancellationPreview: (movementId) =>
+    ipcRenderer.invoke('inventory:getAdjustmentCancellationPreview', movementId),
+  cancelAdjustment: (movementId) => ipcRenderer.invoke('inventory:cancelAdjustment', movementId),
   exportMovementsExcel: (dateStr, movements) =>
     ipcRenderer.invoke('inventory:exportMovementsExcel', dateStr, movements),
   exportKardexExcel: (productInfo, limit) =>
@@ -332,7 +350,9 @@ const devices: DevicesAPI = {
   openCashDrawer: (customConfig) => ipcRenderer.invoke('printers:openCashDrawer', customConfig),
   testThermal: (customConfig) => ipcRenderer.invoke('printers:testThermal', customConfig),
   printNormal: (saleDetail, printerName) =>
-    ipcRenderer.invoke('printers:printNormal', saleDetail, printerName)
+    ipcRenderer.invoke('printers:printNormal', saleDetail, printerName),
+  printCashCut: (data, customConfig) =>
+    ipcRenderer.invoke('printers:printCashCut', data, customConfig)
 }
 
 const system: SystemAPI = {
@@ -449,6 +469,10 @@ const api: WindowAPI = {
   getLowStockProducts: inventory.getLowStock,
   getInventoryMovements: inventory.getMovements,
   getProductKardex: inventory.getKardex,
+  getRecentAdjustments: inventory.getRecentAdjustments,
+  updateMovementReason: inventory.updateMovementReason,
+  getAdjustmentCancellationPreview: inventory.getAdjustmentCancellationPreview,
+  cancelAdjustment: inventory.cancelAdjustment,
   exportMovementsExcel: inventory.exportMovementsExcel,
   exportKardexExcel: inventory.exportKardexExcel,
 
@@ -467,7 +491,8 @@ const api: WindowAPI = {
   printThermalReceipt: devices.printThermal,
   openCashDrawer: devices.openCashDrawer,
   testThermalPrinter: devices.testThermal,
-  printNormalReceipt: devices.printNormal
+  printNormalReceipt: devices.printNormal,
+  printCashCut: devices.printCashCut
 }
 
 if (process.contextIsolated) {

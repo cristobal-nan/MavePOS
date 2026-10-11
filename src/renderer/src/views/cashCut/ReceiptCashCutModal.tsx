@@ -1,5 +1,5 @@
-import React from 'react'
-import { CheckCircle2, Printer, Power } from 'lucide-react'
+import React, { useState } from 'react'
+import { CheckCircle2, Printer, Power, Loader2 } from 'lucide-react'
 import { formatCLP, formatDateTime } from '../../utils/formatters'
 import { useModalStack } from '../../utils/modalStack'
 
@@ -16,12 +16,38 @@ export const ReceiptCashCutModal: React.FC<ReceiptCashCutModalProps> = ({
   onClose,
   onExitApp
 }) => {
+  const [isPrinting, setIsPrinting] = useState(false)
+  const [printSuccess, setPrintSuccess] = useState(false)
+  const [printError, setPrintError] = useState<string | null>(null)
+
   const { handleBackdropClick } = useModalStack({
     id: 'receipt-cash-cut-modal',
     isOpen: isOpen && !!data,
     onClose,
     closeOnBackdrop: true
   })
+
+  const handlePrint = async (): Promise<void> => {
+    if (!data || isPrinting) return
+    setIsPrinting(true)
+    setPrintError(null)
+    try {
+      const res = await window.api.devices.printCashCut(data)
+      if (res && res.success) {
+        setPrintSuccess(true)
+        setTimeout(() => setPrintSuccess(false), 3000)
+      } else {
+        setPrintError(res?.error || 'No se pudo imprimir el comprobante.')
+        setTimeout(() => setPrintError(null), 4000)
+      }
+    } catch (err: any) {
+      console.error('Error al imprimir corte de caja:', err)
+      setPrintError(err.message || 'Error de comunicación con la impresora.')
+      setTimeout(() => setPrintError(null), 4000)
+    } finally {
+      setIsPrinting(false)
+    }
+  }
 
   if (!isOpen || !data) return null
 
@@ -113,14 +139,33 @@ export const ReceiptCashCutModal: React.FC<ReceiptCashCutModalProps> = ({
           )}
         </div>
 
+        {/* Notificación de error si la impresora falla */}
+        {printError && (
+          <div className="text-center text-xs text-rose-600 dark:text-rose-400 font-semibold bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 py-1.5 px-3 rounded-xl animate-in fade-in">
+            {printError}
+          </div>
+        )}
+
         <div className="flex items-center justify-between pt-2">
           <button
             type="button"
-            onClick={() => window.print()}
-            className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+            onClick={handlePrint}
+            disabled={isPrinting}
+            className={`px-4 py-2.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer disabled:cursor-not-allowed ${
+              printSuccess
+                ? 'bg-emerald-600 border-emerald-600 text-white'
+                : 'border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200'
+            }`}
+            title="Imprimir comprobante en la impresora térmica configurada"
           >
-            <Printer className="w-4 h-4" />
-            <span>Imprimir Comprobante</span>
+            {isPrinting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : printSuccess ? (
+              <CheckCircle2 className="w-4 h-4 text-white" />
+            ) : (
+              <Printer className="w-4 h-4" />
+            )}
+            <span>{isPrinting ? 'Imprimiendo...' : printSuccess ? '¡Impreso!' : 'Imprimir Comprobante'}</span>
           </button>
 
           <div className="flex items-center gap-2">
