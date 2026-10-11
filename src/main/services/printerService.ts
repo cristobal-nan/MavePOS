@@ -248,26 +248,37 @@ export class PrinterService {
 
   /**
    * Prints a thermal receipt silently via Windows Spooler graphics pipeline.
+   * Disables background printing to prevent thermal printhead burn-out / solid black output.
    */
   async printThermalGraphicSilent(
     html: string,
-    printerName: string
+    printerName: string,
+    paperWidth: ThermalPaperWidth = '80mm'
   ): Promise<PrintResult> {
     return new Promise((resolve) => {
       const printWin = new BrowserWindow({
         show: false,
+        backgroundColor: '#ffffff',
         webPreferences: { nodeIntegration: false }
       })
 
       printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
 
       printWin.webContents.on('did-finish-load', () => {
+        // 58mm = 58000 microns, 80mm = 80000 microns
+        const widthMicrons = paperWidth === '58mm' ? 58000 : 80000
+
         printWin.webContents.print(
           {
             silent: true,
             deviceName: printerName,
-            printBackground: true,
-            margins: { marginType: 'none' }
+            color: false,
+            printBackground: false,
+            margins: { marginType: 'none' },
+            pageSize: {
+              width: widthMicrons,
+              height: 300000 // Largo continuo para rollo térmico
+            }
           },
           (success, failureReason) => {
             printWin.close()
@@ -311,7 +322,7 @@ export class PrinterService {
     if (isGraphicMode) {
       try {
         const html = this.generateThermalGraphicHtml(saleDetail, change, config)
-        const printResult = await this.printThermalGraphicSilent(html, printerName)
+        const printResult = await this.printThermalGraphicSilent(html, printerName, config.paperWidth)
 
         if (!printResult.success) {
           return printResult
@@ -443,7 +454,7 @@ export class PrinterService {
           ]
         }
         const html = this.generateThermalGraphicHtml(dummySale, 2010, config)
-        return await this.printThermalGraphicSilent(html, printerName)
+        return await this.printThermalGraphicSilent(html, printerName, config.paperWidth)
       } catch (err: any) {
         return {
           success: false,
@@ -557,7 +568,7 @@ export class PrinterService {
           headerEmphasis: config.thermalHeaderEmphasis
         })
 
-        const printResult = await this.printThermalGraphicSilent(html, printerName)
+        const printResult = await this.printThermalGraphicSilent(html, printerName, config.paperWidth)
         return printResult
       } catch (err: any) {
         console.error('Error imprimiendo comprobante de corte gráfico:', err)

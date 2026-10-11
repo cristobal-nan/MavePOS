@@ -46,6 +46,38 @@ export interface BuildTestTicketOptions {
 }
 
 /**
+ * Sanitiza texto para impresoras térmicas ESC/POS, reemplazando tildes, signos de apertura
+ * y caracteres Unicode especiales por sus equivalentes ASCII legibles para evitar que
+ * impresoras con páginas de códigos distintas impriman caracteres chinos o símbolos corruptos.
+ */
+export function sanitizeForThermalEscPos(text: string): string {
+  if (!text) return ''
+  return text
+    .replace(/[áàäâã]/g, 'a')
+    .replace(/[ÁÀÄÂÃ]/g, 'A')
+    .replace(/[éèëê]/g, 'e')
+    .replace(/[ÉÈËÊ]/g, 'E')
+    .replace(/[íìïî]/g, 'i')
+    .replace(/[ÍÌÏÎ]/g, 'I')
+    .replace(/[óòöôõ]/g, 'o')
+    .replace(/[ÓÒÖÔÕ]/g, 'O')
+    .replace(/[úùüû]/g, 'u')
+    .replace(/[ÚÙÜÛ]/g, 'U')
+    .replace(/ñ/g, 'n')
+    .replace(/Ñ/g, 'N')
+    .replace(/[¡¿]/g, '')
+    .replace(/°/g, '')
+    .replace(/…/g, '...')
+    .replace(/[“”«»]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/[–—]/g, '-')
+    .replace(/[\u00A0\u1680\u2000-\u200B\u202F\u205F\u3000\uFEFF]/g, ' ')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\x20-\x7E\r\n\t]/g, '')
+}
+
+/**
  * Builds ESC/POS receipt layout for 58mm or 80mm thermal receipt printers.
  */
 export function buildThermalReceipt(options: BuildThermalReceiptOptions): void {
@@ -99,18 +131,18 @@ export function buildThermalReceipt(options: BuildThermalReceiptOptions): void {
   if (headerEmphasis === 'double') {
     printer.setTextDoubleHeight()
   }
-  printer.println(businessName)
+  printer.println(sanitizeForThermalEscPos(businessName))
   printer.setTextNormal()
   if (fontFamily === 'font_b') {
     printer.setTypeFontB()
   }
   printer.bold(false)
 
-  if (businessRut) printer.println(`RUT: ${businessRut}`)
-  if (businessActivity) printer.println(businessActivity)
-  if (businessAddress) printer.println(businessAddress)
-  if (businessPhone) printer.println(`Tel: ${businessPhone}`)
-  if (businessEmail) printer.println(businessEmail)
+  if (businessRut) printer.println(sanitizeForThermalEscPos(`RUT: ${businessRut}`))
+  if (businessActivity) printer.println(sanitizeForThermalEscPos(businessActivity))
+  if (businessAddress) printer.println(sanitizeForThermalEscPos(businessAddress))
+  if (businessPhone) printer.println(sanitizeForThermalEscPos(`Tel: ${businessPhone}`))
+  if (businessEmail) printer.println(sanitizeForThermalEscPos(businessEmail))
 
   printer.println('-'.repeat(widthChars))
 
@@ -122,7 +154,7 @@ export function buildThermalReceipt(options: BuildThermalReceiptOptions): void {
   printer.println(`Ticket de Turno: #${saleDetail.ticket_number ?? 0}`)
 
   const saleDate = saleDetail.completed_at || saleDetail.created_at || new Date().toISOString()
-  const formattedDate = new Date(saleDate).toLocaleString('es-CL')
+  const formattedDate = sanitizeForThermalEscPos(new Date(saleDate).toLocaleString('es-CL'))
   printer.println(`Fecha: ${formattedDate}`)
   printer.println('-'.repeat(widthChars))
 
@@ -145,6 +177,7 @@ export function buildThermalReceipt(options: BuildThermalReceiptOptions): void {
     const itemTotal = itemQty * item.unit_price
     const totalStr = formatCLP(itemTotal)
     const unitPriceStr = formatCLP(item.unit_price)
+    const safeItemName = sanitizeForThermalEscPos(item.name)
 
     if (itemsLayout === '4_cols') {
       // 4 columns: [Cant 4] [Name flexible] [UnitPrice 9] [Total 9]
@@ -152,18 +185,18 @@ export function buildThermalReceipt(options: BuildThermalReceiptOptions): void {
       const uPriceCol = unitPriceStr.padStart(9, ' ')
       const totCol = totalStr.padStart(9, ' ')
       const availNameLen = Math.max(8, widthChars - (4 + 10 + 10))
-      const cleanName = item.name.length > availNameLen ? item.name.substring(0, availNameLen - 1) + '…' : item.name.padEnd(availNameLen, ' ')
+      const cleanName = safeItemName.length > availNameLen ? safeItemName.substring(0, availNameLen - 3) + '...' : safeItemName.padEnd(availNameLen, ' ')
       printer.println(`${qtyCol}${cleanName} ${uPriceCol} ${totCol}`)
     } else if (itemsLayout === '3_cols') {
       // 3 columns: [Cant 4] [Name flexible] [Total 10]
       const qtyCol = String(itemQty).padEnd(4, ' ')
       const totCol = totalStr.padStart(10, ' ')
       const availNameLen = Math.max(10, widthChars - (4 + 11))
-      const cleanName = item.name.length > availNameLen ? item.name.substring(0, availNameLen - 1) + '…' : item.name.padEnd(availNameLen, ' ')
+      const cleanName = safeItemName.length > availNameLen ? safeItemName.substring(0, availNameLen - 3) + '...' : safeItemName.padEnd(availNameLen, ' ')
       printer.println(`${qtyCol}${cleanName} ${totCol}`)
     } else {
       // 2 columns (Compact): Name on top with total, unit price below
-      const nameStr = `${itemQty}x ${item.name}`
+      const nameStr = `${itemQty}x ${safeItemName}`
       printer.leftRight(nameStr, totalStr)
       if (item.unit_price) {
         printer.println(`  (${unitPriceStr} c/u)`)
@@ -194,7 +227,7 @@ export function buildThermalReceipt(options: BuildThermalReceiptOptions): void {
   if ((saleDetail.payments && saleDetail.payments.length > 0) || devolutionAmount > 0) {
     printer.println('FORMAS DE PAGO:')
     if (devolutionAmount > 0) {
-      printer.leftRight('  Devolución:', formatCLP(devolutionAmount))
+      printer.leftRight('  Devolucion:', formatCLP(devolutionAmount))
     }
     const methodLabels: Record<string, string> = {
       cash: 'Efectivo',
@@ -216,7 +249,7 @@ export function buildThermalReceipt(options: BuildThermalReceiptOptions): void {
   // 5. Footer & Courtesy Message
   printer.println('-'.repeat(widthChars))
   printer.alignCenter()
-  printer.println(footerMsg)
+  printer.println(sanitizeForThermalEscPos(footerMsg))
   printer.newLine()
 
   // 6. Cash drawer pulse (if enabled)
@@ -279,22 +312,23 @@ export function buildThermalTestTicket(options: BuildTestTicketOptions): void {
   if (fontFamily === 'font_b') {
     printer.setTypeFontB()
   }
-  printer.println(businessName || 'MAVE POS')
+  printer.println(sanitizeForThermalEscPos(businessName || 'MAVE POS'))
   printer.bold(false)
   printer.println('-'.repeat(widthChars))
 
   printer.alignLeft()
-  printer.println('Impresora térmica: CONECTADA')
+  printer.println('Impresora termica: CONECTADA')
   printer.println(`Ancho configurado: ${paperWidth} (${widthChars} columnas)`)
-  printer.println(`Fuente: ${fontFamily === 'font_b' ? 'Fuente B (Condensada)' : 'Fuente A (Estándar)'}`)
+  printer.println(`Fuente: ${fontFamily === 'font_b' ? 'Fuente B (Condensada)' : 'Fuente A (Estandar)'}`)
   printer.println(`Formato Columnas: ${itemsLayout}`)
-  printer.println(`Tamaño Total: ${totalSize === 'double' ? 'Doble Alto' : 'Normal'}`)
-  printer.println(`Fecha y Hora: ${new Date().toLocaleString('es-CL')}`)
+  printer.println(`Tamano Total: ${totalSize === 'double' ? 'Doble Alto' : 'Normal'}`)
+  const testDate = sanitizeForThermalEscPos(new Date().toLocaleString('es-CL'))
+  printer.println(`Fecha y Hora: ${testDate}`)
   printer.println('-'.repeat(widthChars))
 
-  printer.leftRight('Prueba de alineación:', 'OK $ 10.000')
+  printer.leftRight('Prueba de alineacion:', 'OK $ 10.000')
   printer.alignCenter()
-  printer.println('¡Test de impresión completado exitosamente!')
+  printer.println('Test de impresion completado exitosamente!')
   printer.newLine()
 
   printer.cut()
@@ -406,19 +440,22 @@ export function generateThermalReceiptHtml(options: GenerateThermalReceiptHtmlOp
       <style>
         @page {
           margin: 0;
-          size: auto;
+          size: ${widthMm}mm auto;
         }
-        body {
+        * {
+          background-color: transparent !important;
+          -webkit-print-color-adjust: economy;
+          box-sizing: border-box;
+        }
+        html, body {
           font-family: ${fontFamily};
           font-size: ${fontSizeBase};
           line-height: ${lineHeight};
-          color: #000;
-          background: #fff;
+          color: #000000 !important;
+          background: #ffffff !important;
           margin: 0;
           padding: ${paddingMm}mm;
           width: ${widthMm}mm;
-          box-sizing: border-box;
-          -webkit-print-color-adjust: exact;
         }
         .text-center { text-align: center; }
         .text-right { text-align: right; }
@@ -681,16 +718,16 @@ export function buildThermalCashCutReceipt(options: BuildThermalCashCutOptions):
   if (headerEmphasis === 'double') {
     printer.setTextDoubleHeight()
   }
-  printer.println(businessName)
+  printer.println(sanitizeForThermalEscPos(businessName))
   printer.setTextNormal()
   if (fontFamily === 'font_b') {
     printer.setTypeFontB()
   }
   printer.bold(false)
 
-  if (businessRut) printer.println(`RUT: ${businessRut}`)
-  if (businessAddress) printer.println(businessAddress)
-  if (businessPhone) printer.println(`Tel: ${businessPhone}`)
+  if (businessRut) printer.println(sanitizeForThermalEscPos(`RUT: ${businessRut}`))
+  if (businessAddress) printer.println(sanitizeForThermalEscPos(businessAddress))
+  if (businessPhone) printer.println(sanitizeForThermalEscPos(`Tel: ${businessPhone}`))
 
   printer.println('-'.repeat(widthChars))
   printer.bold(true)
@@ -698,9 +735,11 @@ export function buildThermalCashCutReceipt(options: BuildThermalCashCutOptions):
   printer.bold(false)
   printer.println(`Sesion #${data.sessionId}`)
   if (data.openedAt) {
-    printer.println(`Apertura: ${new Date(data.openedAt).toLocaleString('es-CL')}`)
+    const openedStr = sanitizeForThermalEscPos(new Date(data.openedAt).toLocaleString('es-CL'))
+    printer.println(`Apertura: ${openedStr}`)
   }
-  printer.println(`Cierre: ${new Date(data.closedAt || Date.now()).toLocaleString('es-CL')}`)
+  const closedStr = sanitizeForThermalEscPos(new Date(data.closedAt || Date.now()).toLocaleString('es-CL'))
+  printer.println(`Cierre: ${closedStr}`)
   printer.println('-'.repeat(widthChars))
 
   // 2. Detalle financiero
@@ -745,7 +784,7 @@ export function buildThermalCashCutReceipt(options: BuildThermalCashCutOptions):
 
   if (data.notes) {
     printer.println('-'.repeat(widthChars))
-    printer.println(`Notas: ${data.notes}`)
+    printer.println(sanitizeForThermalEscPos(`Notas: ${data.notes}`))
   }
 
   printer.println('-'.repeat(widthChars))
@@ -799,19 +838,22 @@ export function generateThermalCashCutHtml(options: GenerateThermalCashCutHtmlOp
       <style>
         @page {
           margin: 0;
-          size: auto;
+          size: ${widthMm}mm auto;
         }
-        body {
+        * {
+          background-color: transparent !important;
+          -webkit-print-color-adjust: economy;
+          box-sizing: border-box;
+        }
+        html, body {
           font-family: ${fontFamily};
           font-size: ${fontSizeBase};
           line-height: ${lineHeight};
-          color: #000;
-          background: #fff;
+          color: #000000 !important;
+          background: #ffffff !important;
           margin: 0;
           padding: ${paddingMm}mm;
           width: ${widthMm}mm;
-          box-sizing: border-box;
-          -webkit-print-color-adjust: exact;
         }
         .text-center { text-align: center; }
         .text-right { text-align: right; }
