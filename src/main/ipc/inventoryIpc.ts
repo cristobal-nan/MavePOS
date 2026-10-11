@@ -66,4 +66,23 @@ export function registerInventoryIpc(
       return result
     }
   )
+
+  ipcMain.handle('inventory:getRecentAdjustments', (_event, limit = 5) => {
+    return inventoryService.getRecentAdjustments(limit)
+  })
+
+  ipcMain.handle(
+    'inventory:updateMovementReason',
+    (_event, movementId: number, newReason: string) => {
+      return inventoryService.updateMovementReason(movementId, newReason)
+    }
+  )
+
+  ipcMain.handle('inventory:getAdjustmentCancellationPreview', (_event, movementId: number) => {
+    return inventoryService.getAdjustmentCancellationPreview(movementId)
+  })
+
+  ipcMain.handle('inventory:cancelAdjustment', (_event, movementId: number) => {
+    return inventoryService.cancelAdjustment(movementId)
+  })
 }

@@ -19,11 +19,24 @@ import {
   ArrowUpDown,
   Hash,
   FileText,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Pencil,
+  Undo2,
+  Check,
+  History,
+  Loader2
 } from 'lucide-react'
 import { useInventoryStore } from '../store/inventoryStore'
-import { ProductSearchResult, MovementType, QuickAdjustmentReason, DEFAULT_QUICK_REASONS } from '@shared/types'
+import {
+  ProductSearchResult,
+  MovementType,
+  QuickAdjustmentReason,
+  DEFAULT_QUICK_REASONS,
+  AdjustmentCancellationPreview
+} from '@shared/types'
 import { ProductSearchModal } from '../components/ProductSearchModal'
+import { CancelAdjustmentModal } from '../components/CancelAdjustmentModal'
+import { AdjustmentRulesHelpModal } from '../components/AdjustmentRulesHelpModal'
 import { formatCLP } from '../utils/formatters'
 import { isShortcutMatch } from '../utils/keyboardShortcut'
 
@@ -44,6 +57,11 @@ export const InventoryView: React.FC = () => {
     kardexProduct,
     setKardexProduct,
     kardexMovements,
+    recentAdjustments,
+    fetchRecentAdjustments,
+    updateMovementReason,
+    getAdjustmentCancellationPreview,
+    cancelAdjustment,
     adjustStock,
     isLoading
   } = useInventoryStore()
@@ -133,6 +151,87 @@ export const InventoryView: React.FC = () => {
       showExportNotice('error', 'Error al exportar kardex a Excel.')
     } finally {
       setIsExportingKardex(false)
+    }
+  }
+
+  // Estado para edición inline del motivo de movimientos de ajuste
+  const [editingMovementId, setEditingMovementId] = useState<number | null>(null)
+  const [editingReasonText, setEditingReasonText] = useState('')
+
+  // Estado para modal de cancelación de ajuste en cascada
+  const [cancelPreview, setCancelPreview] = useState<AdjustmentCancellationPreview | null>(null)
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false)
+  const [isLoadingPreviewId, setIsLoadingPreviewId] = useState<number | null>(null)
+
+  // Estado para modal informativo de reglas y limitantes
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
+
+  const handleStartEditReason = (
+    movementId: number,
+    currentReason: string,
+    movementType?: string,
+    canEdit = true
+  ): void => {
+    if (movementType && movementType !== 'ajuste') return
+    if (!canEdit) {
+      showExportNotice('error', 'No se puede editar el motivo de un ajuste con más de 7 días de antigüedad.')
+      return
+    }
+    setEditingMovementId(movementId)
+    setEditingReasonText(currentReason || '')
+  }
+
+  const handleCancelEditReason = (): void => {
+    setEditingMovementId(null)
+    setEditingReasonText('')
+  }
+
+  const handleSaveReasonEdit = async (movementId: number): Promise<void> => {
+    const trimmed = editingReasonText.trim()
+    if (!trimmed) {
+      showExportNotice('error', 'El motivo no puede estar vacío.')
+      return
+    }
+    try {
+      await updateMovementReason(movementId, trimmed)
+      showExportNotice('success', 'Motivo actualizado correctamente.')
+      setEditingMovementId(null)
+      setEditingReasonText('')
+    } catch (err: any) {
+      showExportNotice('error', err.message || 'Error al actualizar motivo.')
+    }
+  }
+
+  const handleOpenCancelAdjustmentModal = async (movementId: number): Promise<void> => {
+    setIsLoadingPreviewId(movementId)
+    try {
+      const preview = await getAdjustmentCancellationPreview(movementId)
+      if (!preview.can_cancel) {
+        showExportNotice('error', preview.reason || 'Este movimiento no se puede cancelar.')
+        return
+      }
+      setCancelPreview(preview)
+      setIsCancelModalOpen(true)
+    } catch (err: any) {
+      showExportNotice('error', err.message || 'Error al obtener vista previa de cancelación.')
+    } finally {
+      setIsLoadingPreviewId(null)
+    }
+  }
+
+  const handleConfirmCancelAdjustment = async (movementId: number): Promise<void> => {
+    try {
+      const res = await cancelAdjustment(movementId)
+      const count = res.revertedMovements?.length || 1
+      showExportNotice(
+        'success',
+        count === 1
+          ? `Ajuste cancelado. Stock actualizado a ${res.newStock} un.`
+          : `Se cancelaron ${count} ajustes en cascada. Stock actualizado a ${res.newStock} un.`
+      )
+    } catch (err: any) {
+      showExportNotice('error', err.message || 'No se pudo cancelar el ajuste.')
+      throw err
     }
   }
 
@@ -282,7 +381,10 @@ export const InventoryView: React.FC = () => {
   // Cargar datos al montar y al cambiar de tab
   useEffect(() => {
     fetchLowStock()
-  }, [fetchLowStock])
+    if (activeTab === 'adjust') {
+      fetchRecentAdjustments()
+    }
+  }, [fetchLowStock, fetchRecentAdjustments, activeTab])
 
   // Foco automático en el cuadro de código al entrar a ajustar existencia o a kardex
   useEffect(() => {
@@ -633,7 +735,7 @@ export const InventoryView: React.FC = () => {
     <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-900 overflow-hidden select-none">
       {/* Top Header & Sub-navigation Tabs */}
       <div className="bg-white dark:bg-slate-800 border-b border-lilac-100 dark:border-slate-700 px-4 sm:px-6 pt-3 gap-2 pb-0 flex flex-col shrink-0 shadow-sm">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="w-8 h-8 rounded-lg sm:w-10 sm:h-10 sm:rounded-xl bg-lilac-100 dark:bg-lilac-950/60 text-lilac-600 dark:text-lilac-400 flex items-center justify-center shadow-inner shrink-0">
               <Boxes className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -644,6 +746,22 @@ export const InventoryView: React.FC = () => {
               </h1>
             </div>
           </div>
+
+          {/* Píldora interactiva de novedad / reglas */}
+          <button
+            type="button"
+            onClick={() => setIsHelpModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700/80 shadow-sm hover:shadow transition-all cursor-pointer active:scale-95 group shrink-0"
+            title="Conoce las reglas y limitantes de la cancelación de movimientos y edición de motivo"
+          >
+            <span className="flex items-center gap-1 font-black text-amber-600 dark:text-amber-400 uppercase text-[11px] tracking-wider">
+              <span>NUEVO</span>
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-500 animate-pulse" />:
+            </span>
+            <span className="text-slate-700 dark:text-slate-200 group-hover:text-amber-900 dark:group-hover:text-amber-100 transition-colors">
+              Cancelación de movimiento y edición de motivo
+            </span>
+          </button>
         </div>
 
         {/* Tab Buttons */}
@@ -735,11 +853,12 @@ export const InventoryView: React.FC = () => {
         {/* SUBTAB 1: AJUSTAR EXISTENCIA                             */}
         {/* ========================================================= */}
         {activeTab === 'adjust' && (
-          <div className="max-w-3xl mx-auto w-full flex-1 flex flex-col min-h-0">
+          <div className="max-w-6xl mx-auto w-full flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 min-h-0 items-stretch">
+            {/* Tarjeta Izquierda: Formulario de Ajuste (7 o 8 cols) */}
             <div
-              className={`bg-white rounded-2xl border border-lilac-100 ${
+              className={`lg:col-span-8 bg-white dark:bg-slate-900 rounded-2xl border border-lilac-100 dark:border-slate-800 ${
                 isCompactHeight ? 'p-2.5 sm:p-3 gap-1.5' : isMediumHeight ? 'p-4 gap-2.5' : 'p-5 sm:p-6 gap-3.5'
-              } shadow-sm flex flex-col flex-1 justify-between min-h-0`}
+              } shadow-sm flex flex-col justify-between min-h-0`}
             >
               {/* Encabezado moderno con altura fija */}
               <div
@@ -1228,6 +1347,177 @@ export const InventoryView: React.FC = () => {
                 </p>
               </div>
             </div>
+
+            {/* Tarjeta Derecha: Últimos 5 Ajustes con Edición de Motivo y Cancelación (4 cols) */}
+            <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-2xl border border-lilac-100 dark:border-slate-800 p-4 shadow-sm flex flex-col justify-between min-h-0">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5 shrink-0">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-lilac-50 dark:bg-lilac-950/40 text-lilac-600 dark:text-lilac-400 flex items-center justify-center shrink-0">
+                    <History className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-bold text-slate-800 dark:text-white leading-tight">
+                      Últimos 5 Ajustes
+                    </h3>
+                    <p className="text-[10px] text-slate-400">
+                      Historial inmediato de ajustes
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => fetchRecentAdjustments()}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  title="Refrescar lista"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* Lista de Ajustes Recientes */}
+              <div className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 my-2 pr-1 min-h-[220px]">
+                {recentAdjustments.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center p-4">
+                    <History className="w-8 h-8 text-slate-300 dark:text-slate-600 mb-2" />
+                    <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                      Sin ajustes recientes
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Los ajustes que realices aparecerán aquí al instante.
+                    </p>
+                  </div>
+                ) : (
+                  recentAdjustments.map((adj) => {
+                    const isPositive = adj.delta > 0
+                    const isEditing = editingMovementId === adj.id
+                    const canCancel = adj.can_cancel ?? adj.is_last_product_movement
+
+                    return (
+                      <div key={adj.id} className="py-2.5 flex flex-col gap-1 text-xs">
+                        {/* Fila Superior: Producto y Delta */}
+                        <div className="flex items-center justify-between gap-2">
+                          <span
+                            className="font-bold text-slate-800 dark:text-slate-200 truncate flex-1"
+                            title={getProductDisplayName(adj.product_name, adj.parent_name)}
+                          >
+                            {getProductDisplayName(adj.product_name, adj.parent_name)}
+                          </span>
+
+                          <span
+                            className={`font-mono font-black text-xs px-2 py-0.5 rounded-lg shrink-0 ${
+                              isPositive
+                                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                                : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                            }`}
+                          >
+                            {isPositive ? `+${adj.delta}` : adj.delta}
+                          </span>
+                        </div>
+
+                        {/* Fila Intermedia: Código y Fecha/Hora */}
+                        <div className="flex items-center justify-between text-[11px] text-slate-400">
+                          <span className="font-mono">{adj.product_code}</span>
+                          <span>{new Date(adj.created_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+
+                        {/* Fila Inferior: Motivo con Edición Inline y Botón Cancelar */}
+                        <div className="flex items-center justify-between gap-1.5 pt-0.5">
+                          {isEditing ? (
+                            <div className="flex items-center gap-1 flex-1">
+                              <input
+                                type="text"
+                                autoFocus
+                                value={editingReasonText}
+                                onChange={(e) => setEditingReasonText(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSaveReasonEdit(adj.id)
+                                  if (e.key === 'Escape') handleCancelEditReason()
+                                }}
+                                className="flex-1 px-2 py-0.5 text-xs bg-slate-50 dark:bg-slate-800 border border-lilac-400 rounded-lg outline-none text-slate-800 dark:text-slate-200"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleSaveReasonEdit(adj.id)}
+                                className="p-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md cursor-pointer"
+                                title="Guardar motivo"
+                              >
+                                <Check className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleCancelEditReason}
+                                className="p-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 text-slate-600 dark:text-slate-200 rounded-md cursor-pointer"
+                                title="Cancelar edición"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                <span className="text-[11px] text-slate-600 dark:text-slate-300 italic truncate" title={adj.reason}>
+                                  {adj.reason || '(Sin motivo)'}
+                                </span>
+                                {adj.can_edit_reason !== false ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStartEditReason(adj.id, adj.reason, adj.type, adj.can_edit_reason)}
+                                    className="text-slate-400 hover:text-lilac-600 dark:hover:text-lilac-400 p-0.5 rounded cursor-pointer shrink-0 transition-colors"
+                                    title="Editar motivo del ajuste"
+                                  >
+                                    <Pencil className="w-3 h-3" />
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    disabled
+                                    className="text-slate-300 dark:text-slate-600 p-0.5 rounded shrink-0 cursor-not-allowed opacity-50"
+                                    title={adj.cannot_edit_reason || 'No editable: han transcurrido más de 7 días desde el ajuste.'}
+                                  >
+                                    <Pencil className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Botón de Cancelación del Ajuste */}
+                              {canCancel ? (
+                                <button
+                                  type="button"
+                                  disabled={isLoadingPreviewId === adj.id}
+                                  onClick={() => handleOpenCancelAdjustmentModal(adj.id)}
+                                  className="text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 p-1 rounded-lg border border-rose-200 dark:border-rose-800 text-[10px] font-bold flex items-center gap-1 cursor-pointer shrink-0 active:scale-95 disabled:opacity-50"
+                                  title="Cancelar este ajuste y revertir el stock de inmediato"
+                                >
+                                  {isLoadingPreviewId === adj.id ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <Undo2 className="w-3 h-3" />
+                                  )}
+                                  <span>Cancelar</span>
+                                </button>
+                              ) : (
+                                <span
+                                  className="text-[10px] text-slate-400 dark:text-slate-500 select-none cursor-help px-1"
+                                  title={adj.cannot_cancel_reason || 'No revocable: existen movimientos posteriores'}
+                                >
+                                  No revocable
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+
+              {/* Pie informativo */}
+              <div className="border-t border-slate-100 dark:border-slate-800 pt-2 text-[10px] text-slate-400 dark:text-slate-500 text-center shrink-0">
+                Solo puedes cancelar un ajuste si es el último movimiento del producto.
+              </div>
+            </div>
           </div>
         )}
 
@@ -1563,9 +1853,70 @@ export const InventoryView: React.FC = () => {
                                 </span>
                               </td>
                               <td className="py-3 px-4 text-slate-600 dark:text-slate-300">
-                                {m.type === 'venta' && m.sale_folio
-                                  ? `Venta #${m.sale_folio}`
-                                  : m.reason || '—'}
+                                {m.type === 'venta' && m.sale_folio ? (
+                                  `Venta #${m.sale_folio}`
+                                ) : m.type === 'ajuste' ? (
+                                  editingMovementId === m.id ? (
+                                    <div className="flex items-center gap-1.5">
+                                      <input
+                                        type="text"
+                                        autoFocus
+                                        value={editingReasonText}
+                                        onChange={(e) => setEditingReasonText(e.target.value)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') handleSaveReasonEdit(m.id)
+                                          if (e.key === 'Escape') handleCancelEditReason()
+                                        }}
+                                        className="flex-1 px-2.5 py-1 text-xs bg-slate-50 dark:bg-slate-900 border border-lilac-500 rounded-lg outline-none text-slate-800 dark:text-slate-200"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSaveReasonEdit(m.id)}
+                                        className="p-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md cursor-pointer shrink-0"
+                                        title="Guardar motivo"
+                                      >
+                                        <Check className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={handleCancelEditReason}
+                                        className="p-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 text-slate-600 dark:text-slate-200 rounded-md cursor-pointer shrink-0"
+                                        title="Cancelar edición"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center justify-between gap-2 group">
+                                      <span className="truncate" title={m.reason || '—'}>
+                                        {m.reason || '—'}
+                                      </span>
+                                      {m.can_edit_reason !== false ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleStartEditReason(m.id, m.reason, m.type, m.can_edit_reason)}
+                                          className="text-slate-400 hover:text-lilac-600 dark:hover:text-lilac-400 p-1 rounded hover:bg-lilac-50 dark:hover:bg-slate-700 transition-colors opacity-70 group-hover:opacity-100 cursor-pointer shrink-0"
+                                          title="Editar motivo del ajuste"
+                                        >
+                                          <Pencil className="w-3.5 h-3.5" />
+                                        </button>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          disabled
+                                          className="text-slate-300 dark:text-slate-600 p-1 rounded shrink-0 cursor-not-allowed opacity-50"
+                                          title={m.cannot_edit_reason || 'No editable: han transcurrido más de 7 días desde el ajuste.'}
+                                        >
+                                          <Pencil className="w-3.5 h-3.5" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  )
+                                ) : (
+                                  <span className="truncate block" title={m.reason || '—'}>
+                                    {m.reason || '—'}
+                                  </span>
+                                )}
                               </td>
                             </tr>
                           )
@@ -1759,9 +2110,95 @@ export const InventoryView: React.FC = () => {
                                   </span>
                                 </td>
                                 <td className="py-3 px-4 text-slate-600 dark:text-slate-300">
-                                  {m.type === 'venta' && m.sale_folio
-                                    ? `Venta #${m.sale_folio}`
-                                    : m.reason || '—'}
+                                  {m.type === 'venta' && m.sale_folio ? (
+                                    `Venta #${m.sale_folio}`
+                                  ) : m.type === 'ajuste' ? (
+                                    editingMovementId === m.id ? (
+                                      <div className="flex items-center gap-1.5">
+                                        <input
+                                          type="text"
+                                          autoFocus
+                                          value={editingReasonText}
+                                          onChange={(e) => setEditingReasonText(e.target.value)}
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter') handleSaveReasonEdit(m.id)
+                                            if (e.key === 'Escape') handleCancelEditReason()
+                                          }}
+                                          className="flex-1 px-2.5 py-1 text-xs bg-slate-50 dark:bg-slate-900 border border-lilac-500 rounded-lg outline-none text-slate-800 dark:text-slate-200"
+                                        />
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSaveReasonEdit(m.id)}
+                                          className="p-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md cursor-pointer shrink-0"
+                                          title="Guardar motivo"
+                                        >
+                                          <Check className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={handleCancelEditReason}
+                                          className="p-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 text-slate-600 dark:text-slate-200 rounded-md cursor-pointer shrink-0"
+                                          title="Cancelar edición"
+                                        >
+                                          <X className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center justify-between gap-2 group">
+                                        <span className="truncate" title={m.reason || '—'}>
+                                          {m.reason || '—'}
+                                        </span>
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          {m.can_edit_reason !== false ? (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleStartEditReason(m.id, m.reason, m.type, m.can_edit_reason)}
+                                              className="text-slate-400 hover:text-lilac-600 dark:hover:text-lilac-400 p-1 rounded hover:bg-lilac-50 dark:hover:bg-slate-700 transition-colors opacity-70 group-hover:opacity-100 cursor-pointer shrink-0"
+                                              title="Editar motivo del ajuste"
+                                            >
+                                              <Pencil className="w-3.5 h-3.5" />
+                                            </button>
+                                          ) : (
+                                            <button
+                                              type="button"
+                                              disabled
+                                              className="text-slate-300 dark:text-slate-600 p-1 rounded shrink-0 cursor-not-allowed opacity-50"
+                                              title={m.cannot_edit_reason || 'No editable: han transcurrido más de 7 días desde el ajuste.'}
+                                            >
+                                              <Pencil className="w-3.5 h-3.5" />
+                                            </button>
+                                          )}
+                                          {m.can_cancel ? (
+                                            <button
+                                              type="button"
+                                              disabled={isLoadingPreviewId === m.id}
+                                              onClick={() => handleOpenCancelAdjustmentModal(m.id)}
+                                              className="text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 p-1 rounded-lg border border-rose-200 dark:border-rose-800 text-[10px] font-bold flex items-center gap-1 cursor-pointer active:scale-95 disabled:opacity-50"
+                                              title="Cancelar este ajuste y revertir el stock de inmediato"
+                                            >
+                                              {isLoadingPreviewId === m.id ? (
+                                                <Loader2 className="w-3 h-3 animate-spin" />
+                                              ) : (
+                                                <Undo2 className="w-3 h-3" />
+                                              )}
+                                              <span>Cancelar</span>
+                                            </button>
+                                          ) : (
+                                            <span
+                                              className="text-[10px] text-slate-400 dark:text-slate-500 select-none cursor-help px-1"
+                                              title={m.cannot_cancel_reason || 'No revocable: existen movimientos posteriores'}
+                                            >
+                                              No revocable
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )
+                                  ) : (
+                                    <span className="truncate block" title={m.reason || '—'}>
+                                      {m.reason || '—'}
+                                    </span>
+                                  )}
                                 </td>
                               </tr>
                             )
@@ -1785,6 +2222,23 @@ export const InventoryView: React.FC = () => {
         title={modalTarget === 'adjust' ? 'Seleccionar Producto para Ajuste' : 'Seleccionar Producto para Kardex'}
         placeholder="Escribe el nombre o fragmento con % (ej: algod, %negro)..."
         footerText="Haz clic en cualquier producto para seleccionarlo."
+      />
+
+      {/* Modal de Cancelación en Cascada de Ajustes */}
+      <CancelAdjustmentModal
+        isOpen={isCancelModalOpen}
+        preview={cancelPreview}
+        onClose={() => {
+          setIsCancelModalOpen(false)
+          setCancelPreview(null)
+        }}
+        onConfirm={handleConfirmCancelAdjustment}
+      />
+
+      {/* Modal Informativo de Reglas y Limitantes */}
+      <AdjustmentRulesHelpModal
+        isOpen={isHelpModalOpen}
+        onClose={() => setIsHelpModalOpen(false)}
       />
     </div>
   )

@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import {
   AdjustStockInput,
+  AdjustmentCancellationPreview,
+  CancelAdjustmentResult,
   InventoryMovement,
   InventoryMovementDetail,
   MovementType,
@@ -17,6 +19,7 @@ interface InventoryState {
   movements: InventoryMovementDetail[]
   kardexMovements: InventoryMovementDetail[]
   kardexProduct: ProductSearchResult | null
+  recentAdjustments: InventoryMovementDetail[]
   selectedDate: string
   selectedMovementType: MovementType | 'all'
   isLoading: boolean
@@ -31,6 +34,10 @@ interface InventoryState {
   fetchLowStock: () => Promise<void>
   fetchMovements: (dateStr?: string, type?: MovementType | 'all') => Promise<void>
   fetchKardex: (productCode: string) => Promise<void>
+  fetchRecentAdjustments: () => Promise<void>
+  updateMovementReason: (movementId: number, newReason: string) => Promise<void>
+  getAdjustmentCancellationPreview: (movementId: number) => Promise<AdjustmentCancellationPreview>
+  cancelAdjustment: (movementId: number) => Promise<CancelAdjustmentResult>
   adjustStock: (input: AdjustStockInput) => Promise<{ product: Product; movement: InventoryMovement }>
 }
 
@@ -49,6 +56,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
   movements: [],
   kardexMovements: [],
   kardexProduct: null,
+  recentAdjustments: [],
   selectedDate: getLocalDateString(),
   selectedMovementType: 'all',
   isLoading: false,
@@ -56,7 +64,9 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
 
   setActiveTab: (tab: InventoryTab) => {
     set({ activeTab: tab, error: null })
-    if (tab === 'lowStock') {
+    if (tab === 'adjust') {
+      get().fetchRecentAdjustments()
+    } else if (tab === 'lowStock') {
       get().fetchLowStock()
     } else if (tab === 'movements') {
       get().fetchMovements()
@@ -124,6 +134,76 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
     }
   },
 
+  fetchRecentAdjustments: async () => {
+    try {
+      const items = await window.api.inventory.getRecentAdjustments(5)
+      set({ recentAdjustments: items })
+    } catch (err: any) {
+      console.error('Error cargando últimos ajustes:', err)
+    }
+  },
+
+  updateMovementReason: async (movementId: number, newReason: string) => {
+    try {
+      await window.api.inventory.updateMovementReason(movementId, newReason)
+      // Actualizar listas reactivas en memoria
+      set((state) => ({
+        recentAdjustments: state.recentAdjustments.map((m) =>
+          m.id === movementId ? { ...m, reason: newReason.trim() } : m
+        ),
+        movements: state.movements.map((m) =>
+          m.id === movementId ? { ...m, reason: newReason.trim() } : m
+        ),
+        kardexMovements: state.kardexMovements.map((m) =>
+          m.id === movementId ? { ...m, reason: newReason.trim() } : m
+        )
+      }))
+    } catch (err: any) {
+      console.error('Error actualizando motivo de movimiento:', err)
+      throw err
+    }
+  },
+
+  getAdjustmentCancellationPreview: async (movementId: number) => {
+    return window.api.inventory.getAdjustmentCancellationPreview(movementId)
+  },
+
+  cancelAdjustment: async (movementId: number) => {
+    set({ isLoading: true, error: null })
+    try {
+      const res = await window.api.inventory.cancelAdjustment(movementId)
+      // Refrescar recientes, movimientos y producto actual si coincide
+      await get().fetchRecentAdjustments()
+      const currentSelected = get().selectedProduct
+      if (currentSelected && currentSelected.code === res.revertedMovement.product_code) {
+        set({
+          selectedProduct: {
+            ...currentSelected,
+            stock: res.newStock
+          }
+        })
+      }
+      const kardexProd = get().kardexProduct
+      if (kardexProd && kardexProd.code === res.revertedMovement.product_code) {
+        set({
+          kardexProduct: {
+            ...kardexProd,
+            stock: res.newStock
+          }
+        })
+        await get().fetchKardex(kardexProd.code)
+      }
+      // Refrescar historial de movimientos si estamos en esa fecha
+      await get().fetchMovements()
+      set({ isLoading: false })
+      return res
+    } catch (err: any) {
+      console.error('Error cancelando ajuste:', err)
+      set({ error: err.message, isLoading: false })
+      throw err
+    }
+  },
+
   adjustStock: async (input: AdjustStockInput) => {
     set({ isLoading: true, error: null })
     try {
@@ -138,6 +218,8 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
           }
         })
       }
+      // Actualizar la lista de los últimos ajustes
+      await get().fetchRecentAdjustments()
       set({ isLoading: false })
       return res
     } catch (err: any) {

@@ -376,4 +376,362 @@ describe('Fase 6: Control de Inventario, Ajustes, Alertas y Kardex', () => {
       expect(kardexNegro).toHaveLength(0)
     })
   })
+
+  describe('Edición de Motivos y Cancelación de Ajustes', () => {
+    it('obtiene los últimos N ajustes con su indicador de último movimiento', () => {
+      productService.upsertProduct({
+        code: 'PROD_ADJ_TEST',
+        name: 'Hilo Mercerizado 100g',
+        product_type: 'simple',
+        sale_price: 2500,
+        stock: 10,
+        min_stock: 2
+      })
+
+      inventoryService.adjustStock({
+        product_code: 'PROD_ADJ_TEST',
+        delta: 5,
+        type: 'ajuste',
+        reason: 'Recuento físico inicial erróneo'
+      })
+
+      const recent = inventoryService.getRecentAdjustments(5)
+      expect(recent.length).toBeGreaterThan(0)
+      const target = recent.find((r) => r.product_code === 'PROD_ADJ_TEST')
+      expect(target).toBeDefined()
+      expect(target?.delta).toBe(5)
+      expect(target?.reason).toBe('Recuento físico inicial erróneo')
+      expect(target?.is_last_product_movement).toBe(true)
+    })
+
+    it('permite actualizar el motivo de un ajuste y se refleja en kardex y reporte', () => {
+      productService.upsertProduct({
+        code: 'PROD_REASON_TEST',
+        name: 'Aguja Crochet 3.5mm',
+        product_type: 'simple',
+        sale_price: 1800,
+        stock: 20,
+        min_stock: 5
+      })
+
+      const adj = inventoryService.adjustStock({
+        product_code: 'PROD_REASON_TEST',
+        delta: -2,
+        type: 'ajuste',
+        reason: 'Motivo con error tipográfico'
+      })
+
+      const updated = inventoryService.updateMovementReason(adj.movement.id, 'Merma por embalaje roto')
+      expect(updated.id).toBe(adj.movement.id)
+      expect(updated.reason).toBe('Merma por embalaje roto')
+
+      const kardex = inventoryService.getProductKardex('PROD_REASON_TEST')
+      expect(kardex[0].reason).toBe('Merma por embalaje roto')
+    })
+
+    it('no permite editar el motivo de un movimiento que no sea de tipo ajuste manual', () => {
+      productService.upsertProduct({
+        code: 'PROD_NO_ADJ_REASON',
+        name: 'Tijera Zigzag',
+        product_type: 'simple',
+        sale_price: 3500,
+        stock: 10,
+        min_stock: 2
+      })
+
+      // El producto creado tiene un movimiento de stock 'inicial'
+      const kardex = inventoryService.getProductKardex('PROD_NO_ADJ_REASON')
+      expect(kardex.length).toBe(1)
+      expect(kardex[0].type).toBe('inicial')
+
+      expect(() => {
+        inventoryService.updateMovementReason(kardex[0].id, 'Intento de modificar motivo inicial')
+      }).toThrow('Solo se pueden editar motivos de movimientos de tipo ajuste.')
+    })
+
+    it('no permite editar el motivo de un ajuste que tenga más de 7 días de antigüedad', () => {
+      productService.upsertProduct({
+        code: 'PROD_OLD_REASON',
+        name: 'Hilo Rústico Antiguo',
+        product_type: 'simple',
+        sale_price: 1000,
+        stock: 10,
+        min_stock: 2
+      })
+
+      const adj = inventoryService.adjustStock({
+        product_code: 'PROD_OLD_REASON',
+        delta: 2,
+        type: 'ajuste',
+        reason: 'Ajuste antiguo'
+      })
+
+      const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString()
+      db.prepare('UPDATE inventory_movements SET created_at = ? WHERE id = ?').run(
+        eightDaysAgo,
+        adj.movement.id
+      )
+
+      expect(() => {
+        inventoryService.updateMovementReason(adj.movement.id, 'Intento de modificar motivo viejo')
+      }).toThrow('No se puede editar el motivo de un ajuste con más de 7 días de antigüedad.')
+
+      const kardex = inventoryService.getProductKardex('PROD_OLD_REASON')
+      const target = kardex.find((m) => m.id === adj.movement.id)
+      expect(target).toBeDefined()
+      expect(target?.can_edit_reason).toBe(false)
+      expect(target?.cannot_edit_reason).toMatch(/7 días/i)
+    })
+
+    it('cancela un ajuste si es el único movimiento posterior y revierte el stock', () => {
+      productService.upsertProduct({
+        code: 'PROD_CANCEL_TEST',
+        name: 'Cinta Métrica 1.5m',
+        product_type: 'simple',
+        sale_price: 1200,
+        stock: 10,
+        min_stock: 2
+      })
+
+      const adj = inventoryService.adjustStock({
+        product_code: 'PROD_CANCEL_TEST',
+        delta: 4,
+        type: 'ajuste',
+        reason: 'Ajuste que debe revertirse'
+      })
+
+      // El stock subió a 14
+      let prod = productService.getProductByCode('PROD_CANCEL_TEST')
+      expect(prod?.stock).toBe(14)
+
+      const preview = inventoryService.getAdjustmentCancellationPreview(adj.movement.id)
+      expect(preview.can_cancel).toBe(true)
+      expect(preview.movements_to_revert).toHaveLength(1)
+      expect(preview.current_stock).toBe(14)
+      expect(preview.projected_stock).toBe(10)
+      expect(preview.total_delta).toBe(4)
+
+      const result = inventoryService.cancelAdjustment(adj.movement.id)
+      expect(result.revertedMovement.id).toBe(adj.movement.id)
+      expect(result.revertedMovements).toHaveLength(1)
+      expect(result.revertedMovement.product_code).toBe('PROD_CANCEL_TEST')
+      expect(result.newStock).toBe(10)
+
+      // Verificamos que el stock en base de datos volvió a 10
+      prod = productService.getProductByCode('PROD_CANCEL_TEST')
+      expect(prod?.stock).toBe(10)
+
+      // Verificamos que el movimiento fue eliminado del kardex
+      const kardex = inventoryService.getProductKardex('PROD_CANCEL_TEST')
+      const foundInKardex = kardex.find((m) => m.id === adj.movement.id)
+      expect(foundInKardex).toBeUndefined()
+    })
+
+    it('cancela en cascada múltiples ajustes posteriores (hasta 5) y restaura el stock', () => {
+      productService.upsertProduct({
+        code: 'PROD_CASCADE_OK',
+        name: 'Hilos Variados',
+        product_type: 'simple',
+        sale_price: 500,
+        stock: 20,
+        min_stock: 5
+      })
+
+      const adj1 = inventoryService.adjustStock({
+        product_code: 'PROD_CASCADE_OK',
+        delta: 5,
+        type: 'ajuste',
+        reason: 'Ajuste 1 (+5)'
+      })
+      const adj2 = inventoryService.adjustStock({
+        product_code: 'PROD_CASCADE_OK',
+        delta: -3,
+        type: 'ajuste',
+        reason: 'Ajuste 2 (-3)'
+      })
+      const adj3 = inventoryService.adjustStock({
+        product_code: 'PROD_CASCADE_OK',
+        delta: 8,
+        type: 'ajuste',
+        reason: 'Ajuste 3 (+8)'
+      })
+
+      // Stock actual: 20 + 5 - 3 + 8 = 30
+      let prod = productService.getProductByCode('PROD_CASCADE_OK')
+      expect(prod?.stock).toBe(30)
+
+      // Vista previa de cancelar desde adj1
+      const preview = inventoryService.getAdjustmentCancellationPreview(adj1.movement.id)
+      expect(preview.can_cancel).toBe(true)
+      expect(preview.movements_to_revert).toHaveLength(3)
+      expect(preview.total_delta).toBe(10) // 5 - 3 + 8
+      expect(preview.projected_stock).toBe(20)
+
+      // Ejecutar cancelación en cascada
+      const result = inventoryService.cancelAdjustment(adj1.movement.id)
+      expect(result.newStock).toBe(20)
+      expect(result.revertedMovements).toHaveLength(3)
+
+      prod = productService.getProductByCode('PROD_CASCADE_OK')
+      expect(prod?.stock).toBe(20)
+
+      // Los 3 movimientos fueron eliminados
+      const kardex = inventoryService.getProductKardex('PROD_CASCADE_OK')
+      const ids = [adj1.movement.id, adj2.movement.id, adj3.movement.id]
+      const remaining = kardex.filter((m) => ids.includes(m.id))
+      expect(remaining).toHaveLength(0)
+    })
+
+    it('no permite cancelar si la cadena a revertir excede el límite máximo de 5 movimientos', () => {
+      productService.upsertProduct({
+        code: 'PROD_LIMIT_6',
+        name: 'Cordón de Algodón',
+        product_type: 'simple',
+        sale_price: 900,
+        stock: 10,
+        min_stock: 2
+      })
+
+      // Crear 6 ajustes
+      const adjustments: number[] = []
+      for (let i = 1; i <= 6; i++) {
+        const res = inventoryService.adjustStock({
+          product_code: 'PROD_LIMIT_6',
+          delta: 1,
+          type: 'ajuste',
+          reason: `Ajuste paso ${i}`
+        })
+        adjustments.push(res.movement.id)
+      }
+
+      // Intentar cancelar el primer ajuste (cadena de 6 movimientos)
+      const preview = inventoryService.getAdjustmentCancellationPreview(adjustments[0])
+      expect(preview.can_cancel).toBe(false)
+      expect(preview.reason).toMatch(/límite máximo de 5 movimientos/i)
+
+      expect(() => {
+        inventoryService.cancelAdjustment(adjustments[0])
+      }).toThrow(/límite máximo de 5 movimientos/i)
+
+      // Pero el ajuste #2 tiene 5 movimientos (del 2 al 6): SÍ es cancelable
+      const preview2 = inventoryService.getAdjustmentCancellationPreview(adjustments[1])
+      expect(preview2.can_cancel).toBe(true)
+      expect(preview2.movements_to_revert).toHaveLength(5)
+    })
+
+    it('no permite cancelar un ajuste si existe una venta o movimiento no manual posterior', () => {
+      productService.upsertProduct({
+        code: 'PROD_NON_ADJ_CHAIN',
+        name: 'Lana Grossa',
+        product_type: 'simple',
+        sale_price: 1500,
+        stock: 20,
+        min_stock: 5
+      })
+
+      const adj = inventoryService.adjustStock({
+        product_code: 'PROD_NON_ADJ_CHAIN',
+        delta: 10,
+        type: 'ajuste',
+        reason: 'Ingreso inicial'
+      })
+
+      // Simular una venta posterior registrada en inventory_movements
+      db.prepare(`
+        INSERT INTO inventory_movements (product_code, delta, type, reason, created_at)
+        VALUES (?, ?, 'venta', 'Venta #1', datetime('now'))
+      `).run('PROD_NON_ADJ_CHAIN', -2)
+
+      const preview = inventoryService.getAdjustmentCancellationPreview(adj.movement.id)
+      expect(preview.can_cancel).toBe(false)
+      expect(preview.reason).toMatch(/no son ajustes/i)
+
+      expect(() => {
+        inventoryService.cancelAdjustment(adj.movement.id)
+      }).toThrow(/no son ajustes/i)
+    })
+
+    it('permite cancelar ajustes ocurridos después de una venta sin afectar la venta previa', () => {
+      productService.upsertProduct({
+        code: 'PROD_AFTER_SALE',
+        name: 'Palillo Circular',
+        product_type: 'simple',
+        sale_price: 2500,
+        stock: 30,
+        min_stock: 5
+      })
+
+      // 1. Venta previa
+      db.prepare(`
+        INSERT INTO inventory_movements (product_code, delta, type, reason, created_at)
+        VALUES (?, ?, 'venta', 'Venta #100', datetime('now', '-1 hour'))
+      `).run('PROD_AFTER_SALE', -5)
+
+      // 2. Dos ajustes manuales posteriores a la venta
+      const adj1 = inventoryService.adjustStock({
+        product_code: 'PROD_AFTER_SALE',
+        delta: 3,
+        type: 'ajuste',
+        reason: 'Ajuste post-venta 1'
+      })
+      const adj2 = inventoryService.adjustStock({
+        product_code: 'PROD_AFTER_SALE',
+        delta: -1,
+        type: 'ajuste',
+        reason: 'Ajuste post-venta 2'
+      })
+
+      // Cancelar adj1 debe ser permitido porque desde adj1 solo hay ajustes
+      const preview = inventoryService.getAdjustmentCancellationPreview(adj1.movement.id)
+      expect(preview.can_cancel).toBe(true)
+      expect(preview.movements_to_revert).toHaveLength(2)
+
+      const res = inventoryService.cancelAdjustment(adj1.movement.id)
+      expect(res.revertedMovements).toHaveLength(2)
+
+      // La venta sigue existiendo en el kardex intacta
+      const kardex = inventoryService.getProductKardex('PROD_AFTER_SALE')
+      const saleInKardex = kardex.find((m) => m.type === 'venta')
+      expect(saleInKardex).toBeDefined()
+    })
+
+    it('no permite cancelar un ajuste si tiene más de 7 días de antigüedad', () => {
+      productService.upsertProduct({
+        code: 'PROD_OLD_CANCEL',
+        name: 'Botón Vintage',
+        product_type: 'simple',
+        sale_price: 200,
+        stock: 50,
+        min_stock: 10
+      })
+
+      const adj = inventoryService.adjustStock({
+        product_code: 'PROD_OLD_CANCEL',
+        delta: 5,
+        type: 'ajuste',
+        reason: 'Ajuste hace 8 días'
+      })
+
+      const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString()
+      db.prepare('UPDATE inventory_movements SET created_at = ? WHERE id = ?').run(
+        eightDaysAgo,
+        adj.movement.id
+      )
+
+      const preview = inventoryService.getAdjustmentCancellationPreview(adj.movement.id)
+      expect(preview.can_cancel).toBe(false)
+      expect(preview.reason).toMatch(/más de 7 días/i)
+
+      expect(() => {
+        inventoryService.cancelAdjustment(adj.movement.id)
+      }).toThrow(/más de 7 días/i)
+
+      const kardex = inventoryService.getProductKardex('PROD_OLD_CANCEL')
+      const target = kardex.find((m) => m.id === adj.movement.id)
+      expect(target).toBeDefined()
+      expect(target?.can_cancel).toBe(false)
+      expect(target?.cannot_cancel_reason).toMatch(/más de 7 días/i)
+    })
+  })
 })
+
