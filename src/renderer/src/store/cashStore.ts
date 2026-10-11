@@ -2,6 +2,78 @@ import { create } from 'zustand'
 import { CashSession, CashCutSummary, CloseCashSessionInput } from '@shared/types'
 import { useSalesStore } from './salesStore'
 
+export interface ActiveCashCutDraft {
+  denominationCounts: Record<number, number>
+  notes: string
+  cardMachineInput: string
+  transferVerifiedInput: string
+}
+
+export const DEFAULT_DENOMINATION_COUNTS: Record<number, number> = {
+  20000: 0,
+  10000: 0,
+  5000: 0,
+  2000: 0,
+  1000: 0,
+  500: 0,
+  100: 0,
+  50: 0,
+  10: 0
+}
+
+export const DEFAULT_CASH_CUT_DRAFT: ActiveCashCutDraft = {
+  denominationCounts: DEFAULT_DENOMINATION_COUNTS,
+  notes: '',
+  cardMachineInput: '',
+  transferVerifiedInput: ''
+}
+
+function loadDraftFromStorage(sessionId?: number | null): ActiveCashCutDraft {
+  if (!sessionId) return { ...DEFAULT_CASH_CUT_DRAFT, denominationCounts: { ...DEFAULT_DENOMINATION_COUNTS } }
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem(`cash_cut_draft_${sessionId}`)
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        return {
+          denominationCounts: {
+            ...DEFAULT_DENOMINATION_COUNTS,
+            ...(parsed.denominationCounts || {})
+          },
+          notes: typeof parsed.notes === 'string' ? parsed.notes : '',
+          cardMachineInput: typeof parsed.cardMachineInput === 'string' ? parsed.cardMachineInput : '',
+          transferVerifiedInput: typeof parsed.transferVerifiedInput === 'string' ? parsed.transferVerifiedInput : ''
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Error cargando borrador de corte de caja de almacenamiento:', e)
+  }
+  return { ...DEFAULT_CASH_CUT_DRAFT, denominationCounts: { ...DEFAULT_DENOMINATION_COUNTS } }
+}
+
+function saveDraftToStorage(sessionId?: number | null, draft?: ActiveCashCutDraft): void {
+  if (!sessionId || !draft) return
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(`cash_cut_draft_${sessionId}`, JSON.stringify(draft))
+    }
+  } catch (e) {
+    console.error('Error guardando borrador de corte de caja en almacenamiento:', e)
+  }
+}
+
+function clearDraftFromStorage(sessionId?: number | null): void {
+  if (!sessionId) return
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(`cash_cut_draft_${sessionId}`)
+    }
+  } catch (e) {
+    console.error('Error limpiando borrador de corte de caja:', e)
+  }
+}
+
 interface CashState {
   currentSession: CashSession | null
   currentSummary: CashCutSummary | null
@@ -9,6 +81,14 @@ interface CashState {
   isLoading: boolean
   isSummaryLoading: boolean
   error: string | null
+
+  // Estado persistente del arqueo/corte en curso
+  activeCutDraft: ActiveCashCutDraft
+  setDenominationCount: (denomination: number, count: number) => void
+  setCutNotes: (notes: string) => void
+  setCardMachineInput: (val: string) => void
+  setTransferVerifiedInput: (val: string) => void
+  resetCutDraft: () => void
 
   // Actions
   checkCurrentSession: () => Promise<void>
@@ -36,6 +116,44 @@ export const useCashStore = create<CashState>((set, get) => ({
   isSummaryLoading: false,
   error: null,
 
+  activeCutDraft: { ...DEFAULT_CASH_CUT_DRAFT, denominationCounts: { ...DEFAULT_DENOMINATION_COUNTS } },
+
+  setDenominationCount: (value: number, count: number) => {
+    const current = get().activeCutDraft
+    const nextCounts = {
+      ...current.denominationCounts,
+      [value]: Math.max(0, isNaN(count) ? 0 : count)
+    }
+    const nextDraft = { ...current, denominationCounts: nextCounts }
+    set({ activeCutDraft: nextDraft })
+    saveDraftToStorage(get().currentSession?.id, nextDraft)
+  },
+
+  setCutNotes: (notes: string) => {
+    const nextDraft = { ...get().activeCutDraft, notes }
+    set({ activeCutDraft: nextDraft })
+    saveDraftToStorage(get().currentSession?.id, nextDraft)
+  },
+
+  setCardMachineInput: (cardMachineInput: string) => {
+    const nextDraft = { ...get().activeCutDraft, cardMachineInput }
+    set({ activeCutDraft: nextDraft })
+    saveDraftToStorage(get().currentSession?.id, nextDraft)
+  },
+
+  setTransferVerifiedInput: (transferVerifiedInput: string) => {
+    const nextDraft = { ...get().activeCutDraft, transferVerifiedInput }
+    set({ activeCutDraft: nextDraft })
+    saveDraftToStorage(get().currentSession?.id, nextDraft)
+  },
+
+  resetCutDraft: () => {
+    clearDraftFromStorage(get().currentSession?.id)
+    set({
+      activeCutDraft: { ...DEFAULT_CASH_CUT_DRAFT, denominationCounts: { ...DEFAULT_DENOMINATION_COUNTS } }
+    })
+  },
+
   clearError: () => set({ error: null }),
 
   checkCurrentSession: async () => {
@@ -43,12 +161,17 @@ export const useCashStore = create<CashState>((set, get) => ({
     try {
       if (window.api?.cash?.getCurrentSession) {
         const session = await window.api.cash.getCurrentSession()
-        set({ currentSession: session, isLoading: false })
+        const draft = session ? loadDraftFromStorage(session.id) : { ...DEFAULT_CASH_CUT_DRAFT, denominationCounts: { ...DEFAULT_DENOMINATION_COUNTS } }
+        set({ currentSession: session, activeCutDraft: draft, isLoading: false })
         if (session) {
           await get().fetchSummary(session.id)
         }
       } else {
-        set({ currentSession: null, isLoading: false })
+        set({
+          currentSession: null,
+          activeCutDraft: { ...DEFAULT_CASH_CUT_DRAFT, denominationCounts: { ...DEFAULT_DENOMINATION_COUNTS } },
+          isLoading: false
+        })
       }
     } catch (err: any) {
       console.error('Error verificando sesión de caja:', err)
@@ -87,7 +210,11 @@ export const useCashStore = create<CashState>((set, get) => ({
         throw new Error('API no disponible')
       }
       const session = await window.api.cash.openSession(openingFund, openingDenominations)
-      set({ currentSession: session })
+      clearDraftFromStorage(session.id)
+      set({
+        currentSession: session,
+        activeCutDraft: { ...DEFAULT_CASH_CUT_DRAFT, denominationCounts: { ...DEFAULT_DENOMINATION_COUNTS } }
+      })
       await get().fetchSummary(session.id)
       return true
     } catch (err: any) {
@@ -117,7 +244,12 @@ export const useCashStore = create<CashState>((set, get) => ({
         throw new Error('API no disponible')
       }
       await window.api.cash.closeSession(sessionId, closingData)
-      set({ currentSession: null, currentSummary: null })
+      clearDraftFromStorage(sessionId)
+      set({
+        currentSession: null,
+        currentSummary: null,
+        activeCutDraft: { ...DEFAULT_CASH_CUT_DRAFT, denominationCounts: { ...DEFAULT_DENOMINATION_COUNTS } }
+      })
       useSalesStore.getState().resetTickets()
       await get().fetchPastSessions()
       return true
@@ -135,7 +267,12 @@ export const useCashStore = create<CashState>((set, get) => ({
         throw new Error('API no disponible')
       }
       await window.api.cash.discardSession(sessionId)
-      set({ currentSession: null, currentSummary: null })
+      clearDraftFromStorage(sessionId)
+      set({
+        currentSession: null,
+        currentSummary: null,
+        activeCutDraft: { ...DEFAULT_CASH_CUT_DRAFT, denominationCounts: { ...DEFAULT_DENOMINATION_COUNTS } }
+      })
       useSalesStore.getState().resetTickets()
       await get().fetchPastSessions()
       return true

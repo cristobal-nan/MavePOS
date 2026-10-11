@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
   Calculator,
   RotateCcw,
@@ -7,6 +7,7 @@ import {
   X
 } from 'lucide-react'
 import { useCashStore } from '../store/cashStore'
+import { groupSessionsByDay } from '../utils/formatters'
 import { ActiveCashCutTab } from './cashCut/ActiveCashCutTab'
 import { CashCutHistoryTab } from './cashCut/CashCutHistoryTab'
 
@@ -16,21 +17,33 @@ export const CashCutView: React.FC = () => {
   const {
     currentSession,
     pastSessions,
-    isSummaryLoading,
     fetchSummary,
     fetchPastSessions,
     error,
-    clearError
+    clearError,
+    activeCutDraft,
+    resetCutDraft
   } = useCashStore()
 
   const [activeTab, setActiveTab] = useState<CashCutTab>('active')
+  const [isConfirmClearOpen, setIsConfirmClearOpen] = useState(false)
+
+  const dailyRecordsCount = useMemo(() => {
+    return groupSessionsByDay(pastSessions).length
+  }, [pastSessions])
+
+  const isDraftEmpty = useMemo(() => {
+    const { denominationCounts, notes, cardMachineInput, transferVerifiedInput } = activeCutDraft
+    const hasDenominations = Object.values(denominationCounts || {}).some((v) => v > 0)
+    return !hasDenominations && !notes.trim() && !cardMachineInput.trim() && !transferVerifiedInput.trim()
+  }, [activeCutDraft])
 
   useEffect(() => {
     if (currentSession?.id) {
       fetchSummary(currentSession.id)
     }
     fetchPastSessions()
-  }, [currentSession?.id])
+  }, [currentSession?.id, activeTab])
 
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-900 overflow-hidden select-none">
@@ -48,7 +61,7 @@ export const CashCutView: React.FC = () => {
             </div>
           </div>
 
-          {/* Refresh and Alerts */}
+          {/* Actions & Alerts */}
           <div className="flex items-center gap-2 sm:gap-3">
             {error && (
               <div className="flex items-center gap-1.5 text-xs text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-slate-800 border border-rose-200 dark:border-rose-900/60 px-2.5 py-1 rounded-lg">
@@ -64,15 +77,24 @@ export const CashCutView: React.FC = () => {
               </div>
             )}
 
-            {currentSession && (
+            {currentSession && activeTab === 'active' && (
               <button
                 type="button"
-                onClick={() => fetchSummary(currentSession.id)}
-                disabled={isSummaryLoading}
-                className="px-3 py-1.5 rounded-lg bg-lilac-50 dark:bg-slate-800 border border-lilac-200 dark:border-slate-700 text-lilac-700 dark:text-lilac-300 hover:bg-lilac-100 dark:hover:bg-slate-750 text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
+                onClick={() => {
+                  if (!isDraftEmpty) {
+                    setIsConfirmClearOpen(true)
+                  }
+                }}
+                disabled={isDraftEmpty}
+                title={isDraftEmpty ? 'No hay campos que limpiar' : 'Limpiar conteo físico, montos y observaciones'}
+                className={`px-3 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                  isDraftEmpty
+                    ? 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed opacity-60'
+                    : 'bg-rose-50 dark:bg-slate-800 border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-950/40 active:scale-95 cursor-pointer'
+                }`}
               >
-                <RotateCcw className={`w-3.5 h-3.5 ${isSummaryLoading ? 'animate-spin' : ''}`} />
-                <span>Actualizar Resumen</span>
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Limpiar Campos</span>
               </button>
             )}
           </div>
@@ -106,10 +128,10 @@ export const CashCutView: React.FC = () => {
             }`}
           >
             <Clock className="w-4 h-4" />
-            <span>Historial de Cortes</span>
-            {pastSessions.length > 0 && (
+            <span>Registros Diarios</span>
+            {dailyRecordsCount > 0 && (
               <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-lilac-100 dark:bg-slate-700 text-lilac-700 dark:text-lilac-300 leading-none">
-                {pastSessions.length}
+                {dailyRecordsCount}
               </span>
             )}
           </button>
@@ -121,6 +143,55 @@ export const CashCutView: React.FC = () => {
         <ActiveCashCutTab onSwitchToHistory={() => setActiveTab('history')} />
       ) : (
         <CashCutHistoryTab />
+      )}
+
+      {/* Modal de confirmación para limpiar campos */}
+      {isConfirmClearOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-md p-6 flex flex-col gap-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h4 className="text-base font-bold text-slate-900 dark:text-white">
+                  ¿Limpiar campos del arqueo?
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Sesión #{currentSession?.id}</p>
+              </div>
+            </div>
+
+            <div className="bg-rose-50/50 dark:bg-slate-800/80 border border-rose-200/80 dark:border-rose-900/40 rounded-2xl p-4 text-xs flex flex-col gap-2">
+              <p className="text-slate-700 dark:text-slate-300 leading-relaxed font-medium">
+                Se borrarán las cantidades físicas de billetes y monedas contadas, el total de máquina POS, transferencias y las observaciones ingresadas en este turno.
+              </p>
+              <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400">
+                Esta acción no se puede deshacer.
+              </span>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsConfirmClearOpen(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  resetCutDraft()
+                  setIsConfirmClearOpen(false)
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-md transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Limpiar Campos</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

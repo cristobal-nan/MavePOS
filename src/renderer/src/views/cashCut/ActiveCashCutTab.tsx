@@ -32,27 +32,21 @@ interface ActiveCashCutTabProps {
 }
 
 export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHistory }) => {
-  const { currentSession, currentSummary, closeSession, discardSession, setCompletedCutReceipt } = useCashStore()
+  const {
+    currentSession,
+    currentSummary,
+    closeSession,
+    discardSession,
+    setCompletedCutReceipt,
+    activeCutDraft,
+    setDenominationCount,
+    setCutNotes,
+    setCardMachineInput,
+    setTransferVerifiedInput
+  } = useCashStore()
 
-  // Estado del arqueo físico de cierre (calculadora de denominaciones de la derecha)
-  const [denominationCounts, setDenominationCounts] = useState<Record<number, number>>({
-    20000: 0,
-    10000: 0,
-    5000: 0,
-    2000: 0,
-    1000: 0,
-    500: 0,
-    100: 0,
-    50: 0,
-    10: 0
-  })
-
-  const [notes, setNotes] = useState<string>('')
+  const { denominationCounts, notes, cardMachineInput, transferVerifiedInput } = activeCutDraft
   const [withdrawalRules, setWithdrawalRules] = useState<WithdrawalRules>(DEFAULT_WITHDRAWAL_RULES)
-
-  // Estado del cuadre de tarjetas y transferencias
-  const [cardMachineInput, setCardMachineInput] = useState<string>('')
-  const [transferVerifiedInput, setTransferVerifiedInput] = useState<string>('')
 
   // Modales
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false)
@@ -75,9 +69,12 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
 
   useEffect(() => {
     loadRules()
+    if (currentSession?.id) {
+      useCashStore.getState().fetchSummary(currentSession.id)
+    }
     window.addEventListener('focus', loadRules)
     return () => window.removeEventListener('focus', loadRules)
-  }, [])
+  }, [currentSession?.id])
 
   // Desglose de inicio de turno (cuadro de la izquierda, solo lectura)
   const openingCounts: Record<number, number> = useMemo(() => {
@@ -114,10 +111,7 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
   }, [denominationCounts, withdrawalRules])
 
   const handleDenominationChange = (value: number, count: number): void => {
-    setDenominationCounts((prev) => ({
-      ...prev,
-      [value]: Math.max(0, isNaN(count) ? 0 : count)
-    }))
+    setDenominationCount(value, count)
   }
 
   const handleExecuteCloseSession = async (): Promise<void> => {
@@ -745,7 +739,7 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
           rows={2}
           placeholder="Detalles sobre diferencias, incidencias o comentarios del turno (opcional)..."
           value={notes}
-          onChange={(e) => setNotes(e.target.value)}
+          onChange={(e) => setCutNotes(e.target.value)}
           className="w-full px-3 py-2 text-xs border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 resize-none text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 bg-white dark:bg-slate-800"
         />
       </div>
