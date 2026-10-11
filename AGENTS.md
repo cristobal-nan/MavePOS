@@ -21,9 +21,11 @@ Documento vinculante de reglas de negocio, integridad técnica y comportamiento 
   - `npm run build`: Compilación de producción (main, preload y renderer).
 - **Flujo y Formato de Commits en Git:**
   - **Sin prefijos ni etiquetas:** Mensajes directos, descriptivos y en español. **Prohibido terminantemente** usar tags o prefijos al inicio como `feat:`, `fix:`, `refactor:`, `chore:`, etc.
-  - **Cantidad natural y necesaria:** No forzar jamás un número fijo o arbitrario de commits (como 4). Crear únicamente la cantidad de commits necesaria según los cambios reales para que el historial sea claro y atómico:
-    - Si se resolvió un solo problema o ajuste puntual: **1 solo commit**.
-    - Si se abordaron varias tareas o módulos independientes: **un commit por cada unidad funcional clara**, sin sobre-fragmentar archivos de un mismo módulo en múltiples commits innecesarios.
+  - **Momento del commit:** Durante el desarrollo o refinamiento de una tarea, los cambios se mantienen en el *working tree*. No commitear automáticamente tras cada ajuste menor. Los commits se ejecutan cuando el usuario lo solicite o cuando la funcionalidad esté completa y validada (`typecheck` y `test`).
+  - **Distribución clara por responsabilidades (Evitar commits "paraguas"):**
+    - Prohibido hacer commits excesivamente generales que mezclen capas no relacionadas (ej: tocar base de datos, lógica de servicio, interfaz gráfica y pruebas unitarias todo en un solo commit vago).
+    - No hay problema en generar múltiples commits: se debe separar el trabajo por unidades de cambio claras y específicas (ej: un commit para el servicio/esquema de datos, un commit para el componente visual/UX, y un commit para las pruebas de regresión).
+    - Cada mensaje debe describir con precisión qué se hizo en esa capa específica, sin ambigüedades.
   - Ejemplos:
     - `"permitir seleccionar y restaurar respaldos desde carpetas externas"`
     - `"unificar motivos rapidos de inventario y enlazar boton guardar del header"`

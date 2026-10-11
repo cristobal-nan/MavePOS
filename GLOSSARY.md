@@ -33,6 +33,8 @@ Este documento define el vocabulario canónico del sistema de Punto de Venta (PO
 - **Efectivo Esperado (`expected_cash`)**: `Fondo Inicial + Ventas en Efectivo - Devoluciones en Efectivo - Salidas de Dinero`.
 - **Diferencia de Arqueo (`difference`)**: `Efectivo Contado - Efectivo Esperado`. Puede ser cuadrada (`balanced`), sobrante (`surplus`) o faltante (`shortage`).
 - **Salida de Dinero (`cash_movements` tipo `salida`)**: Retiro de efectivo de la gaveta durante el turno con motivo justificado (gastos operativos, compras menores).
+- **Registro Diario de Caja (`daily_cash_record`)**: Agrupación consolidada de las sesiones o turnos de caja cerrados durante una misma fecha calendario (`YYYY-MM-DD`). En la vista principal consolida la sumatoria de ventas por medio de pago, retiros y diferencias, reflejando el fondo inicial del primer turno y la caja final del último turno de la jornada.
+- **Pestaña Registros Diarios**: Sub-pestaña de la vista de Corte de Caja (anteriormente llamada Historial de Cortes) que organiza los cierres cronológicamente por día e incluye la columna de cantidad de turnos, permitiendo explorar cada turno individual o su resumen consolidado.
 
 ---
 
