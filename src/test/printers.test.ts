@@ -518,18 +518,61 @@ describe('Fase 9: Impresión y Tickets Térmicos (ESC/POS y Periféricos)', () =
   })
 
   describe('Enrutamiento y Renderizado de Modo Gráfico (printThermalGraphic)', () => {
-    it('enruta a renderizado raster ESC/POS para impresoras térmicas físicas', async () => {
-      let rasterCalled = false
-      let dispatchCalled = false
+    it('falla limpiamente si no hay impresora térmica configurada', async () => {
+      const res = await printerService.printThermalGraphic(
+        '<html><body>Test</body></html>',
+        {
+          thermalInterface: '',
+          paperWidth: '58mm'
+        } as any,
+        'Ticket #1'
+      )
 
-      printerService.renderHtmlToThermalRasterBuffer = async () => {
-        rasterCalled = true
-        return Buffer.from([0x1d, 0x76, 0x30, 0x00])
+      expect(res.success).toBe(false)
+      expect(res.error).toContain('No se ha configurado ninguna impresora térmica')
+    })
+
+    it('enruta al spooler de Windows con ancho de papel y emite pulso de cajón si corresponde', async () => {
+      let spoolerCalled = false
+      let drawerCalled = false
+
+      printerService.printThermalGraphicViaChromiumSpooler = async (html, name, pw) => {
+        spoolerCalled = true
+        expect(html).toContain('Test')
+        expect(name).toBe('POS-58')
+        expect(pw).toBe('58mm')
+        return { success: true }
       }
 
-      printerService.dispatchThermalBuffer = async (_buf, _cfg, title) => {
-        dispatchCalled = true
-        expect(title).toBe('Venta #100')
+      printerService.openCashDrawer = async (_cfg) => {
+        drawerCalled = true
+        return { success: true }
+      }
+
+      const res = await printerService.printThermalGraphic(
+        '<html><body>Test</body></html>',
+        {
+          thermalInterface: 'printer:POS-58',
+          paperWidth: '58mm',
+          openDrawerOnPrint: true
+        } as any,
+        'Venta #100'
+      )
+
+      expect(res.success).toBe(true)
+      expect(spoolerCalled).toBe(true)
+      expect(drawerCalled).toBe(true)
+    })
+
+    it('no emite pulso de cajón si openDrawerOnPrint es false', async () => {
+      let drawerCalled = false
+
+      printerService.printThermalGraphicViaChromiumSpooler = async () => {
+        return { success: true }
+      }
+
+      printerService.openCashDrawer = async () => {
+        drawerCalled = true
         return { success: true }
       }
 
@@ -537,36 +580,14 @@ describe('Fase 9: Impresión y Tickets Térmicos (ESC/POS y Periféricos)', () =
         '<html><body>Test</body></html>',
         {
           thermalInterface: 'printer:POS-80',
-          paperWidth: '80mm'
+          paperWidth: '80mm',
+          openDrawerOnPrint: false
         } as any,
-        'Venta #100'
+        'Venta #101'
       )
 
       expect(res.success).toBe(true)
-      expect(rasterCalled).toBe(true)
-      expect(dispatchCalled).toBe(true)
-    })
-
-    it('enruta a Chromium Spooler para impresoras virtuales como Microsoft Print to PDF', async () => {
-      let spoolerCalled = false
-
-      printerService.printThermalGraphicViaChromiumSpooler = async (_html, name, _pw) => {
-        spoolerCalled = true
-        expect(name).toContain('PDF')
-        return { success: true }
-      }
-
-      const res = await printerService.printThermalGraphic(
-        '<html><body>Test</body></html>',
-        {
-          thermalInterface: 'printer:Microsoft Print to PDF',
-          paperWidth: '80mm'
-        } as any,
-        'Prueba Virtual'
-      )
-
-      expect(res.success).toBe(true)
-      expect(spoolerCalled).toBe(true)
+      expect(drawerCalled).toBe(false)
     })
   })
 })
