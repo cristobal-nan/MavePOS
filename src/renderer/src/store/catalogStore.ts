@@ -369,12 +369,24 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
 
   saveProduct: async (input: ProductInput) => {
     const product = await window.api.catalog.saveProduct(input)
+    try {
+      const { useMemoryCatalogStore } = await import('./memoryCatalogStore')
+      useMemoryCatalogStore.getState().refreshCatalog()
+    } catch (e) {
+      console.error('Error sincronizando catálogo en memoria:', e)
+    }
     await get().fetchProducts()
     return product
   },
 
   saveVariableProduct: async (parent: ProductInput, variations: ProductInput[]) => {
     const result = await window.api.catalog.saveVariableProduct(parent, variations)
+    try {
+      const { useMemoryCatalogStore } = await import('./memoryCatalogStore')
+      useMemoryCatalogStore.getState().refreshCatalog()
+    } catch (e) {
+      console.error('Error sincronizando catálogo en memoria:', e)
+    }
     await get().fetchProducts()
     return result
   },
@@ -386,6 +398,12 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
   deleteProduct: async (codeOrId: string | number) => {
     const ok = await window.api.catalog.deleteProduct(codeOrId)
     if (ok) {
+      try {
+        const { useMemoryCatalogStore } = await import('./memoryCatalogStore')
+        useMemoryCatalogStore.getState().removeProductLocal(codeOrId)
+      } catch (e) {
+        console.error('Error sincronizando eliminación en memoria:', e)
+      }
       await get().fetchProducts()
     }
     return ok
@@ -393,18 +411,36 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
 
   bulkDeleteProducts: async (productIds: number[]) => {
     const res = await window.api.catalog.bulkDelete(productIds)
+    try {
+      const { useMemoryCatalogStore } = await import('./memoryCatalogStore')
+      useMemoryCatalogStore.getState().refreshCatalog()
+    } catch (e) {
+      console.error('Error sincronizando borrado masivo en memoria:', e)
+    }
     await get().fetchProducts()
     return res
   },
 
   bulkUpdateCategory: async (productIds: number[], categoryId?: number | null, supplierIds?: number[]) => {
     const res = await window.api.catalog.bulkUpdateCategory(productIds, categoryId, supplierIds)
+    try {
+      const { useMemoryCatalogStore } = await import('./memoryCatalogStore')
+      useMemoryCatalogStore.getState().refreshCatalog()
+    } catch (e) {
+      console.error('Error sincronizando categoría masiva en memoria:', e)
+    }
     await get().fetchProducts()
     return res
   },
 
   groupProductsAsVariable: async (input: GroupAsVariableInput) => {
     const res = await window.api.catalog.groupAsVariable(input)
+    try {
+      const { useMemoryCatalogStore } = await import('./memoryCatalogStore')
+      useMemoryCatalogStore.getState().refreshCatalog()
+    } catch (e) {
+      console.error('Error sincronizando agrupación en memoria:', e)
+    }
     await get().fetchProducts()
     return res
   },

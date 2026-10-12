@@ -37,6 +37,10 @@ export function registerCatalogIpc(
     return productService.getActiveProducts(limit, offset)
   })
 
+  ipcMain.handle('products:getAllForMemory', () => {
+    return productService.getAllForMemoryIndex()
+  })
+
   ipcMain.handle('products:search', (_event, options: ProductSearchOptions) => {
     return productService.searchProducts(options)
   })

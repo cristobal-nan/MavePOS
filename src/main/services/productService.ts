@@ -691,6 +691,78 @@ export class ProductService {
       .all(limit, offset) as Product[]
   }
 
+  getAllForMemoryIndex(): ProductSearchResult[] {
+    const sql = `
+      SELECT
+        p.id,
+        p.code,
+        p.name,
+        p.search_name,
+        p.product_type,
+        p.parent_id,
+        p.attribute_name,
+        p.attribute_value,
+        p.sale_price,
+        p.cost_price,
+        p.category_id,
+        p.stock,
+        p.min_stock,
+        p.active,
+        p.created_at,
+        p.updated_at,
+        c.name AS category_name,
+        pc.name AS parent_category_name,
+        parent.name AS parent_name,
+        parent.search_name AS parent_search_name,
+        (
+          SELECT GROUP_CONCAT(s.id || ':' || s.name, ';;')
+          FROM product_suppliers ps
+          JOIN suppliers s ON s.id = ps.supplier_id
+          WHERE ps.product_id = p.id OR (p.parent_id IS NOT NULL AND ps.product_id = p.parent_id)
+        ) AS raw_suppliers
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      LEFT JOIN categories pc ON c.parent_id = pc.id
+      LEFT JOIN products parent ON p.parent_id = parent.id
+      WHERE p.active = 1 AND p.product_type IN ('simple', 'variation')
+      ORDER BY COALESCE(parent.search_name, p.search_name) ASC, p.search_name ASC, p.id ASC
+    `
+    const rows = this.db.prepare(sql).all() as any[]
+    return rows.map((row) => {
+      let suppliers: { id: number; name: string }[] = []
+      if (row.raw_suppliers) {
+        suppliers = String(row.raw_suppliers)
+          .split(';;')
+          .map((pair) => {
+            const [idStr, ...nameParts] = pair.split(':')
+            return { id: Number(idStr), name: nameParts.join(':') }
+          })
+        const seen = new Set<number>()
+        suppliers = suppliers.filter((s) => {
+          if (seen.has(s.id)) return false
+          seen.add(s.id)
+          return true
+        })
+      }
+      delete row.raw_suppliers
+      row.suppliers = suppliers
+
+      const catName = row.category_name || (row.parent_id ? row.parent_category_name : null) || ''
+      const suppNames = suppliers.map((s) => s.name).join(' / ')
+      if (catName && suppNames) {
+        row.category_display = `${catName} - ${suppNames}`
+      } else if (catName) {
+        row.category_display = catName
+      } else if (suppNames) {
+        row.category_display = suppNames
+      } else {
+        row.category_display = 'Sin Categoría'
+      }
+
+      return row as ProductSearchResult
+    })
+  }
+
   // ----------------------------------------------------
   // Product Search Engine (% wildcard algorithm)
   // ----------------------------------------------------

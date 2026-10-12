@@ -506,6 +506,19 @@ export const useSalesStore = create<SalesState>((set, get) => ({
         // ignore
       }
 
+      // Sincronización Inmediata en Memoria RAM (Write-Through)
+      try {
+        const { useMemoryCatalogStore } = await import('./memoryCatalogStore')
+        useMemoryCatalogStore.getState().decrementStockLocal(
+          currentTicket.items.map((it) => ({
+            product_code: it.product_code,
+            quantity: it.quantity
+          }))
+        )
+      } catch (err) {
+        console.error('Error sincronizando stock en memoria:', err)
+      }
+
       // Clean or remove current ticket
       if (tickets.length > 1) {
         const remaining = tickets.filter((_, idx) => idx !== activeTicketIndex)

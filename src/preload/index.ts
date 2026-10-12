@@ -52,6 +52,7 @@ export interface CatalogAPI {
   bulkUpdateCategory: (productIds: number[], categoryId?: number | null, supplierIds?: number[]) => Promise<{ updatedCount: number }>
   groupAsVariable: (input: GroupAsVariableInput) => Promise<{ parentId: number; count: number }>
   getActive: (limit?: number, offset?: number) => Promise<Product[]>
+  getAllForMemory: () => Promise<ProductSearchResult[]>
   search: (options?: ProductSearchOptions) => Promise<ProductSearchResult[]>
   seedSampleData: () => Promise<boolean>
   getCategories: () => Promise<Category[]>
@@ -273,6 +274,7 @@ const catalog: CatalogAPI = {
     ipcRenderer.invoke('products:bulkUpdateCategory', productIds, categoryId, supplierIds),
   groupAsVariable: (input) => ipcRenderer.invoke('products:groupAsVariable', input),
   getActive: (limit, offset) => ipcRenderer.invoke('products:getActive', limit, offset),
+  getAllForMemory: () => ipcRenderer.invoke('products:getAllForMemory'),
   search: (options) => ipcRenderer.invoke('products:search', options),
   seedSampleData: () => ipcRenderer.invoke('products:seed'),
 

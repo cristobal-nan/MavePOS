@@ -218,6 +218,14 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
           }
         })
       }
+      // Sincronización Inmediata en Memoria RAM (Write-Through)
+      try {
+        const { useMemoryCatalogStore } = await import('./memoryCatalogStore')
+        useMemoryCatalogStore.getState().adjustStockLocal(input.product_code, res.product.stock)
+      } catch (e) {
+        console.error('Error sincronizando stock en memoria:', e)
+      }
+
       // Actualizar la lista de los últimos ajustes
       await get().fetchRecentAdjustments()
       set({ isLoading: false })
