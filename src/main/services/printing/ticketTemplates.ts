@@ -442,11 +442,7 @@ export function generateThermalReceiptHtml(options: GenerateThermalReceiptHtmlOp
           margin: 0;
           size: ${paperWidth === '58mm' ? '58mm' : '80mm'} auto;
         }
-        * {
-          background: transparent !important;
-          background-color: transparent !important;
-          -webkit-print-color-adjust: economy !important;
-          print-color-adjust: economy !important;
+        *, *::before, *::after {
           box-sizing: border-box;
           word-break: break-word;
         }
@@ -455,8 +451,7 @@ export function generateThermalReceiptHtml(options: GenerateThermalReceiptHtmlOp
           font-size: ${fontSizeBase};
           line-height: ${lineHeight};
           color: #000000 !important;
-          background: transparent !important;
-          background-color: transparent !important;
+          background-color: #ffffff !important;
           margin: 0;
           padding: ${paddingMm}mm;
           width: ${widthMm}mm;
@@ -846,11 +841,7 @@ export function generateThermalCashCutHtml(options: GenerateThermalCashCutHtmlOp
           margin: 0;
           size: ${paperWidth === '58mm' ? '58mm' : '80mm'} auto;
         }
-        * {
-          background: transparent !important;
-          background-color: transparent !important;
-          -webkit-print-color-adjust: economy !important;
-          print-color-adjust: economy !important;
+        *, *::before, *::after {
           box-sizing: border-box;
           word-break: break-word;
         }
@@ -859,8 +850,7 @@ export function generateThermalCashCutHtml(options: GenerateThermalCashCutHtmlOp
           font-size: ${fontSizeBase};
           line-height: ${lineHeight};
           color: #000000 !important;
-          background: transparent !important;
-          background-color: transparent !important;
+          background-color: #ffffff !important;
           margin: 0;
           padding: ${paddingMm}mm;
           width: ${widthMm}mm;
