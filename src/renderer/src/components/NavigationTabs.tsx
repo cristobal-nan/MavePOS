@@ -43,7 +43,11 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
   onSelectTab
 }) => {
   return (
-    <nav className="h-12 bg-white dark:bg-slate-800 border-b border-lilac-200 dark:border-slate-700 px-4 flex items-center gap-1 shadow-sm select-none">
+    <nav
+      role="tablist"
+      aria-label="Navegación principal"
+      className="h-12 bg-white dark:bg-slate-800 border-b border-lilac-200 dark:border-slate-700 px-4 flex items-center gap-1 shadow-sm select-none"
+    >
       {TABS.map((tab) => {
         const Icon = tab.icon
         const isActive = activeTab === tab.id
@@ -51,8 +55,10 @@ export const NavigationTabs: React.FC<NavigationTabsProps> = ({
         return (
           <button
             key={tab.id}
+            role="tab"
+            aria-selected={isActive}
             onClick={() => onSelectTab(tab.id)}
-            className={`h-9 px-4 rounded-lg flex items-center gap-2 text-sm border focus:outline-none focus-visible:outline-none transition-colors duration-100 cursor-pointer ${
+            className={`h-9 px-4 rounded-lg flex items-center gap-2 text-sm border transition-colors duration-100 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500 ${
               isActive
                 ? 'bg-lilac-100 dark:bg-lilac-950/60 text-lilac-800 dark:text-lilac-200 shadow-sm border-lilac-200 dark:border-lilac-800 font-semibold'
                 : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-slate-700/50'

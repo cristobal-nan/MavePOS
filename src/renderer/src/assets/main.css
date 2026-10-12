@@ -173,18 +173,42 @@ input[type="number"] {
   color: #334155 !important; /* slate-700 para excelente legibilidad */
 }
 
-/* Fila de tabla seleccionada / resaltada: bordes exactamente iguales en los 4 lados sin quedar debajo de la fila siguiente */
+/* Fila de tabla seleccionada / resaltada: bordes nítidos en los 4 lados tanto en modo claro como en modo oscuro */
+tr.product-row-highlighted {
+  position: relative;
+  z-index: 2;
+}
+
 tr.product-row-highlighted td {
-  border-top: 2px solid var(--color-theme-500, #8b5cf6) !important;
-  border-bottom: 2px solid var(--color-theme-500, #8b5cf6) !important;
+  border-top: 2px solid var(--color-theme-600, #7c3aed) !important;
+  border-bottom: 2px solid var(--color-theme-600, #7c3aed) !important;
+  box-shadow: inset 0 2px 0 0 var(--color-theme-600, #7c3aed), inset 0 -2px 0 0 var(--color-theme-600, #7c3aed);
 }
 
 tr.product-row-highlighted td:first-child {
-  border-left: 2px solid var(--color-theme-500, #8b5cf6) !important;
+  border-left: 2px solid var(--color-theme-600, #7c3aed) !important;
+  box-shadow: inset 2px 2px 0 0 var(--color-theme-600, #7c3aed), inset 0 -2px 0 0 var(--color-theme-600, #7c3aed);
 }
 
 tr.product-row-highlighted td:last-child {
-  border-right: 2px solid var(--color-theme-500, #8b5cf6) !important;
+  border-right: 2px solid var(--color-theme-600, #7c3aed) !important;
+  box-shadow: inset -2px 2px 0 0 var(--color-theme-600, #7c3aed), inset 0 -2px 0 0 var(--color-theme-600, #7c3aed);
+}
+
+.dark tr.product-row-highlighted td {
+  border-top: 2px solid var(--color-theme-400, #a78bfa) !important;
+  border-bottom: 2px solid var(--color-theme-400, #a78bfa) !important;
+  box-shadow: inset 0 2px 0 0 var(--color-theme-400, #a78bfa), inset 0 -2px 0 0 var(--color-theme-400, #a78bfa);
+}
+
+.dark tr.product-row-highlighted td:first-child {
+  border-left: 2px solid var(--color-theme-400, #a78bfa) !important;
+  box-shadow: inset 2px 2px 0 0 var(--color-theme-400, #a78bfa), inset 0 -2px 0 0 var(--color-theme-400, #a78bfa);
+}
+
+.dark tr.product-row-highlighted td:last-child {
+  border-right: 2px solid var(--color-theme-400, #a78bfa) !important;
+  box-shadow: inset -2px 2px 0 0 var(--color-theme-400, #a78bfa), inset 0 -2px 0 0 var(--color-theme-400, #a78bfa);
 }
 
 /* Input con error temporal: placeholder y texto en rojo nítido */
