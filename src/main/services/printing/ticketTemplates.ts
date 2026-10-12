@@ -103,11 +103,6 @@ export function buildThermalReceipt(options: BuildThermalReceiptOptions): void {
   const businessEmail = business.email || ''
   const footerMsg = business.footerMessage || '¡Gracias por su preferencia!'
 
-  // Forzar reseteo de margen izquierdo en cabezal térmico a 0 dots (GS L 0 0)
-  if (typeof printer.append === 'function') {
-    printer.append(Buffer.from([0x1d, 0x4c, 0x00, 0x00]))
-  }
-
   // Aplicar tipo de fuente
   if (fontFamily === 'font_b') {
     printer.setTypeFontB()
@@ -293,11 +288,6 @@ export function buildThermalTestTicket(options: BuildTestTicketOptions): void {
     printer.setTypeFontA()
   }
 
-  // Forzar reseteo de margen izquierdo en cabezal térmico a 0 dots (GS L 0 0)
-  if (typeof printer.append === 'function') {
-    printer.append(Buffer.from([0x1d, 0x4c, 0x00, 0x00]))
-  }
-
   if (bodySize === 'compact') {
     try {
       printer.setLineSpacing(24)
@@ -384,7 +374,8 @@ export function generateThermalReceiptHtml(options: GenerateThermalReceiptHtmlOp
     saleDetail.completed_at || saleDetail.created_at || Date.now()
   ).toLocaleString('es-CL')
 
-  const paperWidthMm = paperWidth === '58mm' ? 58 : 80
+  const widthMm = paperWidth === '58mm' ? 48 : 72
+  const paddingMm = paperWidth === '58mm' ? 1 : 2
   const fontSizeBase = paperWidth === '58mm' ? '11px' : '12px'
   const lineHeight = bodySize === 'compact' ? '1.2' : '1.35'
 
@@ -449,12 +440,10 @@ export function generateThermalReceiptHtml(options: GenerateThermalReceiptHtmlOp
       <style>
         @page {
           margin: 0;
-          size: ${paperWidthMm}mm auto;
+          size: ${widthMm}mm auto;
         }
-        *, *::before, *::after {
+        * {
           box-sizing: border-box;
-          margin-left: 0;
-          margin-right: 0;
         }
         html, body {
           font-family: ${fontFamily};
@@ -462,14 +451,9 @@ export function generateThermalReceiptHtml(options: GenerateThermalReceiptHtmlOp
           line-height: ${lineHeight};
           color: #000000 !important;
           background-color: #ffffff !important;
-          margin: 0 !important;
-          padding-left: 0 !important;
-          padding-right: 0 !important;
-          padding-top: 0;
-          padding-bottom: 2mm;
-          width: ${paperWidthMm}mm !important;
-          min-width: ${paperWidthMm}mm !important;
-          max-width: ${paperWidthMm}mm !important;
+          margin: 0;
+          padding: ${paddingMm}mm;
+          width: ${widthMm}mm;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
         }
@@ -714,11 +698,6 @@ export function buildThermalCashCutReceipt(options: BuildThermalCashCutOptions):
     printer.setTypeFontA()
   }
 
-  // Forzar reseteo de margen izquierdo en cabezal térmico a 0 dots (GS L 0 0)
-  if (typeof printer.append === 'function') {
-    printer.append(Buffer.from([0x1d, 0x4c, 0x00, 0x00]))
-  }
-
   if (bodySize === 'compact') {
     try {
       printer.setLineSpacing(24)
@@ -845,7 +824,8 @@ export function generateThermalCashCutHtml(options: GenerateThermalCashCutHtmlOp
   const openedDateStr = data.openedAt ? new Date(data.openedAt).toLocaleString('es-CL') : null
   const closedDateStr = new Date(data.closedAt || Date.now()).toLocaleString('es-CL')
 
-  const paperWidthMm = paperWidth === '58mm' ? 58 : 80
+  const widthMm = paperWidth === '58mm' ? 48 : 72
+  const paddingMm = paperWidth === '58mm' ? 1 : 2
   const fontSizeBase = paperWidth === '58mm' ? '11px' : '12px'
   const lineHeight = bodySize === 'compact' ? '1.2' : '1.35'
 
@@ -858,12 +838,10 @@ export function generateThermalCashCutHtml(options: GenerateThermalCashCutHtmlOp
       <style>
         @page {
           margin: 0;
-          size: ${paperWidthMm}mm auto;
+          size: ${widthMm}mm auto;
         }
-        *, *::before, *::after {
+        * {
           box-sizing: border-box;
-          margin-left: 0;
-          margin-right: 0;
         }
         html, body {
           font-family: ${fontFamily};
@@ -871,14 +849,9 @@ export function generateThermalCashCutHtml(options: GenerateThermalCashCutHtmlOp
           line-height: ${lineHeight};
           color: #000000 !important;
           background-color: #ffffff !important;
-          margin: 0 !important;
-          padding-left: 0 !important;
-          padding-right: 0 !important;
-          padding-top: 0;
-          padding-bottom: 2mm;
-          width: ${paperWidthMm}mm !important;
-          min-width: ${paperWidthMm}mm !important;
-          max-width: ${paperWidthMm}mm !important;
+          margin: 0;
+          padding: ${paddingMm}mm;
+          width: ${widthMm}mm;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
         }

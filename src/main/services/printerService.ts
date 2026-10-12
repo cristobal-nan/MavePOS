@@ -257,11 +257,10 @@ export class PrinterService {
     config: PrinterConfig
   ): Promise<Buffer> {
     const is58mm = config.paperWidth === '58mm'
-    const paperWidthMm = is58mm ? 58 : 80
     // Puntos térmicos estándar a 203 DPI: 576 dots (80mm) / 384 dots (58mm)
     const targetWidthDots = is58mm ? 384 : 576
-    // Ancho exacto forzado al ancho físico del papel (58mm u 80mm) con 0 margen lateral
-    const cssWidthMm = paperWidthMm
+    // Ancho CSS estándar en mm a 96 DPI: 72mm (~272px) / 48mm (~181px)
+    const cssWidthMm = is58mm ? 48 : 72
     const zoomFactor = targetWidthDots / (cssWidthMm * 3.7795)
 
     const win = new BrowserWindow({
@@ -305,11 +304,6 @@ export class PrinterService {
 
       const printerType = config.thermalType === 'star' ? PrinterTypes.STAR : PrinterTypes.EPSON
       const printer = new (ThermalPrinter as any)({ type: printerType })
-
-      // Forzar reseteo de margen izquierdo en hardware a 0 dots (GS L 0 0)
-      if (typeof printer.append === 'function') {
-        printer.append(Buffer.from([0x1d, 0x4c, 0x00, 0x00]))
-      }
 
       await printer.printImageBuffer(pngBuffer)
 
