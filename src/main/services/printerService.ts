@@ -267,10 +267,8 @@ export class PrinterService {
 
     const win = new BrowserWindow({
       show: false,
-      frame: false,
-      useContentSize: true,
       width: targetWidthDots,
-      height: 3500,
+      height: 1200,
       backgroundColor: '#ffffff',
       webPreferences: {
         nodeIntegration: false,
@@ -284,13 +282,15 @@ export class PrinterService {
       await Promise.all([loadPromise, readyPromise])
 
       // Esperar brevemente a que las fuentes de Windows y el layout terminen de dibujarse
-      await new Promise((resolve) => setTimeout(resolve, 150))
+      await new Promise((resolve) => setTimeout(resolve, 120))
 
       win.webContents.setZoomFactor(zoomFactor)
       const heightPx = await win.webContents.executeJavaScript(
         'Math.max(document.body.offsetHeight, document.documentElement.offsetHeight, 100)'
       )
-      const targetHeightDots = Math.max(100, Math.ceil(heightPx * zoomFactor))
+      const targetHeightDots = Math.ceil(heightPx * zoomFactor)
+
+      win.setContentSize(targetWidthDots, targetHeightDots)
 
       const image = await win.webContents.capturePage({
         x: 0,
@@ -326,7 +326,9 @@ export class PrinterService {
   }
 
   /**
-   * Prints silently via Chromium print spooler (ideal for virtual printers like Microsoft Print to PDF).
+   * Prints silently via Chromium print spooler with custom roll size (58mm / 80mm x dynamic height).
+   * For virtual PDF printers, saves a continuous receipt PDF in Documents/Tickets POS.
+   * For physical Windows printers, dispatches via Windows driver with zero margins.
    */
   async printThermalGraphicViaChromiumSpooler(
     html: string,
@@ -415,7 +417,7 @@ export class PrinterService {
               } else {
                 resolve({
                   success: false,
-                  error: failureReason || 'Error al enviar a la impresora virtual de Windows.'
+                  error: failureReason || 'Error al enviar a la impresora de Windows.'
                 })
               }
             }
@@ -444,36 +446,37 @@ export class PrinterService {
 
   /**
    * Dispatches a thermal receipt in graphical mode (TrueType Windows fonts).
-   * - Si el destino es una impresora virtual (PDF/XPS), utiliza el spooler de Chromium o exportación PDF continua.
-   * - Si es una impresora térmica física, la convierte a raster ESC/POS dot-by-dot puro para evitar
-   *   que los drivers GDI quemen el papel en negro o desborden el ancho, garantizando fondo blanco y fuentes nítidas.
+   * Generates a custom continuous-page layout fitted strictly to the configured roll width (58mm / 80mm)
+   * and dispatches via Windows print spooler with zero margins, preventing cutoff and garbled characters.
    */
   async printThermalGraphic(
     html: string,
     config: PrinterConfig,
-    docTitle: string
+    _docTitle?: string
   ): Promise<PrintResult> {
     const rawInterface = (config.thermalInterface || '').replace(/^printer:/i, '').trim()
-    const isVirtualPrinter = /pdf|xps|onenote|writer|fax/i.test(rawInterface)
-
-    if (isVirtualPrinter) {
-      return await this.printThermalGraphicViaChromiumSpooler(
-        html,
-        rawInterface,
-        config.paperWidth
-      )
-    }
-
-    try {
-      const rasterBuffer = await this.renderHtmlToThermalRasterBuffer(html, config)
-      return await this.dispatchThermalBuffer(rasterBuffer, config, docTitle)
-    } catch (rasterErr: any) {
-      console.error('Error generando raster ESC/POS para impresora térmica física:', rasterErr)
+    if (!rawInterface) {
       return {
         success: false,
-        error: rasterErr.message || 'Error al renderizar el ticket gráfico para la impresora térmica.'
+        error: 'No se ha configurado ninguna impresora térmica de destino en Configuración.'
       }
     }
+
+    const printResult = await this.printThermalGraphicViaChromiumSpooler(
+      html,
+      rawInterface,
+      config.paperWidth
+    )
+
+    if (printResult.success && config.openDrawerOnPrint) {
+      try {
+        await this.openCashDrawer(config)
+      } catch (drawerErr) {
+        console.warn('Aviso: Ticket impreso pero falló pulso de cajón:', drawerErr)
+      }
+    }
+
+    return printResult
   }
 
   /**
