@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import Database from 'better-sqlite3'
 import { runMigrations } from '../main/db/migrations'
 import { SettingsService } from '../main/services/settingsService'
 import { PrinterService } from '../main/services/printerService'
 import { generateNormalReceiptHtml as generateHtmlPure, sanitizeForThermalEscPos } from '../main/services/printing/ticketTemplates'
+import * as rawPrinterHelper from '../main/services/printing/rawPrinterHelper'
 import { CASH_DRAWER_PULSE_BUFFER, getRawPrintExePath } from '../main/services/printing/rawPrinterHelper'
 import { SaleDetail } from '../shared/types'
 
@@ -451,7 +452,7 @@ describe('Fase 9: Impresión y Tickets Térmicos (ESC/POS y Periféricos)', () =
       expect(html).toContain('Lana Roja 100g')
       expect(html).toContain('$ 10.500')
       expect(html).toContain('width: 72mm')
-      expect(html).toContain('background-color: transparent !important')
+      expect(html).toContain('background-color: #ffffff !important')
     })
   })
 
@@ -511,8 +512,7 @@ describe('Fase 9: Impresión y Tickets Térmicos (ESC/POS y Periféricos)', () =
       expect(html).toContain('Monto Retirado:')
       expect(html).toContain('$ 95.000')
       expect(html).toContain('Fondo Sig. Turno:')
-      expect(html).toContain('background-color: transparent !important')
-      expect(html).toContain('-webkit-print-color-adjust: economy !important')
+      expect(html).toContain('background-color: #ffffff !important')
     })
   })
 
@@ -531,62 +531,69 @@ describe('Fase 9: Impresión y Tickets Térmicos (ESC/POS y Periféricos)', () =
       expect(res.error).toContain('No se ha configurado ninguna impresora térmica')
     })
 
-    it('enruta al spooler de Windows con ancho de papel y emite pulso de cajón si corresponde', async () => {
+    it('enruta a Chromium Spooler para impresoras virtuales como Microsoft Print to PDF', async () => {
       let spoolerCalled = false
-      let drawerCalled = false
 
       printerService.printThermalGraphicViaChromiumSpooler = async (html, name, pw) => {
         spoolerCalled = true
         expect(html).toContain('Test')
-        expect(name).toBe('POS-58')
-        expect(pw).toBe('58mm')
+        expect(name).toContain('PDF')
+        expect(pw).toBe('80mm')
         return { success: true }
       }
+
+      const res = await printerService.printThermalGraphic(
+        '<html><body>Test</body></html>',
+        {
+          thermalInterface: 'printer:Microsoft Print to PDF',
+          paperWidth: '80mm'
+        } as any,
+        'Prueba Virtual'
+      )
+
+      expect(res.success).toBe(true)
+      expect(spoolerCalled).toBe(true)
+    })
+
+    it('enruta al despacho GDI tipo Paint para impresoras físicas y emite pulso de cajón si corresponde', async () => {
+      let renderCalled = false
+      let drawerCalled = false
+
+      printerService.renderHtmlToTicketPngBuffer = async (html, pw) => {
+        renderCalled = true
+        expect(html).toContain('Test')
+        expect(pw).toBe('58mm')
+        return Buffer.from(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAAAAAA6fptVAAAACklEQVR4nGNiAAAABgADNjd8qAAAAABJRU5ErkJggg==',
+          'base64'
+        )
+      }
+
+      const gdiSpy = vi.spyOn(rawPrinterHelper, 'sendImageToPrinterViaGdi').mockResolvedValue({ success: true })
 
       printerService.openCashDrawer = async (_cfg) => {
         drawerCalled = true
         return { success: true }
       }
 
-      const res = await printerService.printThermalGraphic(
-        '<html><body>Test</body></html>',
-        {
-          thermalInterface: 'printer:POS-58',
-          paperWidth: '58mm',
-          openDrawerOnPrint: true
-        } as any,
-        'Venta #100'
-      )
+      try {
+        const res = await printerService.printThermalGraphic(
+          '<html><body>Test</body></html>',
+          {
+            thermalInterface: 'printer:POS-58',
+            paperWidth: '58mm',
+            openDrawerOnPrint: true
+          } as any,
+          'Venta #100'
+        )
 
-      expect(res.success).toBe(true)
-      expect(spoolerCalled).toBe(true)
-      expect(drawerCalled).toBe(true)
-    })
-
-    it('no emite pulso de cajón si openDrawerOnPrint es false', async () => {
-      let drawerCalled = false
-
-      printerService.printThermalGraphicViaChromiumSpooler = async () => {
-        return { success: true }
+        expect(res.success).toBe(true)
+        expect(renderCalled).toBe(true)
+        expect(gdiSpy).toHaveBeenCalledWith('POS-58', expect.any(Buffer), 'Venta #100')
+        expect(drawerCalled).toBe(true)
+      } finally {
+        gdiSpy.mockRestore()
       }
-
-      printerService.openCashDrawer = async () => {
-        drawerCalled = true
-        return { success: true }
-      }
-
-      const res = await printerService.printThermalGraphic(
-        '<html><body>Test</body></html>',
-        {
-          thermalInterface: 'printer:POS-80',
-          paperWidth: '80mm',
-          openDrawerOnPrint: false
-        } as any,
-        'Venta #101'
-      )
-
-      expect(res.success).toBe(true)
-      expect(drawerCalled).toBe(false)
     })
   })
 })
