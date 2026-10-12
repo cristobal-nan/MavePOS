@@ -389,7 +389,7 @@ export function generateThermalReceiptHtml(options: GenerateThermalReceiptHtmlOp
 
       if (itemsLayout === '4_cols') {
         return `
-          <tr style="border-bottom: 1px dotted #cbd5e1;">
+          <tr style="border-bottom: 1px dotted #000000;">
             <td style="padding: 2px 2px 2px 0; text-align: left; vertical-align: top; width: 18px;">${qty}</td>
             <td style="padding: 2px 3px; text-align: left; vertical-align: top; word-break: break-word;">${item.name}</td>
             <td style="padding: 2px 2px; text-align: right; vertical-align: top; white-space: nowrap; font-size: 0.9em;">${unitPriceStr}</td>
@@ -398,7 +398,7 @@ export function generateThermalReceiptHtml(options: GenerateThermalReceiptHtmlOp
         `
       } else if (itemsLayout === '3_cols') {
         return `
-          <tr style="border-bottom: 1px dotted #cbd5e1;">
+          <tr style="border-bottom: 1px dotted #000000;">
             <td style="padding: 2px 2px 2px 0; text-align: left; vertical-align: top; width: 18px;">${qty}</td>
             <td style="padding: 2px 3px; text-align: left; vertical-align: top; word-break: break-word;">${item.name}</td>
             <td style="padding: 2px 0 2px 2px; text-align: right; vertical-align: top; font-weight: bold; white-space: nowrap;">${totalStr}</td>
@@ -407,12 +407,12 @@ export function generateThermalReceiptHtml(options: GenerateThermalReceiptHtmlOp
       } else {
         // 2 cols
         return `
-          <div style="margin-bottom: 5px; border-bottom: 1px dotted #e2e8f0; padding-bottom: 3px;">
+          <div style="margin-bottom: 5px; border-bottom: 1px dotted #000000; padding-bottom: 3px;">
             <div style="display: flex; justify-content: space-between; gap: 4px; font-weight: 500;">
               <span style="word-break: break-word;">${qty}x ${item.name}</span>
               <span style="font-weight: bold; white-space: nowrap;">${totalStr}</span>
             </div>
-            <div style="font-size: 0.9em; color: #475569; padding-left: 6px;">
+            <div style="font-size: 0.9em; color: #000000; padding-left: 6px;">
               (${unitPriceStr} c/u)
             </div>
           </div>
@@ -457,8 +457,6 @@ export function generateThermalReceiptHtml(options: GenerateThermalReceiptHtmlOp
           width: ${widthMm}mm;
           max-width: ${widthMm}mm;
           overflow: hidden;
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
         }
         .text-center { text-align: center; }
         .text-right { text-align: right; }
@@ -488,7 +486,7 @@ export function generateThermalReceiptHtml(options: GenerateThermalReceiptHtmlOp
           <span class="font-bold">FOLIO: #${saleDetail.folio ?? saleDetail.id}</span>
           <span>Turno: #${saleDetail.ticket_number ?? 0}</span>
         </div>
-        <div style="font-size: 0.9em; color: #333;">Fecha: ${dateStr}</div>
+        <div style="font-size: 0.9em; color: #000000;">Fecha: ${dateStr}</div>
       </div>
 
       <div class="divider"></div>
@@ -858,8 +856,6 @@ export function generateThermalCashCutHtml(options: GenerateThermalCashCutHtmlOp
           width: ${widthMm}mm;
           max-width: ${widthMm}mm;
           overflow: hidden;
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
         }
         .text-center { text-align: center; }
         .text-right { text-align: right; }
@@ -887,8 +883,8 @@ export function generateThermalCashCutHtml(options: GenerateThermalCashCutHtmlOp
       <div class="text-center" style="font-size: 0.9em; margin-bottom: 3px;">
         Sesión #${data.sessionId}
       </div>
-      ${openedDateStr ? `<div style="font-size: 0.85em; color: #333;">Apertura: ${openedDateStr}</div>` : ''}
-      <div style="font-size: 0.85em; color: #333;">Cierre: ${closedDateStr}</div>
+      ${openedDateStr ? `<div style="font-size: 0.85em; color: #000000;">Apertura: ${openedDateStr}</div>` : ''}
+      <div style="font-size: 0.85em; color: #000000;">Cierre: ${closedDateStr}</div>
 
       <div class="divider"></div>
 
