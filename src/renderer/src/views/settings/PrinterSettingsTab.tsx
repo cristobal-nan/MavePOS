@@ -26,6 +26,11 @@ const POPULAR_FONTS = [
   { name: 'Courier New', value: 'Courier New, monospace', label: 'Courier New (Clásica de máquina)' }
 ]
 
+const normalizeFontFamily = (val?: string): string => {
+  if (!val) return 'Segoe UI'
+  return val.split(',')[0].replace(/['"]/g, '').trim()
+}
+
 const SAMPLE_SALE: SaleDetail = {
   id: 999,
   folio: 142,
@@ -106,9 +111,9 @@ export const PrinterSettingsTab: React.FC = () => {
     footerMessage: '¡Gracias por su preferencia!'
   })
 
-  // Campo de fuente personalizada
-  const [customFontInput, setCustomFontInput] = useState('')
-  const [isUsingCustomFont, setIsUsingCustomFont] = useState(false)
+  // Catálogo de fuentes de Windows
+  const [systemFonts, setSystemFonts] = useState<string[]>([])
+  const [isLoadingFonts, setIsLoadingFonts] = useState(true)
 
   const registerSubTabState = useSettingsStore((s) => s.registerSubTabState)
   const clearSubTabState = useSettingsStore((s) => s.clearSubTabState)
@@ -118,20 +123,18 @@ export const PrinterSettingsTab: React.FC = () => {
     Promise.all([
       window.api.getPrinterConfig(),
       window.api.getInstalledPrinters(),
-      window.api.getAllSettings()
+      window.api.getAllSettings(),
+      window.api.getSystemFonts().catch(() => [])
     ])
-      .then(([config, list, allSettings]) => {
+      .then(([config, list, allSettings, fonts]) => {
         if (!isMounted) return
         setInitialConfig(config)
         setPrinterConfig(config)
         setPrintersList(list)
-
-        const sysFont = config.thermalSystemFont || 'Segoe UI, -apple-system, sans-serif'
-        const matched = POPULAR_FONTS.some((f) => f.value === sysFont)
-        if (!matched && sysFont) {
-          setIsUsingCustomFont(true)
-          setCustomFontInput(sysFont)
+        if (Array.isArray(fonts) && fonts.length > 0) {
+          setSystemFonts(fonts)
         }
+        setIsLoadingFonts(false)
 
         setBusinessInfo({
           name: allSettings.business_name || 'PUNTO DE VENTA',
@@ -146,6 +149,7 @@ export const PrinterSettingsTab: React.FC = () => {
       })
       .catch((err) => {
         console.error('Error cargando configuración de impresoras:', err)
+        if (isMounted) setIsLoadingFonts(false)
       })
 
     return () => {
@@ -185,14 +189,6 @@ export const PrinterSettingsTab: React.FC = () => {
 
   const handleDiscard = useCallback((): void => {
     setPrinterConfig({ ...initialConfig })
-    const sysFont = initialConfig.thermalSystemFont || 'Segoe UI, -apple-system, sans-serif'
-    const matched = POPULAR_FONTS.some((f) => f.value === sysFont)
-    if (!matched && sysFont) {
-      setIsUsingCustomFont(true)
-      setCustomFontInput(sysFont)
-    } else {
-      setIsUsingCustomFont(false)
-    }
   }, [initialConfig])
 
   // Seguimiento de cambios sucios (Dirty tracking)
@@ -497,25 +493,36 @@ export const PrinterSettingsTab: React.FC = () => {
 
             {/* Selector de Tipografía */}
             {(printerConfig.thermalPrintMode ?? 'graphic') === 'graphic' ? (
-              <div className="text-xs space-y-2">
-                <label className="block font-bold text-slate-700 dark:text-slate-300">
-                  Tipografía del Ticket
-                </label>
+              <div className="text-xs space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <Type className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
+                    <span>Tipografía del Ticket</span>
+                  </label>
+                  <span className="text-[11px] text-slate-400">
+                    {isLoadingFonts
+                      ? 'Cargando fuentes...'
+                      : `${systemFonts.length} fuentes en Windows`}
+                  </span>
+                </div>
+
+                {/* Acceso rápido a fuentes recomendadas */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {POPULAR_FONTS.map((font) => {
-                    const isSelected = !isUsingCustomFont && (printerConfig.thermalSystemFont || 'Segoe UI, -apple-system, sans-serif') === font.value
+                    const isSelected =
+                      normalizeFontFamily(printerConfig.thermalSystemFont) ===
+                      normalizeFontFamily(font.value)
                     return (
                       <button
                         key={font.name}
                         type="button"
                         onClick={() => {
-                          setIsUsingCustomFont(false)
                           setPrinterConfig({ ...printerConfig, thermalSystemFont: font.value })
                         }}
                         style={{ fontFamily: font.value }}
                         className={`p-2 rounded-xl border text-left text-xs transition-all cursor-pointer ${
                           isSelected
-                            ? 'border-lilac-500 bg-lilac-50/70 dark:bg-lilac-950/40 text-lilac-900 dark:text-lilac-200 font-bold'
+                            ? 'border-lilac-500 bg-lilac-50/70 dark:bg-lilac-950/40 text-lilac-900 dark:text-lilac-200 font-bold ring-1 ring-lilac-500/30'
                             : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:border-slate-300'
                         }`}
                       >
@@ -526,43 +533,46 @@ export const PrinterSettingsTab: React.FC = () => {
                   })}
                 </div>
 
-                {/* Opción de fuente personalizada */}
-                <div className="pt-1">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="use-custom-font"
-                      checked={isUsingCustomFont}
-                      onChange={(e) => {
-                        const checked = e.target.checked
-                        setIsUsingCustomFont(checked)
-                        if (checked && customFontInput.trim()) {
-                          setPrinterConfig({ ...printerConfig, thermalSystemFont: customFontInput.trim() })
-                        } else if (!checked) {
-                          setPrinterConfig({ ...printerConfig, thermalSystemFont: POPULAR_FONTS[0].value })
-                        }
-                      }}
-                      className="rounded border-slate-300 text-lilac-600 focus:ring-lilac-500 w-3.5 h-3.5 cursor-pointer"
-                    />
-                    <label htmlFor="use-custom-font" className="font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
-                      Escribir nombre de otra fuente instalada en Windows
-                    </label>
-                  </div>
-
-                  {isUsingCustomFont && (
-                    <div className="mt-2 flex gap-2">
-                      <input
-                        type="text"
-                        value={customFontInput}
-                        onChange={(e) => {
-                          setCustomFontInput(e.target.value)
-                          setPrinterConfig({ ...printerConfig, thermalSystemFont: e.target.value })
-                        }}
-                        placeholder="Ej: Tahoma, Verdana, Calibri, etc."
-                        className="flex-1 px-3 py-1.5 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-800 focus:outline-none focus:border-lilac-500"
-                      />
-                    </div>
-                  )}
+                {/* Menú desplegable con todas las fuentes instaladas en Windows */}
+                <div className="pt-0.5">
+                  <label
+                    htmlFor="system-font-select"
+                    className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1.5"
+                  >
+                    O seleccionar de todas las fuentes instaladas en Windows:
+                  </label>
+                  <select
+                    id="system-font-select"
+                    value={normalizeFontFamily(printerConfig.thermalSystemFont)}
+                    onChange={(e) => {
+                      const selectedFont = e.target.value
+                      if (!selectedFont) return
+                      const cssFont = selectedFont.includes(' ')
+                        ? `"${selectedFont}", sans-serif`
+                        : `${selectedFont}, sans-serif`
+                      setPrinterConfig({ ...printerConfig, thermalSystemFont: cssFont })
+                    }}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-800 focus:outline-none focus:border-lilac-500 focus:ring-1 focus:ring-lilac-500 transition-colors cursor-pointer"
+                  >
+                    {systemFonts.length === 0 ? (
+                      <option value={normalizeFontFamily(printerConfig.thermalSystemFont)}>
+                        {normalizeFontFamily(printerConfig.thermalSystemFont)}
+                      </option>
+                    ) : (
+                      <>
+                        {!systemFonts.includes(normalizeFontFamily(printerConfig.thermalSystemFont)) && (
+                          <option value={normalizeFontFamily(printerConfig.thermalSystemFont)}>
+                            {normalizeFontFamily(printerConfig.thermalSystemFont)}
+                          </option>
+                        )}
+                        {systemFonts.map((fontName) => (
+                          <option key={fontName} value={fontName} style={{ fontFamily: fontName }}>
+                            {fontName}
+                          </option>
+                        ))}
+                      </>
+                    )}
+                  </select>
                 </div>
               </div>
             ) : (

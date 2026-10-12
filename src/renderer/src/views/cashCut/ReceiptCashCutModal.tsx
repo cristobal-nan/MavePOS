@@ -67,77 +67,123 @@ export const ReceiptCashCutModal: React.FC<ReceiptCashCutModalProps> = ({
         </div>
 
         {/* Recibo Formateado (Protegido como papel blanco físico) */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 font-mono text-xs flex flex-col gap-2 text-slate-800 thermal-ticket-paper shadow-sm">
-          <div className="flex justify-between">
-            <span>Fondo Inicial:</span>
-            <span className="font-bold">{formatCLP(data.openingFund)}</span>
-          </div>
-          <div className="flex justify-between text-emerald-700">
-            <span>Ventas Efectivo:</span>
-            <span className="font-bold">+{formatCLP(data.salesCash)}</span>
-          </div>
-          <div className="flex justify-between text-blue-700">
-            <span>Ventas Tarjeta:</span>
-            <span className="font-bold">+{formatCLP(data.salesCard)}</span>
-          </div>
-          <div className="flex justify-between text-lilac-700">
-            <span>Ventas Transferencia:</span>
-            <span className="font-bold">+{formatCLP(data.salesTransfer)}</span>
-          </div>
-          <div className="flex justify-between font-bold border-t border-slate-200 pt-1">
-            <span>Total Ventas:</span>
-            <span>{formatCLP(data.salesTotal)}</span>
-          </div>
-          <div className="flex justify-between text-rose-600">
-            <span>Devoluciones:</span>
-            <span>−{formatCLP(data.returnsTotal)}</span>
-          </div>
-          <div className="flex justify-between text-amber-700">
-            <span>Salidas de Dinero:</span>
-            <span>−{formatCLP(data.withdrawalsTotal)}</span>
-          </div>
-          <div className="flex justify-between font-black border-t-2 border-dashed border-slate-300 pt-2 text-sm">
-            <span>Efectivo Contado:</span>
-            <span>{formatCLP(data.closingCash)}</span>
-          </div>
-          <div className="flex justify-between font-bold">
-            <span>Efectivo Esperado:</span>
-            <span>{formatCLP(data.expectedCash)}</span>
-          </div>
-          {data.difference !== null && data.difference !== undefined && (
-            <div className="flex justify-between font-bold text-sm pt-1 border-t border-slate-200">
-              <span>Diferencia:</span>
-              <span
-                className={
-                  data.difference === 0
-                    ? 'text-emerald-700'
-                    : data.difference > 0
-                    ? 'text-blue-700'
-                    : 'text-rose-700'
-                }
-              >
-                {data.difference > 0 ? `+${formatCLP(data.difference)}` : formatCLP(data.difference)}
-              </span>
+        {(() => {
+          const salesCash = data.salesCash ?? 0
+          const salesCard = data.salesCard ?? 0
+          const salesTransfer = data.salesTransfer ?? 0
+
+          const hasCashSales = salesCash > 0
+          const hasCardSales = salesCard > 0
+          const hasTransferSales = salesTransfer > 0
+
+          const diffCash =
+            data.difference !== null && data.difference !== undefined
+              ? data.difference
+              : data.closingCash !== null &&
+                  data.closingCash !== undefined &&
+                  data.expectedCash !== null &&
+                  data.expectedCash !== undefined
+                ? data.closingCash - data.expectedCash
+                : 0
+
+          const diffCard =
+            data.cardDifference !== null && data.cardDifference !== undefined
+              ? data.cardDifference
+              : data.cardMachineAmount !== null && data.cardMachineAmount !== undefined
+                ? data.cardMachineAmount - salesCard
+                : 0
+
+          const diffTransfer =
+            data.transferDifference !== null && data.transferDifference !== undefined
+              ? data.transferDifference
+              : data.transferVerifiedAmount !== null && data.transferVerifiedAmount !== undefined
+                ? data.transferVerifiedAmount - salesTransfer
+                : 0
+
+          const formatDiff = (diff: number, hasSales: boolean): string => {
+            if (diff === 0) return hasSales ? '$ 0' : '-'
+            const formattedAbs = Math.abs(Math.round(diff)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+            return diff > 0 ? `+$ ${formattedAbs}` : `-$ ${formattedAbs}`
+          }
+
+          return (
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 font-mono text-xs flex flex-col gap-2 text-slate-800 thermal-ticket-paper shadow-sm">
+              <div className="flex justify-between">
+                <span>Fondo Inicial:</span>
+                <span className="font-bold">{formatCLP(data.openingFund)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Ventas Efectivo:</span>
+                <span className="font-bold">{formatCLP(salesCash)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Ventas Tarjeta:</span>
+                <span className="font-bold">{formatCLP(salesCard)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Ventas Transferencia:</span>
+                <span className="font-bold">{formatCLP(salesTransfer)}</span>
+              </div>
+              <div className="flex justify-between font-bold border-t border-slate-200 pt-1">
+                <span>Total Ventas:</span>
+                <span>{formatCLP(data.salesTotal)}</span>
+              </div>
+              {data.returnsTotal ? (
+                <div className="flex justify-between">
+                  <span>Devoluciones:</span>
+                  <span>{formatCLP(Math.abs(data.returnsTotal))}</span>
+                </div>
+              ) : null}
+              {data.withdrawalsTotal ? (
+                <div className="flex justify-between">
+                  <span>Salidas de Dinero:</span>
+                  <span>{formatCLP(Math.abs(data.withdrawalsTotal))}</span>
+                </div>
+              ) : null}
+              <div className="flex justify-between font-black border-t-2 border-dashed border-slate-300 pt-2 text-sm">
+                <span>Efectivo Contado:</span>
+                <span>{formatCLP(data.closingCash)}</span>
+              </div>
+              <div className="flex justify-between font-bold">
+                <span>Efectivo Esperado:</span>
+                <span>{formatCLP(data.expectedCash)}</span>
+              </div>
+
+              <div className="border-t border-slate-200 pt-1.5 flex flex-col gap-1">
+                <div className="flex justify-between font-bold">
+                  <span>Diferencia Efectivo:</span>
+                  <span>{formatDiff(diffCash, hasCashSales)}</span>
+                </div>
+                <div className="flex justify-between font-bold">
+                  <span>Diferencia Débito:</span>
+                  <span>{formatDiff(diffCard, hasCardSales)}</span>
+                </div>
+                <div className="flex justify-between font-bold">
+                  <span>Diferencia Transferencia:</span>
+                  <span>{formatDiff(diffTransfer, hasTransferSales)}</span>
+                </div>
+              </div>
+
+              {data.withdrawalAmount !== undefined && data.withdrawalAmount !== null && (
+                <div className="flex justify-between font-bold border-t border-slate-200 pt-1">
+                  <span>Monto Retirado:</span>
+                  <span>{formatCLP(data.withdrawalAmount)}</span>
+                </div>
+              )}
+              {data.nextOpeningFund !== undefined && data.nextOpeningFund !== null && (
+                <div className="flex justify-between font-bold">
+                  <span>Fondo Siguiente Turno:</span>
+                  <span>{formatCLP(data.nextOpeningFund)}</span>
+                </div>
+              )}
+              {data.notes && (
+                <div className="mt-2 text-[11px] font-sans text-slate-500 bg-white p-2 rounded-lg border border-slate-200">
+                  <strong>Notas:</strong> {data.notes}
+                </div>
+              )}
             </div>
-          )}
-          {data.withdrawalAmount !== undefined && data.withdrawalAmount !== null && (
-            <div className="flex justify-between font-bold text-amber-800 border-t border-slate-200 pt-1">
-              <span>Monto Retirado:</span>
-              <span>{formatCLP(data.withdrawalAmount)}</span>
-            </div>
-          )}
-          {data.nextOpeningFund !== undefined && data.nextOpeningFund !== null && (
-            <div className="flex justify-between font-bold text-lilac-800">
-              <span>Fondo Siguiente Turno:</span>
-              <span>{formatCLP(data.nextOpeningFund)}</span>
-            </div>
-          )}
-          {data.notes && (
-            <div className="mt-2 text-[11px] font-sans text-slate-500 bg-white p-2 rounded-lg border border-slate-200">
-              <strong>Notas:</strong> {data.notes}
-            </div>
-          )}
-        </div>
+          )
+        })()}
 
         {/* Notificación de error si la impresora falla */}
         {printError && (

@@ -64,7 +64,7 @@ export const ThermalTicketPaperView: React.FC<ThermalTicketPaperViewProps> = ({
   return (
     <div
       style={{ fontFamily: effectiveFontFamily }}
-      className={`thermal-ticket-paper bg-white text-slate-900 shadow-xl rounded-sm p-4 border border-slate-300 select-text transition-all duration-150 relative ${
+      className={`thermal-ticket-paper bg-white text-black shadow-xl rounded-sm p-4 border border-slate-300 select-text transition-all duration-150 relative ${
         is58mm
           ? 'w-[270px] text-[11px] leading-snug'
           : 'w-[350px] text-[12px] leading-normal'
@@ -88,7 +88,7 @@ export const ThermalTicketPaperView: React.FC<ThermalTicketPaperViewProps> = ({
           </div>
           <div className="text-center font-bold text-xs">{businessInfo.name || 'MAVE POS'}</div>
 
-          <div className="text-slate-400 select-none overflow-hidden my-1 font-mono text-[10px]">
+          <div className="text-black font-bold select-none overflow-hidden my-1 font-mono text-[10px]">
             {'-'.repeat(dividerChars)}
           </div>
 
@@ -98,12 +98,12 @@ export const ThermalTicketPaperView: React.FC<ThermalTicketPaperViewProps> = ({
           <div>Tipografía: {printMode === 'graphic' ? systemFont : (isFontB ? 'Fuente B' : 'Fuente A')}</div>
           <div>Formato columnas: {itemsLayout}</div>
           <div>Tamaño Total: {totalSize === 'double' ? 'Doble Alto' : 'Normal'}</div>
-          <div className="flex items-center gap-1 text-[11px] text-slate-600">
-            <Clock className="w-3 h-3 text-slate-400 inline" />
+          <div className="flex items-center gap-1 text-[11px] text-black">
+            <Clock className="w-3 h-3 text-black inline" />
             <span>{new Date().toLocaleString('es-CL')}</span>
           </div>
 
-          <div className="text-slate-400 select-none overflow-hidden my-1 font-mono text-[10px]">
+          <div className="text-black font-bold select-none overflow-hidden my-1 font-mono text-[10px]">
             {'-'.repeat(dividerChars)}
           </div>
 
@@ -112,7 +112,7 @@ export const ThermalTicketPaperView: React.FC<ThermalTicketPaperViewProps> = ({
             <span>OK $ 10.000</span>
           </div>
 
-          <div className="text-center font-bold text-emerald-700 mt-2">
+          <div className="text-center font-bold text-black mt-2">
             ¡Test de impresión completado exitosamente!
           </div>
         </div>
@@ -137,7 +137,7 @@ export const ThermalTicketPaperView: React.FC<ThermalTicketPaperViewProps> = ({
             {businessInfo.email && <div className="text-[11px]">{businessInfo.email}</div>}
           </div>
 
-          <div className="text-slate-400 select-none overflow-hidden my-1 font-mono text-[10px]">
+          <div className="text-black font-bold select-none overflow-hidden my-1 font-mono text-[10px]">
             {'-'.repeat(dividerChars)}
           </div>
 
@@ -146,18 +146,18 @@ export const ThermalTicketPaperView: React.FC<ThermalTicketPaperViewProps> = ({
             <span>FOLIO: #{activeSale.folio ?? activeSale.id}</span>
             <span>Turno: #{activeSale.ticket_number ?? 0}</span>
           </div>
-          <div className="text-[11px] text-slate-600">
+          <div className="text-[11px] text-black">
             Fecha: {new Date(activeSale.completed_at || activeSale.created_at).toLocaleString('es-CL')}
           </div>
 
-          <div className="text-slate-400 select-none overflow-hidden my-1 font-mono text-[10px]">
+          <div className="text-black font-bold select-none overflow-hidden my-1 font-mono text-[10px]">
             {'-'.repeat(dividerChars)}
           </div>
 
           {/* 3. Items list with selectable layouts */}
           {itemsLayout === '4_cols' ? (
             <div>
-              <div className="grid grid-cols-12 font-bold text-[10px] uppercase border-b border-slate-900 pb-1 mb-1">
+              <div className="grid grid-cols-12 font-bold text-[10px] uppercase border-b border-black pb-1 mb-1">
                 <span className="col-span-2 text-left">Cant</span>
                 <span className="col-span-5 text-left truncate">Detalle</span>
                 <span className="col-span-2 text-right">P.Un</span>
@@ -169,12 +169,12 @@ export const ThermalTicketPaperView: React.FC<ThermalTicketPaperViewProps> = ({
                   if (qty <= 0) return null
                   const itemTotal = qty * it.unit_price
                   return (
-                    <div key={idx} className="grid grid-cols-12 items-baseline text-[11px] border-b border-dotted border-slate-200 pb-0.5">
+                    <div key={idx} className="grid grid-cols-12 items-baseline text-[11px] border-b border-black pb-0.5">
                       <span className="col-span-2 font-semibold text-left">{qty}</span>
                       <span className="col-span-5 font-medium text-left truncate pr-1" title={it.name}>
                         {it.name}
                       </span>
-                      <span className="col-span-2 text-right text-[10px] text-slate-600">
+                      <span className="col-span-2 text-right text-[10px] text-black">
                         {formatCLP(it.unit_price)}
                       </span>
                       <span className="col-span-3 text-right font-bold">
@@ -187,7 +187,7 @@ export const ThermalTicketPaperView: React.FC<ThermalTicketPaperViewProps> = ({
             </div>
           ) : itemsLayout === '3_cols' ? (
             <div>
-              <div className="grid grid-cols-12 font-bold text-[10px] uppercase border-b border-slate-900 pb-1 mb-1">
+              <div className="grid grid-cols-12 font-bold text-[10px] uppercase border-b border-black pb-1 mb-1">
                 <span className="col-span-2 text-left">Cant</span>
                 <span className="col-span-7 text-left truncate">Detalle</span>
                 <span className="col-span-3 text-right">Total</span>
@@ -198,7 +198,7 @@ export const ThermalTicketPaperView: React.FC<ThermalTicketPaperViewProps> = ({
                   if (qty <= 0) return null
                   const itemTotal = qty * it.unit_price
                   return (
-                    <div key={idx} className="grid grid-cols-12 items-baseline text-[11px] border-b border-dotted border-slate-200 pb-0.5">
+                    <div key={idx} className="grid grid-cols-12 items-baseline text-[11px] border-b border-black pb-0.5">
                       <span className="col-span-2 font-semibold text-left">{qty}</span>
                       <span className="col-span-7 font-medium text-left truncate pr-1" title={it.name}>
                         {it.name}
@@ -214,7 +214,7 @@ export const ThermalTicketPaperView: React.FC<ThermalTicketPaperViewProps> = ({
           ) : (
             /* 2 cols (Compacto) */
             <div>
-              <div className="flex justify-between font-bold text-[10px] uppercase border-b border-slate-900 pb-1 mb-1">
+              <div className="flex justify-between font-bold text-[10px] uppercase border-b border-black pb-1 mb-1">
                 <span>CANT / DESCRIPCION</span>
                 <span>TOTAL</span>
               </div>
@@ -224,7 +224,7 @@ export const ThermalTicketPaperView: React.FC<ThermalTicketPaperViewProps> = ({
                   if (qty <= 0) return null
                   const itemTotal = qty * it.unit_price
                   return (
-                    <div key={idx} className="flex flex-col border-b border-dotted border-slate-200 pb-0.5">
+                    <div key={idx} className="flex flex-col border-b border-black pb-0.5">
                       <div className="flex justify-between font-medium">
                         <span className="truncate pr-1">
                           {qty}x {it.name}
@@ -232,7 +232,7 @@ export const ThermalTicketPaperView: React.FC<ThermalTicketPaperViewProps> = ({
                         <span className="font-bold shrink-0">{formatCLP(itemTotal)}</span>
                       </div>
                       {it.unit_price && (
-                        <div className="text-[10px] text-slate-500 pl-3">
+                        <div className="text-[10px] text-black pl-3">
                           ({formatCLP(it.unit_price)} c/u)
                         </div>
                       )}
@@ -243,7 +243,7 @@ export const ThermalTicketPaperView: React.FC<ThermalTicketPaperViewProps> = ({
             </div>
           )}
 
-          <div className="text-slate-400 select-none overflow-hidden my-1 font-mono text-[10px]">
+          <div className="text-black font-bold select-none overflow-hidden my-1 font-mono text-[10px]">
             {'-'.repeat(dividerChars)}
           </div>
 
@@ -251,10 +251,10 @@ export const ThermalTicketPaperView: React.FC<ThermalTicketPaperViewProps> = ({
           <div className="flex justify-between items-baseline my-0.5">
             <span className="font-bold">TOTAL:</span>
             <span
-              className={`font-black ${
+              className={`font-black text-black ${
                 totalSize === 'double'
-                  ? 'text-base sm:text-lg text-slate-950'
-                  : 'text-xs sm:text-sm text-slate-900'
+                  ? 'text-base sm:text-lg'
+                  : 'text-xs sm:text-sm'
               }`}
             >
               {formatCLP(activeSale.total)}
@@ -294,12 +294,12 @@ export const ThermalTicketPaperView: React.FC<ThermalTicketPaperViewProps> = ({
             )}
           </div>
 
-          <div className="text-slate-400 select-none overflow-hidden my-1 font-mono text-[10px]">
+          <div className="text-black font-bold select-none overflow-hidden my-1 font-mono text-[10px]">
             {'-'.repeat(dividerChars)}
           </div>
 
           {/* 6. Pie de Ticket */}
-          <div className="text-center text-[11px] italic text-slate-700 mt-1">
+          <div className="text-center text-[11px] italic text-black mt-1">
             {businessInfo.footerMessage || '¡Gracias por su preferencia!'}
           </div>
         </div>

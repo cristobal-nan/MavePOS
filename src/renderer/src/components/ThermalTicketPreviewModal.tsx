@@ -472,7 +472,7 @@ export const ThermalTicketPreviewModal: React.FC<ThermalTicketPreviewModalProps>
 
           {/* Papel Térmico Físico (Clase protegida .thermal-ticket-paper) */}
           <div
-            className={`thermal-ticket-paper bg-white text-slate-900 font-mono shadow-2xl rounded-sm p-5 border border-slate-300 select-text transition-all duration-200 relative ${
+            className={`thermal-ticket-paper bg-white text-black font-mono shadow-2xl rounded-sm p-5 border border-slate-300 select-text transition-all duration-200 relative ${
               paperWidth === '80mm'
                 ? fontFamily === 'font_b'
                   ? 'w-[370px] text-[11px] tracking-tight'
@@ -506,7 +506,7 @@ export const ThermalTicketPreviewModal: React.FC<ThermalTicketPreviewModalProps>
                   {businessInfo.name || 'MAVE POS'}
                 </div>
 
-                <div className="text-slate-400 select-none overflow-hidden my-1">
+                <div className="text-black font-bold select-none overflow-hidden my-1">
                   {'-'.repeat(widthChars)}
                 </div>
 
@@ -515,12 +515,12 @@ export const ThermalTicketPreviewModal: React.FC<ThermalTicketPreviewModalProps>
                 <div>Fuente: {fontFamily === 'font_b' ? 'Fuente B (Condensada)' : 'Fuente A (Estándar)'}</div>
                 <div>Cuerpo: {bodySize === 'compact' ? 'Compacto' : 'Estándar'}</div>
                 <div>Énfasis: {headerEmphasis === 'normal' ? 'Normal' : 'Doble Alto'}</div>
-                <div className="flex items-center gap-1 text-[11px] text-slate-600">
-                  <Clock className="w-3 h-3 text-slate-400 inline" />
+                <div className="flex items-center gap-1 text-[11px] text-black">
+                  <Clock className="w-3 h-3 text-black inline" />
                   <span>{new Date().toLocaleString('es-CL')}</span>
                 </div>
 
-                <div className="text-slate-400 select-none overflow-hidden my-1">
+                <div className="text-black font-bold select-none overflow-hidden my-1">
                   {'-'.repeat(widthChars)}
                 </div>
 
@@ -529,7 +529,7 @@ export const ThermalTicketPreviewModal: React.FC<ThermalTicketPreviewModalProps>
                   <span>OK $ 10.000</span>
                 </div>
 
-                <div className="text-center font-bold text-emerald-700 mt-2">
+                <div className="text-center font-bold text-black mt-2">
                   ¡Test de impresión completado exitosamente!
                 </div>
               </div>
@@ -558,7 +558,7 @@ export const ThermalTicketPreviewModal: React.FC<ThermalTicketPreviewModalProps>
                   {businessInfo.email && <div className="text-[11px]">{businessInfo.email}</div>}
                 </div>
 
-                <div className="text-slate-400 select-none overflow-hidden my-1">
+                <div className="text-black font-bold select-none overflow-hidden my-1">
                   {'-'.repeat(widthChars)}
                 </div>
 
@@ -569,11 +569,11 @@ export const ThermalTicketPreviewModal: React.FC<ThermalTicketPreviewModalProps>
                 <div>
                   Ticket de Turno: #{activeSale.ticket_number ?? 0}
                 </div>
-                <div className="text-[11px] text-slate-600">
+                <div className="text-[11px] text-black">
                   Fecha: {new Date(activeSale.completed_at || activeSale.created_at).toLocaleString('es-CL')}
                 </div>
 
-                <div className="text-slate-400 select-none overflow-hidden my-1">
+                <div className="text-black font-bold select-none overflow-hidden my-1">
                   {'-'.repeat(widthChars)}
                 </div>
 
@@ -583,7 +583,7 @@ export const ThermalTicketPreviewModal: React.FC<ThermalTicketPreviewModalProps>
                   <span>TOTAL</span>
                 </div>
 
-                <div className="text-slate-400 select-none overflow-hidden my-1">
+                <div className="text-black font-bold select-none overflow-hidden my-1">
                   {'-'.repeat(widthChars)}
                 </div>
 
@@ -607,7 +607,7 @@ export const ThermalTicketPreviewModal: React.FC<ThermalTicketPreviewModalProps>
                           <span className="font-bold shrink-0">{formatCLP(itemTotal)}</span>
                         </div>
                         {it.unit_price && (
-                          <div className="text-[10px] text-slate-500 pl-4">
+                          <div className="text-[10px] text-black pl-4">
                             ({formatCLP(it.unit_price)} c/u)
                           </div>
                         )}
@@ -616,7 +616,7 @@ export const ThermalTicketPreviewModal: React.FC<ThermalTicketPreviewModalProps>
                   })}
                 </div>
 
-                <div className="text-slate-400 select-none overflow-hidden my-1">
+                <div className="text-black font-bold select-none overflow-hidden my-1">
                   {'-'.repeat(widthChars)}
                 </div>
 
@@ -624,7 +624,7 @@ export const ThermalTicketPreviewModal: React.FC<ThermalTicketPreviewModalProps>
                 <div className="flex justify-between items-baseline my-0.5">
                   <span className="font-bold">TOTAL:</span>
                   <span
-                    className={`font-black ${
+                    className={`font-black text-black ${
                       headerEmphasis === 'double'
                         ? 'text-sm sm:text-base'
                         : 'text-xs sm:text-sm'
@@ -666,12 +666,12 @@ export const ThermalTicketPreviewModal: React.FC<ThermalTicketPreviewModalProps>
                   )}
                 </div>
 
-                <div className="text-slate-400 select-none overflow-hidden my-1">
+                <div className="text-black font-bold select-none overflow-hidden my-1">
                   {'-'.repeat(widthChars)}
                 </div>
 
                 {/* 6. Pie de Ticket */}
-                <div className="text-center text-[11px] italic text-slate-700 mt-1">
+                <div className="text-center text-[11px] italic text-black mt-1">
                   {businessInfo.footerMessage || '¡Gracias por su preferencia!'}
                 </div>
               </div>
