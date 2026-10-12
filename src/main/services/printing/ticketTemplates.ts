@@ -376,7 +376,7 @@ export function generateThermalReceiptHtml(options: GenerateThermalReceiptHtmlOp
 
   const widthMm = paperWidth === '58mm' ? 48 : 72
   const paddingMm = paperWidth === '58mm' ? 1 : 2
-  const fontSizeBase = paperWidth === '58mm' ? '11px' : '12px'
+  const fontSizeBase = paperWidth === '58mm' ? '10.5px' : '12px'
   const lineHeight = bodySize === 'compact' ? '1.2' : '1.35'
 
   const renderedItems = saleDetail.items
@@ -390,18 +390,18 @@ export function generateThermalReceiptHtml(options: GenerateThermalReceiptHtmlOp
       if (itemsLayout === '4_cols') {
         return `
           <tr style="border-bottom: 1px dotted #cbd5e1;">
-            <td style="padding: 2px 2px 2px 0; text-align: left; vertical-align: top; width: 24px;">${qty}</td>
-            <td style="padding: 2px 4px; text-align: left; vertical-align: top; word-break: break-word;">${item.name}</td>
-            <td style="padding: 2px 4px; text-align: right; vertical-align: top; white-space: nowrap;">${unitPriceStr}</td>
-            <td style="padding: 2px 0 2px 4px; text-align: right; vertical-align: top; font-weight: bold; white-space: nowrap;">${totalStr}</td>
+            <td style="padding: 2px 2px 2px 0; text-align: left; vertical-align: top; width: 18px;">${qty}</td>
+            <td style="padding: 2px 3px; text-align: left; vertical-align: top; word-break: break-word;">${item.name}</td>
+            <td style="padding: 2px 2px; text-align: right; vertical-align: top; white-space: nowrap; font-size: 0.9em;">${unitPriceStr}</td>
+            <td style="padding: 2px 0 2px 2px; text-align: right; vertical-align: top; font-weight: bold; white-space: nowrap;">${totalStr}</td>
           </tr>
         `
       } else if (itemsLayout === '3_cols') {
         return `
           <tr style="border-bottom: 1px dotted #cbd5e1;">
-            <td style="padding: 2px 2px 2px 0; text-align: left; vertical-align: top; width: 24px;">${qty}</td>
-            <td style="padding: 2px 4px; text-align: left; vertical-align: top; word-break: break-word;">${item.name}</td>
-            <td style="padding: 2px 0 2px 4px; text-align: right; vertical-align: top; font-weight: bold; white-space: nowrap;">${totalStr}</td>
+            <td style="padding: 2px 2px 2px 0; text-align: left; vertical-align: top; width: 18px;">${qty}</td>
+            <td style="padding: 2px 3px; text-align: left; vertical-align: top; word-break: break-word;">${item.name}</td>
+            <td style="padding: 2px 0 2px 2px; text-align: right; vertical-align: top; font-weight: bold; white-space: nowrap;">${totalStr}</td>
           </tr>
         `
       } else {
@@ -412,7 +412,7 @@ export function generateThermalReceiptHtml(options: GenerateThermalReceiptHtmlOp
               <span style="word-break: break-word;">${qty}x ${item.name}</span>
               <span style="font-weight: bold; white-space: nowrap;">${totalStr}</span>
             </div>
-            <div style="font-size: 0.9em; color: #475569; padding-left: 8px;">
+            <div style="font-size: 0.9em; color: #475569; padding-left: 6px;">
               (${unitPriceStr} c/u)
             </div>
           </div>
@@ -440,9 +440,9 @@ export function generateThermalReceiptHtml(options: GenerateThermalReceiptHtmlOp
       <style>
         @page {
           margin: 0;
-          size: ${widthMm}mm auto;
+          size: ${paperWidth === '58mm' ? '58mm' : '80mm'} auto;
         }
-        * {
+        *, *::before, *::after {
           box-sizing: border-box;
           word-break: break-word;
         }
@@ -829,7 +829,7 @@ export function generateThermalCashCutHtml(options: GenerateThermalCashCutHtmlOp
 
   const widthMm = paperWidth === '58mm' ? 48 : 72
   const paddingMm = paperWidth === '58mm' ? 1 : 2
-  const fontSizeBase = paperWidth === '58mm' ? '11px' : '12px'
+  const fontSizeBase = paperWidth === '58mm' ? '10.5px' : '12px'
   const lineHeight = bodySize === 'compact' ? '1.2' : '1.35'
 
   return `
@@ -841,9 +841,9 @@ export function generateThermalCashCutHtml(options: GenerateThermalCashCutHtmlOp
       <style>
         @page {
           margin: 0;
-          size: ${widthMm}mm auto;
+          size: ${paperWidth === '58mm' ? '58mm' : '80mm'} auto;
         }
-        * {
+        *, *::before, *::after {
           box-sizing: border-box;
           word-break: break-word;
         }
