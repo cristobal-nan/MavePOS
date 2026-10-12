@@ -403,7 +403,8 @@ export class PrinterService {
             {
               silent: true,
               deviceName: printerName,
-              printBackground: true,
+              color: false,
+              printBackground: false,
               margins: { marginType: 'none' },
               pageSize: {
                 width: widthMicrons,
