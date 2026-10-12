@@ -23,6 +23,7 @@ import {
 import {
   sendRawBufferToPrinter,
   sendRawBufferToTcp,
+  sendImageToPrinterViaGdi,
   CASH_DRAWER_PULSE_BUFFER
 } from './printing/rawPrinterHelper'
 
@@ -249,16 +250,15 @@ export class PrinterService {
   }
 
   /**
-   * Renders thermal ticket HTML with chosen Windows fonts into a 1-bit monochrome ESC/POS raster buffer.
-   * This captures the pixel-perfect layout and TrueType typography rendered by Chromium and translates
-   * every dot directly into ESC/POS raster commands (GS v 0), eliminating GDI driver dithering, paper
-   * size mismatches, and solid black background burn issues across 100% of thermal printers.
+   * Renders thermal ticket HTML with chosen Windows fonts into a crisp PNG image buffer.
+   * This captures the pixel-perfect layout and TrueType typography rendered by Chromium
+   * at exact paper dot dimensions (384 dots for 58mm / 576 dots for 80mm).
    */
-  async renderHtmlToThermalRasterBuffer(
+  async renderHtmlToTicketPngBuffer(
     html: string,
-    config: PrinterConfig
+    paperWidth: ThermalPaperWidth = '80mm'
   ): Promise<Buffer> {
-    const is58mm = config.paperWidth === '58mm'
+    const is58mm = paperWidth === '58mm'
     // Puntos térmicos estándar a 203 DPI: 576 dots (80mm) / 384 dots (58mm)
     const targetWidthDots = is58mm ? 384 : 576
     // Ancho CSS estándar en mm a 96 DPI: 72mm (~272px) / 48mm (~181px)
@@ -282,7 +282,7 @@ export class PrinterService {
       await Promise.all([loadPromise, readyPromise])
 
       // Esperar brevemente a que las fuentes de Windows y el layout terminen de dibujarse
-      await new Promise((resolve) => setTimeout(resolve, 120))
+      await new Promise((resolve) => setTimeout(resolve, 100))
 
       win.webContents.setZoomFactor(zoomFactor)
       const heightPx = await win.webContents.executeJavaScript(
@@ -301,23 +301,10 @@ export class PrinterService {
 
       const pngBuffer = image.toPNG()
       if (!pngBuffer || pngBuffer.length === 0) {
-        throw new Error('No se pudo capturar la imagen raster del ticket.')
+        throw new Error('No se pudo capturar la imagen gráfica del ticket.')
       }
 
-      const printerType = config.thermalType === 'star' ? PrinterTypes.STAR : PrinterTypes.EPSON
-      const printer = new (ThermalPrinter as any)({ type: printerType })
-
-      await printer.printImageBuffer(pngBuffer)
-
-      if (config.openDrawerOnPrint) {
-        if (typeof printer.append === 'function') {
-          printer.append(CASH_DRAWER_PULSE_BUFFER)
-        }
-      }
-
-      printer.newLine()
-      printer.cut()
-      return printer.getBuffer()
+      return pngBuffer
     } finally {
       if (!win.isDestroyed()) {
         win.close()
@@ -447,13 +434,15 @@ export class PrinterService {
 
   /**
    * Dispatches a thermal receipt in graphical mode (TrueType Windows fonts).
-   * Generates a custom continuous-page layout fitted strictly to the configured roll width (58mm / 80mm)
-   * and dispatches via Windows print spooler with zero margins, preventing cutoff and garbled characters.
+   * - Para impresoras virtuales (PDF/XPS): genera un PDF continuo en Tickets POS.
+   * - Para impresoras térmicas de Windows: renderiza a imagen PNG nítida y la despacha
+   *   directamente vía GDI (PrintDocument con wingdiprint/print_gdi.ps1), exactamente igual que Paint/Word,
+   *   eliminando de raíz los bloques negros producidos por Chromium en drivers térmicos.
    */
   async printThermalGraphic(
     html: string,
     config: PrinterConfig,
-    _docTitle?: string
+    docTitle = 'POS Ticket'
   ): Promise<PrintResult> {
     const rawInterface = (config.thermalInterface || '').replace(/^printer:/i, '').trim()
     if (!rawInterface) {
@@ -463,21 +452,44 @@ export class PrinterService {
       }
     }
 
-    const printResult = await this.printThermalGraphicViaChromiumSpooler(
-      html,
-      rawInterface,
-      config.paperWidth
-    )
-
-    if (printResult.success && config.openDrawerOnPrint) {
-      try {
-        await this.openCashDrawer(config)
-      } catch (drawerErr) {
-        console.warn('Aviso: Ticket impreso pero falló pulso de cajón:', drawerErr)
-      }
+    const isPdfPrinter = /pdf|xps|onenote|writer|fax/i.test(rawInterface)
+    if (isPdfPrinter) {
+      return await this.printThermalGraphicViaChromiumSpooler(
+        html,
+        rawInterface,
+        config.paperWidth
+      )
     }
 
-    return printResult
+    try {
+      const pngBuffer = await this.renderHtmlToTicketPngBuffer(html, config.paperWidth)
+      const gdiResult = await sendImageToPrinterViaGdi(rawInterface, pngBuffer, docTitle)
+
+      if (!gdiResult.success) {
+        console.warn('Fallo despacho GDI directo, reintentando via Spooler Chromium:', gdiResult.error)
+        return await this.printThermalGraphicViaChromiumSpooler(
+          html,
+          rawInterface,
+          config.paperWidth
+        )
+      }
+
+      if (config.openDrawerOnPrint) {
+        try {
+          await this.openCashDrawer(config)
+        } catch (drawerErr) {
+          console.warn('Aviso: Ticket impreso pero falló pulso de cajón:', drawerErr)
+        }
+      }
+
+      return { success: true }
+    } catch (err: any) {
+      console.error('Error imprimiendo ticket gráfico via GDI:', err)
+      return {
+        success: false,
+        error: err.message || 'Error al renderizar el ticket gráfico para la impresora.'
+      }
+    }
   }
 
   /**
