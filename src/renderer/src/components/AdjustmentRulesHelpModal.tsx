@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import {
   X,
   Pencil,
@@ -6,7 +6,7 @@ import {
   ShieldAlert,
   Clock,
   Layers,
-  Sparkles,
+  BookOpen,
   CheckCircle2
 } from 'lucide-react'
 
@@ -19,6 +19,19 @@ export const AdjustmentRulesHelpModal: React.FC<AdjustmentRulesHelpModalProps> =
   isOpen,
   onClose
 }) => {
+  // Manejo de tecla Escape
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose])
+
   if (!isOpen) return null
 
   return (
@@ -27,34 +40,37 @@ export const AdjustmentRulesHelpModal: React.FC<AdjustmentRulesHelpModalProps> =
       onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 max-h-[90vh]"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="adj-rules-title"
+        className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden animate-in zoom-in-95 duration-150 max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Encabezado */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/80">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-850">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900/60 shadow-sm">
-              <Sparkles className="w-5 h-5" />
+            <div className="p-2 rounded-xl bg-lilac-100 dark:bg-lilac-950/60 text-lilac-700 dark:text-lilac-300 border border-lilac-200 dark:border-lilac-900/60 shadow-sm">
+              <BookOpen className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500 text-white leading-none">
-                  Nuevo
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-lilac-100 dark:bg-lilac-900/40 text-lilac-700 dark:text-lilac-300 border border-lilac-200 dark:border-lilac-700 leading-none">
+                  Guía Operativa
                 </span>
-                <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">
+                <h2 id="adj-rules-title" className="text-base font-bold text-slate-800 dark:text-slate-100">
                   Cancelación de Ajustes y Edición de Motivos
                 </h2>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Guía de funcionamiento y limitantes operativas del inventario
+                Reglas de negocio y auditoría para la modificación de existencias
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
-            title="Cerrar modal"
+            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
+            title="Cerrar modal (Esc)"
           >
             <X className="w-5 h-5" />
           </button>
@@ -63,7 +79,7 @@ export const AdjustmentRulesHelpModal: React.FC<AdjustmentRulesHelpModalProps> =
         {/* Contenido / Tarjetas Explicativas */}
         <div className="p-6 space-y-4 overflow-y-auto">
           {/* Tarjeta 1: Edición de Motivos */}
-          <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40 space-y-3">
+          <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850 space-y-3">
             <div className="flex items-center gap-2.5 text-lilac-700 dark:text-lilac-300">
               <div className="p-1.5 rounded-lg bg-lilac-100 dark:bg-lilac-950/60 border border-lilac-200 dark:border-lilac-800">
                 <Pencil className="w-4 h-4" />
@@ -90,7 +106,7 @@ export const AdjustmentRulesHelpModal: React.FC<AdjustmentRulesHelpModalProps> =
           </div>
 
           {/* Tarjeta 2: Cancelación en Cascada */}
-          <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40 space-y-3">
+          <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-850 space-y-3">
             <div className="flex items-center gap-2.5 text-rose-600 dark:text-rose-400">
               <div className="p-1.5 rounded-lg bg-rose-100 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900/60">
                 <Undo2 className="w-4 h-4" />
@@ -124,7 +140,7 @@ export const AdjustmentRulesHelpModal: React.FC<AdjustmentRulesHelpModalProps> =
         </div>
 
         {/* Pie de acción */}
-        <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/80 flex items-center justify-between">
+        <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-850 flex items-center justify-between">
           <span className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
             Integridad y auditoría de inventario garantizada
@@ -132,7 +148,7 @@ export const AdjustmentRulesHelpModal: React.FC<AdjustmentRulesHelpModalProps> =
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-lilac-600 hover:bg-lilac-700 active:scale-95 transition-all shadow-sm cursor-pointer"
+            className="px-5 py-2 rounded-xl text-xs font-bold text-white bg-lilac-600 hover:bg-lilac-700 active:scale-95 transition-all shadow-sm cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
           >
             Entendido
           </button>

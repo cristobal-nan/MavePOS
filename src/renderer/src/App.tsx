@@ -14,6 +14,7 @@ import { SettingsView } from './views/SettingsView'
 import { CloseConfirmModal } from './components/CloseConfirmModal'
 import { CashOpeningScreen } from './components/CashOpeningScreen'
 import { ReceiptCashCutModal } from './views/cashCut/ReceiptCashCutModal'
+import { CatalogLoadingOverlay } from './components/CatalogLoadingOverlay'
 import { formatCLP } from './utils/formatters'
 import { Store, Loader2 } from 'lucide-react'
 import { useSalesStore } from './store/salesStore'
@@ -113,6 +114,9 @@ export const App: React.FC = () => {
       {/* Close and Backup Confirmation Modal */}
       <CloseConfirmModal />
 
+      {/* Catalog In-Memory Preload Overlay (spinner + progress bar) */}
+      <CatalogLoadingOverlay />
+
       {/* Receipt Cash Cut Modal (shows after closing a shift) */}
       <ReceiptCashCutModal
         isOpen={!!completedCutReceipt}
@@ -132,7 +136,7 @@ export const App: React.FC = () => {
           </div>
           <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 font-medium">
             <Loader2 className="w-4 h-4 animate-spin text-lilac-600" />
-            <span>Cargando sistema y base de datos...</span>
+            <span>Cargando sistema y base de datos…</span>
           </div>
         </div>
       ) : !currentSession ? (
@@ -161,17 +165,17 @@ export const App: React.FC = () => {
                 {lastSale.paymentMethod}
               </span>
               <span className="text-slate-300 dark:text-slate-600">|</span>
-              <span className="font-medium text-slate-600 dark:text-slate-300 shrink-0">
+              <span className="font-medium text-slate-600 dark:text-slate-300 shrink-0 font-mono tabular-nums">
                 {lastSale.totalItems} {lastSale.totalItems === 1 ? 'producto' : 'productos'}
               </span>
               <span className="text-slate-300 dark:text-slate-600">|</span>
-              <span className="font-bold text-slate-900 dark:text-slate-100 font-mono shrink-0">
+              <span className="font-bold text-slate-900 dark:text-slate-100 font-mono tabular-nums shrink-0">
                 {formatCLP(lastSale.totalAmount)}
               </span>
               {lastSale.change !== undefined && lastSale.change !== null && lastSale.change > 0 && (
                 <>
                   <span className="text-slate-300 dark:text-slate-600">|</span>
-                  <span className="text-emerald-700 dark:text-emerald-300 font-semibold bg-emerald-50 dark:bg-slate-700 border border-emerald-200 dark:border-slate-600 px-2 py-0.5 rounded text-[11px] shrink-0">
+                  <span className="text-emerald-700 dark:text-emerald-300 font-semibold bg-emerald-50 dark:bg-slate-700 border border-emerald-200 dark:border-slate-600 px-2 py-0.5 rounded text-[11px] shrink-0 font-mono tabular-nums">
                     Vuelto: {formatCLP(lastSale.change)}
                   </span>
                 </>
@@ -188,10 +192,10 @@ export const App: React.FC = () => {
         <div className="flex items-center gap-3 text-slate-400 dark:text-slate-500">
           {currentSession && (
             <span className="text-[11px]">
-              Atajos: <span className="font-semibold text-slate-600 dark:text-slate-300">F1</span> Ventas &bull; <span className="font-semibold text-slate-600 dark:text-slate-300">F2</span> Productos &bull; <span className="font-semibold text-slate-600 dark:text-slate-300">F3</span> Inventario &bull; <span className="font-semibold text-slate-600 dark:text-slate-300">F5</span> Corte
+              Atajos: <span className="font-semibold text-slate-600 dark:text-slate-300">F1</span> Ventas &bull; <span className="font-semibold text-slate-600 dark:text-slate-300">F2</span> Productos &bull; <span className="font-semibold text-slate-600 dark:text-slate-300">F3</span> Inventario &bull; <span className="font-semibold text-slate-600 dark:text-slate-300">F4</span> Corte &bull; <span className="font-semibold text-slate-600 dark:text-slate-300">F5</span> Reportes &bull; <span className="font-semibold text-slate-600 dark:text-slate-300">F6</span> Configuración
             </span>
           )}
-          <span>v1.0.7</span>
+          <span className="font-mono tabular-nums">v1.0.7</span>
         </div>
       </footer>
     </div>

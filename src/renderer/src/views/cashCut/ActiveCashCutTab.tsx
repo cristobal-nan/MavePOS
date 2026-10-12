@@ -245,7 +245,7 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
               <Banknote className="w-4 h-4" />
             </div>
           </div>
-          <span className="text-xl font-black text-slate-900 dark:text-white block">
+          <span className="text-xl font-black text-slate-900 dark:text-white block font-mono tabular-nums">
             {formatCLP(currentSummary?.salesCash ?? 0)}
           </span>
           <span className="text-[11px] text-slate-400">Ingreso a gaveta</span>
@@ -259,7 +259,7 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
               <CreditCard className="w-4 h-4" />
             </div>
           </div>
-          <span className="text-xl font-black text-slate-900 dark:text-white block">
+          <span className="text-xl font-black text-slate-900 dark:text-white block font-mono tabular-nums">
             {formatCLP(currentSummary?.salesCard ?? 0)}
           </span>
           <span className="text-[11px] text-slate-400">POS Transbank / Redelcom</span>
@@ -273,7 +273,7 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
               <Send className="w-4 h-4" />
             </div>
           </div>
-          <span className="text-xl font-black text-slate-900 dark:text-white block">
+          <span className="text-xl font-black text-slate-900 dark:text-white block font-mono tabular-nums">
             {formatCLP(currentSummary?.salesTransfer ?? 0)}
           </span>
           <span className="text-[11px] text-slate-400">Banco / Comprobante</span>
@@ -287,10 +287,10 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
               CLP
             </div>
           </div>
-          <span className="text-xl font-black text-lilac-800 dark:text-lilac-300 block">
+          <span className="text-xl font-black text-lilac-800 dark:text-lilac-300 block font-mono tabular-nums">
             {formatCLP(currentSummary?.salesTotal ?? 0)}
           </span>
-          <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+          <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium tabular-nums">
             {currentSummary?.salesCount ?? 0} ventas registradas
           </span>
         </div>
@@ -306,16 +306,16 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
             </div>
             <div>
               <span className="text-xs font-bold text-slate-700 dark:text-slate-200 block">Devoluciones y Anuladas</span>
-              <span className="text-[11px] text-slate-400">
+              <span className="text-[11px] text-slate-400 tabular-nums">
                 {currentSummary?.returnsCount ?? 0} devolución(es)
               </span>
             </div>
           </div>
           <div className="text-right">
-            <span className="text-lg font-black text-rose-600 dark:text-rose-400 block">
+            <span className="text-lg font-black text-rose-600 dark:text-rose-400 block font-mono tabular-nums">
               − {formatCLP(currentSummary?.returnsTotal ?? 0)}
             </span>
-            <span className="text-[10px] text-slate-400 font-medium">
+            <span className="text-[10px] text-slate-400 font-medium tabular-nums font-mono">
               (efectivo: {formatCLP(currentSummary?.returnsCash ?? 0)})
             </span>
           </div>
@@ -329,13 +329,13 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
             </div>
             <div>
               <span className="text-xs font-bold text-slate-700 dark:text-slate-200 block">Salidas de Dinero</span>
-              <span className="text-[11px] text-slate-400">
+              <span className="text-[11px] text-slate-400 tabular-nums">
                 {currentSummary?.withdrawalsCount ?? 0} retiro(s) de caja
               </span>
             </div>
           </div>
           <div className="text-right">
-            <span className="text-lg font-black text-amber-700 dark:text-amber-400 block">
+            <span className="text-lg font-black text-amber-700 dark:text-amber-400 block font-mono tabular-nums">
               − {formatCLP(currentSummary?.withdrawalsTotal ?? 0)}
             </span>
             <span className="text-[10px] text-slate-400 font-medium">Gastos de turno</span>
@@ -354,7 +354,7 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
             </div>
           </div>
           <div className="text-right">
-            <span className="text-xl font-black text-slate-900 dark:text-white block">
+            <span className="text-xl font-black text-slate-900 dark:text-white block font-mono tabular-nums">
               {formatCLP(currentSummary?.netSales ?? 0)}
             </span>
             <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">Ingreso neto real</span>
@@ -421,7 +421,7 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
             <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">
               Efectivo Esperado (Sistema)
             </span>
-            <span className="text-lg font-bold text-slate-800 dark:text-slate-200">
+            <span className="text-lg font-bold text-slate-800 dark:text-slate-200 font-mono tabular-nums">
               {formatCLP(expectedCash)}
             </span>
           </div>
@@ -432,7 +432,7 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
             <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">
               Efectivo Físico Contado (Cierre)
             </span>
-            <span className="text-lg font-black text-slate-900 dark:text-white">
+            <span className="text-lg font-black text-slate-900 dark:text-white font-mono tabular-nums">
               {formatCLP(countedCash)}
             </span>
           </div>
@@ -441,17 +441,17 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
         {/* Badge de Diferencia Efectivo */}
         <div>
           {difference === 0 ? (
-            <div className="inline-flex items-center gap-2 bg-emerald-50 dark:bg-slate-700 border border-emerald-200 dark:border-emerald-700/50 text-emerald-800 dark:text-emerald-300 px-4 py-2 rounded-xl text-xs font-bold shadow-sm">
+            <div className="inline-flex items-center gap-2 bg-emerald-50 dark:bg-slate-700 border border-emerald-200 dark:border-emerald-700/50 text-emerald-800 dark:text-emerald-300 px-4 py-2 rounded-xl text-xs font-bold shadow-sm font-mono tabular-nums">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               <span>Efectivo Cuadrado Exacto ($ 0)</span>
             </div>
           ) : difference > 0 ? (
-            <div className="inline-flex items-center gap-2 bg-blue-50 dark:bg-slate-700 border border-blue-200 dark:border-blue-700/50 text-blue-800 dark:text-blue-300 px-4 py-2 rounded-xl text-xs font-bold shadow-sm">
+            <div className="inline-flex items-center gap-2 bg-blue-50 dark:bg-slate-700 border border-blue-200 dark:border-blue-700/50 text-blue-800 dark:text-blue-300 px-4 py-2 rounded-xl text-xs font-bold shadow-sm font-mono tabular-nums">
               <CheckCircle2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               <span>Sobrante en Efectivo: +{formatCLP(difference)}</span>
             </div>
           ) : (
-            <div className="inline-flex items-center gap-2 bg-rose-50 dark:bg-slate-700 border border-rose-200 dark:border-rose-700/50 text-rose-800 dark:text-rose-300 px-4 py-2 rounded-xl text-xs font-bold shadow-sm">
+            <div className="inline-flex items-center gap-2 bg-rose-50 dark:bg-slate-700 border border-rose-200 dark:border-rose-700/50 text-rose-800 dark:text-rose-300 px-4 py-2 rounded-xl text-xs font-bold shadow-sm font-mono tabular-nums">
               <XCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
               <span>Faltante en Efectivo: −{formatCLP(Math.abs(difference))}</span>
             </div>
@@ -481,7 +481,7 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
           {/* Total Contado */}
           <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-3.5 flex flex-col justify-between shadow-2xs">
             <span className="text-slate-500 dark:text-slate-400 font-medium">Total Efectivo en Gaveta</span>
-            <span className="text-xl font-black text-slate-900 dark:text-white mt-1">
+            <span className="text-xl font-black text-slate-900 dark:text-white mt-1 font-mono tabular-nums">
               {formatCLP(countedCash)}
             </span>
             <span className="text-[10px] text-slate-400 mt-0.5">Antes del retiro</span>
@@ -495,7 +495,7 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
                 Retiro
               </span>
             </div>
-            <span className="text-2xl font-black text-amber-700 dark:text-amber-400 mt-1">
+            <span className="text-2xl font-black text-amber-700 dark:text-amber-400 mt-1 font-mono tabular-nums">
               {formatCLP(withdrawalAmount)}
             </span>
             <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -511,7 +511,7 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
                 Siguiente Turno
               </span>
             </div>
-            <span className="text-2xl font-black text-lilac-800 dark:text-lilac-300 mt-1">
+            <span className="text-2xl font-black text-lilac-800 dark:text-lilac-300 mt-1 font-mono tabular-nums">
               {formatCLP(nextOpeningFund)}
             </span>
             <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">

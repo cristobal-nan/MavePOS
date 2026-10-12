@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { AlertCircle } from 'lucide-react'
 import { formatCLP } from '../../utils/formatters'
 
@@ -35,18 +35,34 @@ export const ConfirmCashCutModal: React.FC<ConfirmCashCutModalProps> = ({
   onConfirm,
   onConfirmWithoutRecording
 }) => {
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape' && !isClosing) {
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, isClosing, onClose])
+
   if (!isOpen) return null
 
   if (!hasSales) {
     return (
-      <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-lilac-200 dark:border-slate-800 w-full max-w-md p-6 flex flex-col gap-4 animate-in fade-in zoom-in-95">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-cash-cut-title"
+        className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4"
+      >
+        <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-md p-6 flex flex-col gap-4 animate-in fade-in zoom-in-95">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-2xl bg-lilac-100 dark:bg-slate-800 text-lilac-600 dark:text-lilac-400 flex items-center justify-center shrink-0">
               <AlertCircle className="w-6 h-6" />
             </div>
             <div>
-              <h4 className="text-base font-bold text-slate-900 dark:text-white">
+              <h4 id="confirm-cash-cut-title" className="text-base font-bold text-slate-900 dark:text-white">
                 No hubieron ventas este período
               </h4>
               <p className="text-xs text-slate-500 dark:text-slate-400">Sesión #{sessionId}</p>
@@ -59,7 +75,7 @@ export const ConfirmCashCutModal: React.FC<ConfirmCashCutModalProps> = ({
             </p>
             <div className="flex justify-between border-t border-lilac-200/60 dark:border-slate-700 pt-2 text-slate-600 dark:text-slate-400">
               <span className="font-medium">Fondo Inicial de Apertura:</span>
-              <span className="font-bold text-slate-900 dark:text-white">{formatCLP(expectedCash)}</span>
+              <span className="font-bold text-slate-900 dark:text-white tabular-nums font-mono">{formatCLP(expectedCash)}</span>
             </div>
           </div>
 
@@ -72,7 +88,7 @@ export const ConfirmCashCutModal: React.FC<ConfirmCashCutModalProps> = ({
               type="button"
               onClick={onClose}
               disabled={isClosing}
-              className="px-3.5 py-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold transition-colors cursor-pointer"
+              className="px-3.5 py-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
             >
               Cancelar
             </button>
@@ -80,7 +96,7 @@ export const ConfirmCashCutModal: React.FC<ConfirmCashCutModalProps> = ({
               type="button"
               onClick={onConfirm}
               disabled={isClosing}
-              className="px-4 py-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold text-xs shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+              className="px-4 py-2 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 font-bold text-xs shadow-sm transition-colors cursor-pointer disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
             >
               Guardar igual
             </button>
@@ -88,9 +104,9 @@ export const ConfirmCashCutModal: React.FC<ConfirmCashCutModalProps> = ({
               type="button"
               onClick={onConfirmWithoutRecording || onConfirm}
               disabled={isClosing}
-              className="px-5 py-2 rounded-xl bg-lilac-600 hover:bg-lilac-700 text-white font-bold text-xs shadow-md shadow-lilac-600/20 transition-colors cursor-pointer disabled:opacity-50"
+              className="px-5 py-2 rounded-xl bg-lilac-600 hover:bg-lilac-700 text-white font-bold text-xs shadow-md shadow-lilac-600/20 transition-colors cursor-pointer disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
             >
-              {isClosing ? 'Cerrando...' : 'Confirmar'}
+              {isClosing ? 'Cerrando…' : 'Confirmar'}
             </button>
           </div>
         </div>
@@ -99,14 +115,19 @@ export const ConfirmCashCutModal: React.FC<ConfirmCashCutModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-lilac-200 dark:border-slate-800 w-full max-w-md p-6 flex flex-col gap-4 animate-in fade-in zoom-in-95">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirm-cash-cut-title"
+      className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-4"
+    >
+      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-md p-6 flex flex-col gap-4 animate-in fade-in zoom-in-95">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl bg-amber-100 dark:bg-slate-800 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
             <AlertCircle className="w-6 h-6" />
           </div>
           <div>
-            <h4 className="text-base font-bold text-slate-900 dark:text-white">
+            <h4 id="confirm-cash-cut-title" className="text-base font-bold text-slate-900 dark:text-white">
               ¿Confirmar Corte y Cierre de Turno?
             </h4>
             <p className="text-xs text-slate-500 dark:text-slate-400">Sesión #{sessionId}</p>
@@ -116,22 +137,22 @@ export const ConfirmCashCutModal: React.FC<ConfirmCashCutModalProps> = ({
         <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-xs flex flex-col gap-2">
           <div className="flex justify-between">
             <span className="text-slate-500 dark:text-slate-400 font-medium">Efectivo Físico Contado:</span>
-            <span className="font-black text-slate-900 dark:text-white">{formatCLP(countedCash)}</span>
+            <span className="font-black text-slate-900 dark:text-white font-mono tabular-nums">{formatCLP(countedCash)}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-slate-500 dark:text-slate-400 font-medium">Efectivo Esperado:</span>
-            <span className="font-bold text-slate-700 dark:text-slate-300">{formatCLP(expectedCash)}</span>
+            <span className="font-bold text-slate-700 dark:text-slate-300 font-mono tabular-nums">{formatCLP(expectedCash)}</span>
           </div>
           <div className="flex justify-between border-t border-slate-200 dark:border-slate-700 pt-1.5 font-bold">
             <span className="text-slate-700 dark:text-slate-300">Diferencia Efectivo:</span>
             <span
-              className={
+              className={`font-mono tabular-nums ${
                 difference === 0
                   ? 'text-emerald-600 dark:text-emerald-400'
                   : difference > 0
                   ? 'text-blue-600 dark:text-blue-400'
                   : 'text-rose-600 dark:text-rose-400'
-              }
+              }`}
             >
               {difference === 0 ? 'Cuadrada ($0)' : difference > 0 ? `+${formatCLP(difference)}` : formatCLP(difference)}
             </span>
@@ -141,7 +162,7 @@ export const ConfirmCashCutModal: React.FC<ConfirmCashCutModalProps> = ({
             <div className="flex justify-between pt-1 border-t border-slate-200 dark:border-slate-700">
               <span className="text-slate-600 dark:text-slate-400 font-medium">Diferencia Tarjeta:</span>
               <span
-                className={`font-bold ${
+                className={`font-bold font-mono tabular-nums ${
                   cardDifference === 0
                     ? 'text-emerald-600 dark:text-emerald-400'
                     : cardDifference > 0
@@ -158,7 +179,7 @@ export const ConfirmCashCutModal: React.FC<ConfirmCashCutModalProps> = ({
             <div className="flex justify-between pt-1 border-t border-slate-200 dark:border-slate-700">
               <span className="text-slate-600 dark:text-slate-400 font-medium">Diferencia Transferencia:</span>
               <span
-                className={`font-bold ${
+                className={`font-bold font-mono tabular-nums ${
                   transferDifference > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-rose-600 dark:text-rose-400'
                 }`}
               >
@@ -172,13 +193,13 @@ export const ConfirmCashCutModal: React.FC<ConfirmCashCutModalProps> = ({
               {withdrawalAmount !== undefined && (
                 <div className="flex justify-between font-bold text-slate-900 dark:text-white">
                   <span className="text-amber-800 dark:text-amber-300">Retiro de Efectivo:</span>
-                  <span className="text-amber-700 dark:text-amber-400 font-black">{formatCLP(withdrawalAmount)}</span>
+                  <span className="text-amber-700 dark:text-amber-400 font-black font-mono tabular-nums">{formatCLP(withdrawalAmount)}</span>
                 </div>
               )}
               {nextOpeningFund !== undefined && (
                 <div className="flex justify-between text-slate-700 dark:text-slate-300">
                   <span className="text-slate-600 dark:text-slate-400 font-medium">Fondo Siguiente Turno:</span>
-                  <span className="font-bold text-lilac-800 dark:text-lilac-300">{formatCLP(nextOpeningFund)}</span>
+                  <span className="font-bold text-lilac-800 dark:text-lilac-300 font-mono tabular-nums">{formatCLP(nextOpeningFund)}</span>
                 </div>
               )}
             </div>
@@ -194,7 +215,7 @@ export const ConfirmCashCutModal: React.FC<ConfirmCashCutModalProps> = ({
             type="button"
             onClick={onClose}
             disabled={isClosing}
-            className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold cursor-pointer"
+            className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
           >
             Cancelar
           </button>
@@ -202,9 +223,9 @@ export const ConfirmCashCutModal: React.FC<ConfirmCashCutModalProps> = ({
             type="button"
             onClick={onConfirm}
             disabled={isClosing}
-            className="px-5 py-2 rounded-xl bg-lilac-600 hover:bg-lilac-700 text-white font-bold text-xs shadow-md shadow-lilac-600/20 disabled:opacity-50 cursor-pointer"
+            className="px-5 py-2 rounded-xl bg-lilac-600 hover:bg-lilac-700 text-white font-bold text-xs shadow-md shadow-lilac-600/20 disabled:opacity-50 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
           >
-            {isClosing ? 'Cerrando...' : 'Sí, Cerrar Turno'}
+            {isClosing ? 'Cerrando…' : 'Sí, Cerrar Turno'}
           </button>
         </div>
       </div>

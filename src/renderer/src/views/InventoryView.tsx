@@ -26,7 +26,7 @@ import {
   History,
   Loader2
 } from 'lucide-react'
-import { useInventoryStore } from '../store/inventoryStore'
+import { useInventoryStore, InventoryTab } from '../store/inventoryStore'
 import {
   ProductSearchResult,
   MovementType,
@@ -37,6 +37,7 @@ import {
 import { ProductSearchModal } from '../components/ProductSearchModal'
 import { CancelAdjustmentModal } from '../components/CancelAdjustmentModal'
 import { AdjustmentRulesHelpModal } from '../components/AdjustmentRulesHelpModal'
+import { ViewHeader, SubTabs, EmptyState } from '../components/common'
 import { formatCLP } from '../utils/formatters'
 import { isShortcutMatch } from '../utils/keyboardShortcut'
 
@@ -733,95 +734,52 @@ export const InventoryView: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-900 overflow-hidden select-none">
-      {/* Top Header & Sub-navigation Tabs */}
-      <div className="bg-white dark:bg-slate-800 border-b border-lilac-100 dark:border-slate-700 px-4 sm:px-6 pt-3 gap-2 pb-0 flex flex-col shrink-0 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="w-8 h-8 rounded-lg sm:w-10 sm:h-10 sm:rounded-xl bg-lilac-100 dark:bg-lilac-950/60 text-lilac-600 dark:text-lilac-400 flex items-center justify-center shadow-inner shrink-0">
-              <Boxes className="w-4 h-4 sm:w-5 sm:h-5" />
-            </div>
-            <div>
-              <h1 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100 leading-tight">
-                Control de Inventario
-              </h1>
-            </div>
-          </div>
-
-          {/* Píldora interactiva de novedad / reglas */}
-          <button
-            type="button"
-            onClick={() => setIsHelpModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700/80 shadow-sm hover:shadow transition-all cursor-pointer active:scale-95 group shrink-0"
-            title="Conoce las reglas y limitantes de la cancelación de movimientos y edición de motivo"
-          >
-            <span className="flex items-center gap-1 font-black text-amber-600 dark:text-amber-400 uppercase text-[11px] tracking-wider">
-              <span>NUEVO</span>
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-500 animate-pulse" />:
+      {/* Cabecera Canónica */}
+      <ViewHeader
+        title="Control de Inventario"
+        icon={Boxes}
+        badge={
+          lowStockProducts.length > 0 ? (
+            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/80 tabular-nums">
+              {lowStockProducts.length} {lowStockProducts.length === 1 ? 'alerta' : 'alertas'}
             </span>
-            <span className="text-slate-700 dark:text-slate-200 group-hover:text-amber-900 dark:group-hover:text-amber-100 transition-colors">
-              Cancelación de movimiento y edición de motivo
-            </span>
-          </button>
-        </div>
+          ) : undefined
+        }
+      >
+        <button
+          type="button"
+          onClick={() => setIsHelpModalOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 shadow-2xs hover:shadow-xs transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
+          title="Conoce las reglas y limitantes de la cancelación de movimientos y edición de motivos"
+        >
+          <BookOpen className="w-4 h-4 text-lilac-600 dark:text-lilac-400" />
+          <span>Reglas de Ajuste</span>
+        </button>
+      </ViewHeader>
 
-        {/* Tab Buttons */}
-        <div className="flex items-center gap-1.5 sm:gap-2 border-b border-transparent -mb-px overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => setActiveTab('adjust')}
-            className={`flex items-center gap-1.5 sm:gap-2 px-3.5 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 cursor-pointer ${
-              activeTab === 'adjust'
-                ? 'border-lilac-600 text-lilac-700 dark:text-lilac-300 bg-lilac-50/50 dark:bg-lilac-950/40'
-                : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-slate-700/50'
-            }`}
-          >
-            <SlidersHorizontal className="w-4 h-4" />
-            <span>Ajustar Existencia</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('lowStock')}
-            className={`flex items-center gap-1.5 sm:gap-2 px-3.5 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 cursor-pointer ${
-              activeTab === 'lowStock'
-                ? 'border-lilac-600 text-lilac-700 dark:text-lilac-300 bg-lilac-50/50 dark:bg-lilac-950/40'
-                : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-slate-700/50'
-            }`}
-          >
-            <AlertTriangle className="w-4 h-4 text-amber-500" />
-            <span>Stock Bajo</span>
-            {lowStockProducts.length > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white leading-none">
-                {lowStockProducts.length}
-              </span>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('movements')}
-            className={`flex items-center gap-1.5 sm:gap-2 px-3.5 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 cursor-pointer ${
-              activeTab === 'movements'
-                ? 'border-lilac-600 text-lilac-700 dark:text-lilac-300 bg-lilac-50/50 dark:bg-lilac-950/40'
-                : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-slate-700/50'
-            }`}
-          >
-            <ArrowLeftRight className="w-4 h-4" />
-            <span>Movimientos por Día</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('kardex')}
-            className={`flex items-center gap-1.5 sm:gap-2 px-3.5 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 cursor-pointer ${
-              activeTab === 'kardex'
-                ? 'border-lilac-600 text-lilac-700 dark:text-lilac-300 bg-lilac-50/50 dark:bg-lilac-950/40'
-                : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-slate-700/50'
-            }`}
-          >
-            <BookOpen className="w-4 h-4" />
-            <span>Kardex de Producto</span>
-          </button>
+      {/* SubTabs Canónicas */}
+      <div className="px-4 sm:px-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4 shrink-0 h-11 sm:h-12">
+        <SubTabs
+          tabs={[
+            { id: 'adjust', label: 'Ajustar Existencia', icon: SlidersHorizontal },
+            {
+              id: 'lowStock',
+              label: 'Stock Bajo',
+              icon: AlertTriangle,
+              badge: lowStockProducts.length > 0 ? lowStockProducts.length : undefined
+            },
+            { id: 'movements', label: 'Movimientos por Día', icon: ArrowLeftRight },
+            { id: 'kardex', label: 'Kardex de Producto', icon: BookOpen }
+          ]}
+          activeTab={activeTab}
+          onChange={(tabId) => setActiveTab(tabId as InventoryTab)}
+          ariaLabel="Navegación de secciones de inventario"
+        />
+        <div className="text-[11px] text-slate-400 dark:text-slate-500 hidden sm:block">
+          {activeTab === 'adjust' && 'F10 Catálogo • Enter en cantidad para modo de motivos rápidos'}
+          {activeTab === 'lowStock' && 'Muestra productos con stock ≤ mínimo configurado'}
+          {activeTab === 'movements' && 'Auditoría cronológica de movimientos del día'}
+          {activeTab === 'kardex' && 'F10 Búsqueda en catálogo • Historial completo de movimientos'}
         </div>
       </div>
 
@@ -856,13 +814,13 @@ export const InventoryView: React.FC = () => {
           <div className="max-w-6xl mx-auto w-full flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 min-h-0 items-stretch">
             {/* Tarjeta Izquierda: Formulario de Ajuste (7 o 8 cols) */}
             <div
-              className={`lg:col-span-8 bg-white dark:bg-slate-900 rounded-2xl border border-lilac-100 dark:border-slate-800 ${
+              className={`lg:col-span-8 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 ${
                 isCompactHeight ? 'p-2.5 sm:p-3 gap-1.5' : isMediumHeight ? 'p-4 gap-2.5' : 'p-5 sm:p-6 gap-3.5'
               } shadow-sm flex flex-col justify-between min-h-0`}
             >
-              {/* Encabezado moderno con altura fija */}
+              {/* Encabezado con altura fija */}
               <div
-                className={`flex items-center justify-between border-b border-lilac-100/80 ${
+                className={`flex items-center justify-between border-b border-slate-100 dark:border-slate-800 ${
                   isCompactHeight ? 'pb-1.5 min-h-[32px]' : isMediumHeight ? 'pb-2 min-h-[38px]' : 'pb-3 min-h-[44px]'
                 } shrink-0`}
               >
@@ -870,16 +828,16 @@ export const InventoryView: React.FC = () => {
                   <div
                     className={`${
                       isCompactHeight ? 'w-7 h-7 rounded-lg' : isMediumHeight ? 'w-8 h-8 rounded-lg' : 'w-9 h-9 rounded-xl'
-                    } bg-lilac-50 text-lilac-600 flex items-center justify-center shrink-0`}
+                    } bg-lilac-50 dark:bg-lilac-950/50 text-lilac-600 dark:text-lilac-400 flex items-center justify-center shrink-0`}
                   >
                     <SlidersHorizontal className={isCompactHeight ? 'w-4 h-4' : 'w-5 h-5'} />
                   </div>
                   <div>
-                    <h2 className={`${isCompactHeight ? 'text-sm' : 'text-base'} font-bold text-slate-800 leading-tight`}>
+                    <h2 className={`${isCompactHeight ? 'text-sm' : 'text-base'} font-bold text-slate-800 dark:text-slate-100 leading-tight`}>
                       Ajustar Existencia
                     </h2>
                     {!isCompactHeight && (
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
                         Ajuste físico de stock, mermas y auditoría de existencias
                       </p>
                     )}
@@ -891,21 +849,21 @@ export const InventoryView: React.FC = () => {
                     <div
                       className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-xl border flex items-center gap-1.5 sm:gap-2 animate-in fade-in duration-200 shadow-2xs ${
                         feedbackMessage.type === 'success'
-                          ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                          : 'bg-rose-50 border-rose-200 text-rose-800'
+                          ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                          : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200'
                       }`}
                     >
                       {feedbackMessage.type === 'success' ? (
-                        <CheckCircle2 className={`${isCompactHeight ? 'w-3.5 h-3.5' : 'w-4 h-4'} text-emerald-600 shrink-0`} />
+                        <CheckCircle2 className={`${isCompactHeight ? 'w-3.5 h-3.5' : 'w-4 h-4'} text-emerald-600 dark:text-emerald-400 shrink-0`} />
                       ) : (
-                        <AlertCircle className={`${isCompactHeight ? 'w-3.5 h-3.5' : 'w-4 h-4'} text-rose-600 shrink-0`} />
+                        <AlertCircle className={`${isCompactHeight ? 'w-3.5 h-3.5' : 'w-4 h-4'} text-rose-600 dark:text-rose-400 shrink-0`} />
                       )}
                       <div className="flex flex-col text-left leading-none max-w-[280px] sm:max-w-[320px]">
                         <span className={`${isCompactHeight ? 'text-[11px]' : 'text-xs'} font-bold leading-tight truncate`} title={feedbackMessage.text}>
                           {feedbackMessage.text}
                         </span>
                         {feedbackMessage.subtext && (
-                          <span className={`${isCompactHeight ? 'text-[10px]' : 'text-[11px]'} opacity-90 leading-tight mt-0.5 font-medium`}>
+                          <span className={`${isCompactHeight ? 'text-[10px]' : 'text-[11px]'} opacity-90 leading-tight mt-0.5 font-medium tabular-nums`}>
                             {feedbackMessage.sign && (
                               <span className="font-black text-xs mr-0.5">{feedbackMessage.sign}</span>
                             )}
@@ -916,7 +874,8 @@ export const InventoryView: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setFeedbackMessage(null)}
-                        className="p-0.5 rounded hover:bg-black/5 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer ml-0.5 shrink-0"
+                        className="p-0.5 rounded hover:bg-black/5 dark:hover:bg-white/10 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer ml-0.5 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
+                        title="Cerrar notificación"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
@@ -926,12 +885,12 @@ export const InventoryView: React.FC = () => {
               </div>
 
               {/* Formulario en orden exacto y estructurado con el estilo del sistema */}
-              <div className="divide-y divide-slate-100 border-y border-slate-100 flex-1 flex flex-col justify-evenly py-0.5 min-h-0">
+              <div className="divide-y divide-slate-100 dark:divide-slate-800 border-y border-slate-100 dark:border-slate-800 flex-1 flex flex-col justify-evenly py-0.5 min-h-0">
                 {/* 1. Código del Producto */}
                 <div className={`${isCompactHeight ? 'py-1 min-h-[32px]' : isMediumHeight ? 'py-1.5 min-h-[38px]' : 'py-2.5 min-h-[46px]'} px-1 flex items-center justify-between gap-3`}>
                   <div className="w-36 sm:w-48 shrink-0">
-                    <label className={`${isCompactHeight ? 'text-xs' : 'text-sm sm:text-base'} font-normal text-slate-700 flex items-center gap-2`}>
-                      <Barcode className={`${isCompactHeight ? 'w-4 h-4' : 'w-5 h-5'} text-lilac-600 shrink-0`} />
+                    <label className={`${isCompactHeight ? 'text-xs' : 'text-sm sm:text-base'} font-normal text-slate-700 dark:text-slate-300 flex items-center gap-2`}>
+                      <Barcode className={`${isCompactHeight ? 'w-4 h-4' : 'w-5 h-5'} text-lilac-600 dark:text-lilac-400 shrink-0`} />
                       <span>Código del Producto</span>
                     </label>
                   </div>
@@ -961,7 +920,7 @@ export const InventoryView: React.FC = () => {
                           }
                         }}
                         placeholder="Escanear o ingresar código y presionar Enter..."
-                        className={`w-full pl-8 pr-8 ${isCompactHeight ? 'py-1 text-xs' : 'py-1.5 text-sm'} bg-slate-50 border border-slate-200 focus:border-lilac-500 focus:bg-white rounded-xl font-mono outline-none transition-all uppercase shadow-2xs`}
+                        className={`w-full pl-8 pr-8 ${isCompactHeight ? 'py-1 text-xs' : 'py-1.5 text-sm'} bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-lilac-500 focus:bg-white dark:focus:bg-slate-800 rounded-xl font-mono text-slate-900 dark:text-slate-100 outline-none transition-all uppercase shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500`}
                       />
                       {codeInput && (
                         <button
@@ -971,8 +930,8 @@ export const InventoryView: React.FC = () => {
                             setSelectedProduct(null)
                             codeInputRef.current?.focus()
                           }}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
-                          title="Limpiar"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500 rounded"
+                          title="Limpiar código"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -981,7 +940,7 @@ export const InventoryView: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => handleOpenSearchModal('adjust')}
-                      className={`${isCompactHeight ? 'px-2.5 py-1 text-[11px]' : 'px-3.5 py-1.5 text-xs'} bg-lilac-50 hover:bg-lilac-100 text-lilac-700 border border-lilac-200 rounded-xl font-bold transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer shadow-xs`}
+                      className={`${isCompactHeight ? 'px-2.5 py-1 text-[11px]' : 'px-3.5 py-1.5 text-xs'} bg-lilac-50 dark:bg-lilac-950/40 hover:bg-lilac-100 dark:hover:bg-lilac-900/60 text-lilac-700 dark:text-lilac-300 border border-lilac-200 dark:border-lilac-800/80 rounded-xl font-bold transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500`}
                       title="Buscar en el catálogo de productos (F10)"
                     >
                       <Search className={isCompactHeight ? 'w-3 h-3' : 'w-3.5 h-3.5'} />
@@ -993,8 +952,8 @@ export const InventoryView: React.FC = () => {
                 {/* 2. Nombre */}
                 <div className={`${isCompactHeight ? 'py-1 min-h-[32px]' : isMediumHeight ? 'py-1.5 min-h-[38px]' : 'py-2.5 min-h-[46px]'} px-1 flex items-center justify-between gap-3`}>
                   <div className="w-36 sm:w-48 shrink-0">
-                    <span className={`${isCompactHeight ? 'text-xs' : 'text-sm sm:text-base'} font-normal text-slate-700 flex items-center gap-2`}>
-                      <Package className={`${isCompactHeight ? 'w-4 h-4' : 'w-5 h-5'} text-lilac-600 shrink-0`} />
+                    <span className={`${isCompactHeight ? 'text-xs' : 'text-sm sm:text-base'} font-normal text-slate-700 dark:text-slate-300 flex items-center gap-2`}>
+                      <Package className={`${isCompactHeight ? 'w-4 h-4' : 'w-5 h-5'} text-lilac-600 dark:text-lilac-400 shrink-0`} />
                       <span>Nombre</span>
                     </span>
                   </div>
@@ -1002,26 +961,26 @@ export const InventoryView: React.FC = () => {
                     {selectedProduct ? (
                       <>
                         <span
-                          className={`${isCompactHeight ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'} font-bold text-slate-900 dark:text-white truncate`}
+                          className={`${isCompactHeight ? 'text-xs sm:text-sm' : 'text-sm sm:text-base'} font-bold text-slate-900 dark:text-slate-100 truncate`}
                           title={getProductDisplayName(selectedProduct.name, selectedProduct.parent_name)}
                         >
                           {getProductDisplayName(selectedProduct.name, selectedProduct.parent_name)}
                         </span>
                         {(selectedProduct.parent_category_name || selectedProduct.category_name) && (
-                          <span className={`px-2 py-0.5 rounded-lg ${isCompactHeight ? 'text-[10px]' : 'text-xs'} font-semibold bg-lilac-50 dark:bg-slate-700 text-lilac-700 dark:text-lilac-300 border border-lilac-100 dark:border-slate-600 shrink-0`}>
+                          <span className={`px-2 py-0.5 rounded-lg ${isCompactHeight ? 'text-[10px]' : 'text-xs'} font-semibold bg-lilac-50 dark:bg-slate-800 text-lilac-700 dark:text-lilac-300 border border-lilac-100 dark:border-slate-700 shrink-0`}>
                             {selectedProduct.parent_category_name
                               ? `${selectedProduct.parent_category_name}${selectedProduct.category_name ? ' > ' + selectedProduct.category_name : ''}`
                               : selectedProduct.category_name}
                           </span>
                         )}
                         {selectedProduct.product_type === 'variation' && (
-                          <span className={`px-2 py-0.5 rounded-lg ${isCompactHeight ? 'text-[10px]' : 'text-xs'} font-semibold bg-amber-50 dark:bg-slate-700 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700/60 shrink-0`}>
+                          <span className={`px-2 py-0.5 rounded-lg ${isCompactHeight ? 'text-[10px]' : 'text-xs'} font-semibold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 shrink-0`}>
                             Variación
                           </span>
                         )}
                       </>
                     ) : (
-                      <span className="text-slate-400 font-normal italic text-xs">
+                      <span className="text-slate-400 dark:text-slate-500 font-normal italic text-xs">
                         Ningún producto seleccionado
                       </span>
                     )}
@@ -1031,16 +990,16 @@ export const InventoryView: React.FC = () => {
                 {/* 3. Precio Venta */}
                 <div className={`${isCompactHeight ? 'py-1 min-h-[32px]' : isMediumHeight ? 'py-1.5 min-h-[38px]' : 'py-2.5 min-h-[46px]'} px-1 flex items-center justify-between gap-3`}>
                   <div className="w-36 sm:w-48 shrink-0">
-                    <span className={`${isCompactHeight ? 'text-xs' : 'text-sm sm:text-base'} font-normal text-slate-700 flex items-center gap-2`}>
-                      <Tag className={`${isCompactHeight ? 'w-4 h-4' : 'w-5 h-5'} text-lilac-600 shrink-0`} />
+                    <span className={`${isCompactHeight ? 'text-xs' : 'text-sm sm:text-base'} font-normal text-slate-700 dark:text-slate-300 flex items-center gap-2`}>
+                      <Tag className={`${isCompactHeight ? 'w-4 h-4' : 'w-5 h-5'} text-lilac-600 dark:text-lilac-400 shrink-0`} />
                       <span>Precio Venta</span>
                     </span>
                   </div>
-                  <div className={`flex-1 ${isCompactHeight ? 'text-sm' : 'text-base'} font-bold text-slate-800`}>
+                  <div className={`flex-1 ${isCompactHeight ? 'text-sm' : 'text-base'} font-bold text-slate-800 dark:text-slate-100 font-mono tabular-nums`}>
                     {selectedProduct ? (
                       <span>{formatCLP(selectedProduct.sale_price)}</span>
                     ) : (
-                      <span className="text-slate-400 font-normal italic text-xs">—</span>
+                      <span className="text-slate-400 dark:text-slate-500 font-normal italic text-xs">—</span>
                     )}
                   </div>
                 </div>
@@ -1048,21 +1007,21 @@ export const InventoryView: React.FC = () => {
                 {/* 4. Cantidad Actual */}
                 <div className={`${isCompactHeight ? 'py-1 min-h-[32px]' : isMediumHeight ? 'py-1.5 min-h-[38px]' : 'py-2.5 min-h-[46px]'} px-1 flex items-center justify-between gap-3`}>
                   <div className="w-36 sm:w-48 shrink-0">
-                    <span className={`${isCompactHeight ? 'text-xs' : 'text-sm sm:text-base'} font-normal text-slate-700 flex items-center gap-2`}>
-                      <Boxes className={`${isCompactHeight ? 'w-4 h-4' : 'w-5 h-5'} text-lilac-600 shrink-0`} />
+                    <span className={`${isCompactHeight ? 'text-xs' : 'text-sm sm:text-base'} font-normal text-slate-700 dark:text-slate-300 flex items-center gap-2`}>
+                      <Boxes className={`${isCompactHeight ? 'w-4 h-4' : 'w-5 h-5'} text-lilac-600 dark:text-lilac-400 shrink-0`} />
                       <span>Cantidad Actual</span>
                     </span>
                   </div>
                   <div className="flex-1 flex items-center gap-2">
                     {selectedProduct ? (
                       <>
-                        <span className={`${isCompactHeight ? 'text-base sm:text-lg' : 'text-xl'} font-bold text-slate-800 leading-none`}>
+                        <span className={`${isCompactHeight ? 'text-base sm:text-lg' : 'text-xl'} font-bold text-slate-800 dark:text-slate-100 font-mono tabular-nums leading-none`}>
                           {selectedProduct.stock}
                         </span>
-                        <span className={`${isCompactHeight ? 'text-xs' : 'text-sm'} text-slate-500 font-medium`}>unidades</span>
+                        <span className={`${isCompactHeight ? 'text-xs' : 'text-sm'} text-slate-500 dark:text-slate-400 font-medium`}>unidades</span>
                       </>
                     ) : (
-                      <span className="text-slate-400 font-normal italic text-xs">—</span>
+                      <span className="text-slate-400 dark:text-slate-500 font-normal italic text-xs">—</span>
                     )}
                   </div>
                 </div>
@@ -1070,8 +1029,8 @@ export const InventoryView: React.FC = () => {
                 {/* 5. + / - */}
                 <div className={`${isCompactHeight ? 'py-1 min-h-[32px]' : isMediumHeight ? 'py-1.5 min-h-[38px]' : 'py-2.5 min-h-[46px]'} px-1 flex items-center justify-between gap-3`}>
                   <div className="w-36 sm:w-48 shrink-0">
-                    <label className={`${isCompactHeight ? 'text-xs' : 'text-sm sm:text-base'} font-normal text-slate-700 flex items-center gap-2`}>
-                      <ArrowUpDown className={`${isCompactHeight ? 'w-4 h-4' : 'w-5 h-5'} text-lilac-600 shrink-0`} />
+                    <label className={`${isCompactHeight ? 'text-xs' : 'text-sm sm:text-base'} font-normal text-slate-700 dark:text-slate-300 flex items-center gap-2`}>
+                      <ArrowUpDown className={`${isCompactHeight ? 'w-4 h-4' : 'w-5 h-5'} text-lilac-600 dark:text-lilac-400 shrink-0`} />
                       <span>+ / -</span>
                     </label>
                   </div>
@@ -1106,7 +1065,7 @@ export const InventoryView: React.FC = () => {
                         }
                       }}
                       placeholder="0"
-                      className={`w-32 sm:w-36 ${isCompactHeight ? 'py-1 text-sm' : 'py-1.5 text-base'} px-3 bg-slate-50 focus:bg-white border border-slate-200 focus:border-lilac-500 rounded-xl font-bold text-slate-800 text-center outline-none transition-all disabled:bg-slate-100 disabled:text-slate-400 shadow-2xs`}
+                      className={`w-32 sm:w-36 ${isCompactHeight ? 'py-1 text-sm' : 'py-1.5 text-base'} px-3 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-lilac-500 rounded-xl font-bold font-mono tabular-nums text-slate-800 dark:text-slate-100 text-center outline-none transition-all disabled:bg-slate-100 dark:disabled:bg-slate-850 disabled:text-slate-400 dark:disabled:text-slate-600 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500`}
                     />
                   </div>
                 </div>
@@ -1114,8 +1073,8 @@ export const InventoryView: React.FC = () => {
                 {/* 6. Nueva Cantidad */}
                 <div className={`${isCompactHeight ? 'py-1 min-h-[32px]' : isMediumHeight ? 'py-1.5 min-h-[38px]' : 'py-2.5 min-h-[46px]'} px-1 flex items-center justify-between gap-3`}>
                   <div className="w-36 sm:w-48 shrink-0">
-                    <label className={`${isCompactHeight ? 'text-xs' : 'text-sm sm:text-base'} font-normal text-slate-700 flex items-center gap-2`}>
-                      <Hash className={`${isCompactHeight ? 'w-4 h-4' : 'w-5 h-5'} text-lilac-600 shrink-0`} />
+                    <label className={`${isCompactHeight ? 'text-xs' : 'text-sm sm:text-base'} font-normal text-slate-700 dark:text-slate-300 flex items-center gap-2`}>
+                      <Hash className={`${isCompactHeight ? 'w-4 h-4' : 'w-5 h-5'} text-lilac-600 dark:text-lilac-400 shrink-0`} />
                       <span>Nueva Cantidad</span>
                     </label>
                   </div>
@@ -1150,14 +1109,14 @@ export const InventoryView: React.FC = () => {
                         }
                       }}
                       placeholder="0"
-                      className={`w-32 sm:w-36 ${isCompactHeight ? 'py-1 text-sm' : 'py-1.5 text-base'} px-3 bg-slate-50 focus:bg-white border rounded-xl font-bold text-center outline-none transition-all disabled:bg-slate-100 disabled:text-slate-400 shadow-2xs ${
+                      className={`w-32 sm:w-36 ${isCompactHeight ? 'py-1 text-sm' : 'py-1.5 text-base'} px-3 bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 border rounded-xl font-bold font-mono tabular-nums text-center outline-none transition-all disabled:bg-slate-100 dark:disabled:bg-slate-850 disabled:text-slate-400 dark:disabled:text-slate-600 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500 ${
                         calculateNewStock() < 0
-                          ? 'border-rose-400 text-rose-600 focus:border-rose-500 bg-rose-50/30'
-                          : 'border-slate-200 text-slate-800 focus:border-lilac-500'
+                          ? 'border-rose-400 text-rose-600 dark:text-rose-400 focus:border-rose-500 bg-rose-50/30 dark:bg-rose-950/30'
+                          : 'border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:border-lilac-500'
                       }`}
                     />
                     {calculateNewStock() < 0 && (
-                      <span className="px-2 py-0.5 rounded-xl text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 flex items-center gap-1 shrink-0">
+                      <span className="px-2 py-0.5 rounded-xl text-xs font-bold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800/80 flex items-center gap-1 shrink-0">
                         <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                         <span>No puede ser negativo</span>
                       </span>
@@ -1169,22 +1128,22 @@ export const InventoryView: React.FC = () => {
                 <div className={`${isCompactHeight ? 'py-1.5' : isMediumHeight ? 'py-2' : 'py-2.5'} px-1 flex flex-col gap-2.5 w-full`}>
                   {/* Cabecera de la fila: Etiqueta a la izquierda y Estado de escucha a la derecha (cero layout shift) */}
                   <div className="flex items-center justify-between gap-2 min-h-[26px]">
-                    <label className={`${isCompactHeight ? 'text-xs' : 'text-sm sm:text-base'} font-normal text-slate-700 flex items-center gap-2`}>
-                      <FileText className={`${isCompactHeight ? 'w-4 h-4' : 'w-5 h-5'} text-lilac-600 shrink-0`} />
+                    <label className={`${isCompactHeight ? 'text-xs' : 'text-sm sm:text-base'} font-normal text-slate-700 dark:text-slate-300 flex items-center gap-2`}>
+                      <FileText className={`${isCompactHeight ? 'w-4 h-4' : 'w-5 h-5'} text-lilac-600 dark:text-lilac-400 shrink-0`} />
                       <span className="font-semibold">Motivo del ajuste</span>
                     </label>
 
                     {/* Mensaje de escucha integrado en la cabecera (sin alterar altura de la fila) */}
                     <div className="flex items-center gap-2 transition-all">
                       {listeningMode !== 'idle' ? (
-                        <div className="flex items-center gap-2 text-xs bg-amber-50 text-amber-900 border border-amber-200/80 px-2.5 py-0.5 rounded-lg font-medium shadow-2xs animate-in fade-in duration-150">
+                        <div className="flex items-center gap-2 text-xs bg-amber-50 dark:bg-amber-950/50 text-amber-900 dark:text-amber-200 border border-amber-200/80 dark:border-amber-800/80 px-2.5 py-0.5 rounded-lg font-medium shadow-2xs animate-in fade-in duration-150">
                           <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping shrink-0" />
                           <span className="hidden sm:inline">
                             {hasAppliedReasonShortcut
                               ? 'Motivo listo. Presiona otra tecla o Enter:'
                               : 'Escuchando teclas de motivo:'}
                           </span>
-                          <span className="font-mono font-bold text-amber-800 bg-amber-100/90 px-1.5 py-0.2 rounded text-[11px]">
+                          <span className="font-mono font-bold text-amber-800 dark:text-amber-200 bg-amber-100/90 dark:bg-amber-900/60 px-1.5 py-0.2 rounded text-[11px]">
                             {hasAppliedReasonShortcut
                               ? 'Enter = Confirmar'
                               : listeningMode === 'after_delta'
@@ -1193,7 +1152,7 @@ export const InventoryView: React.FC = () => {
                           </span>
                         </div>
                       ) : (
-                        <span className="text-[11px] text-slate-400 font-normal">
+                        <span className="text-[11px] text-slate-400 dark:text-slate-500 font-normal">
                           {selectedProduct ? 'Escribe o presiona una tecla de motivo' : 'Selecciona un producto'}
                         </span>
                       )}
@@ -1220,7 +1179,7 @@ export const InventoryView: React.FC = () => {
                       }
                     }}
                     placeholder="Escribe el motivo del ajuste (ej: Conteo físico, rotura, merma...)"
-                    className={`w-full ${isCompactHeight ? 'py-1 px-3 text-xs' : 'py-1.5 px-3.5 text-xs sm:text-sm'} bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:border-lilac-500 rounded-xl outline-none transition-all text-slate-800 dark:text-white disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 shadow-2xs font-medium`}
+                    className={`w-full ${isCompactHeight ? 'py-1 px-3 text-xs' : 'py-1.5 px-3.5 text-xs sm:text-sm'} bg-slate-50 dark:bg-slate-800 focus:bg-white dark:focus:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-lilac-500 rounded-xl outline-none transition-all text-slate-800 dark:text-slate-100 disabled:bg-slate-100 dark:disabled:bg-slate-850 disabled:text-slate-400 dark:disabled:text-slate-600 shadow-2xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500`}
                   />
 
                   {/* Motivos rápidos tirados a la izquierda y adaptativos en una sola subfila sin truncar */}
@@ -1240,7 +1199,7 @@ export const InventoryView: React.FC = () => {
                                 type="button"
                                 disabled={!selectedProduct}
                                 onClick={() => handleApplyReason(r, true)}
-                                className={`shrink-0 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1 shadow-2xs ${
+                                className={`shrink-0 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500 ${
                                   !selectedProduct
                                     ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed border border-slate-200/50 dark:border-slate-700'
                                     : reason === r.text
@@ -1290,7 +1249,7 @@ export const InventoryView: React.FC = () => {
                                 type="button"
                                 disabled={!selectedProduct}
                                 onClick={() => handleApplyReason(r, true)}
-                                className={`shrink-0 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1 shadow-2xs ${
+                                className={`shrink-0 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1 shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
                                   !selectedProduct
                                     ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 opacity-50 cursor-not-allowed border border-slate-200/50 dark:border-slate-700'
                                     : listeningMode !== 'idle' && r.shortcut
@@ -1336,7 +1295,7 @@ export const InventoryView: React.FC = () => {
                     calculateEffectiveDelta() === 0 ||
                     calculateNewStock() < 0
                   }
-                  className={`${isCompactHeight ? 'px-5 py-1.5 text-xs' : 'px-7 py-2.5 text-sm'} bg-lilac-600 hover:bg-lilac-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 dark:disabled:border dark:disabled:border-slate-700 text-white rounded-xl font-bold transition-all shadow-sm hover:shadow-md active:scale-98 flex items-center gap-2 cursor-pointer disabled:cursor-not-allowed`}
+                  className={`${isCompactHeight ? 'px-5 py-1.5 text-xs' : 'px-7 py-2.5 text-sm'} bg-lilac-600 hover:bg-lilac-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 dark:disabled:border dark:disabled:border-slate-700 text-white rounded-xl font-bold transition-all shadow-sm hover:shadow-md active:scale-98 flex items-center gap-2 cursor-pointer disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500`}
                   title="Shift + Clic (o Shift+Enter) para mantener el producto tras ajustar"
                 >
                   <CheckCircle2 className={isCompactHeight ? 'w-4 h-4' : 'w-5 h-5'} />
@@ -1349,17 +1308,17 @@ export const InventoryView: React.FC = () => {
             </div>
 
             {/* Tarjeta Derecha: Últimos 5 Ajustes con Edición de Motivo y Cancelación (4 cols) */}
-            <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-2xl border border-lilac-100 dark:border-slate-800 p-4 shadow-sm flex flex-col justify-between min-h-0">
+            <div className="lg:col-span-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm flex flex-col justify-between min-h-0">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5 shrink-0">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 rounded-lg bg-lilac-50 dark:bg-lilac-950/40 text-lilac-600 dark:text-lilac-400 flex items-center justify-center shrink-0">
                     <History className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="text-xs sm:text-sm font-bold text-slate-800 dark:text-white leading-tight">
+                    <h3 className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100 leading-tight">
                       Últimos 5 Ajustes
                     </h3>
-                    <p className="text-[10px] text-slate-400">
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500">
                       Historial inmediato de ajustes
                     </p>
                   </div>
@@ -1368,7 +1327,7 @@ export const InventoryView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => fetchRecentAdjustments()}
-                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
                   title="Refrescar lista"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
@@ -1378,14 +1337,13 @@ export const InventoryView: React.FC = () => {
               {/* Lista de Ajustes Recientes */}
               <div className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 my-2 pr-1 min-h-[220px]">
                 {recentAdjustments.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center text-center p-4">
-                    <History className="w-8 h-8 text-slate-300 dark:text-slate-600 mb-2" />
-                    <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                      Sin ajustes recientes
-                    </p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
-                      Los ajustes que realices aparecerán aquí al instante.
-                    </p>
+                  <div className="h-full flex items-center justify-center p-2">
+                    <EmptyState
+                      icon={History}
+                      title="Sin ajustes recientes"
+                      description="Los ajustes que realices aparecerán aquí al instante."
+                      compact={true}
+                    />
                   </div>
                 ) : (
                   recentAdjustments.map((adj) => {
@@ -1405,7 +1363,7 @@ export const InventoryView: React.FC = () => {
                           </span>
 
                           <span
-                            className={`font-mono font-black text-xs px-2 py-0.5 rounded-lg shrink-0 ${
+                            className={`font-mono font-black text-xs px-2 py-0.5 rounded-lg shrink-0 tabular-nums ${
                               isPositive
                                 ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
                                 : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
@@ -1416,9 +1374,9 @@ export const InventoryView: React.FC = () => {
                         </div>
 
                         {/* Fila Intermedia: Código y Fecha/Hora */}
-                        <div className="flex items-center justify-between text-[11px] text-slate-400">
-                          <span className="font-mono">{adj.product_code}</span>
-                          <span>{new Date(adj.created_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</span>
+                        <div className="flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500">
+                          <span className="font-mono font-medium">{adj.product_code}</span>
+                          <span className="tabular-nums">{new Date(adj.created_at).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</span>
                         </div>
 
                         {/* Fila Inferior: Motivo con Edición Inline y Botón Cancelar */}
@@ -1434,12 +1392,12 @@ export const InventoryView: React.FC = () => {
                                   if (e.key === 'Enter') handleSaveReasonEdit(adj.id)
                                   if (e.key === 'Escape') handleCancelEditReason()
                                 }}
-                                className="flex-1 px-2 py-0.5 text-xs bg-slate-50 dark:bg-slate-800 border border-lilac-400 rounded-lg outline-none text-slate-800 dark:text-slate-200"
+                                className="flex-1 px-2 py-0.5 text-xs bg-slate-50 dark:bg-slate-800 border border-lilac-400 rounded-lg outline-none text-slate-800 dark:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
                               />
                               <button
                                 type="button"
                                 onClick={() => handleSaveReasonEdit(adj.id)}
-                                className="p-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md cursor-pointer"
+                                className="p-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                                 title="Guardar motivo"
                               >
                                 <Check className="w-3 h-3" />
@@ -1447,7 +1405,7 @@ export const InventoryView: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={handleCancelEditReason}
-                                className="p-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 text-slate-600 dark:text-slate-200 rounded-md cursor-pointer"
+                                className="p-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 text-slate-600 dark:text-slate-200 rounded-md cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
                                 title="Cancelar edición"
                               >
                                 <X className="w-3 h-3" />
@@ -1463,7 +1421,7 @@ export const InventoryView: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => handleStartEditReason(adj.id, adj.reason, adj.type, adj.can_edit_reason)}
-                                    className="text-slate-400 hover:text-lilac-600 dark:hover:text-lilac-400 p-0.5 rounded cursor-pointer shrink-0 transition-colors"
+                                    className="text-slate-400 hover:text-lilac-600 dark:hover:text-lilac-400 p-0.5 rounded cursor-pointer shrink-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
                                     title="Editar motivo del ajuste"
                                   >
                                     <Pencil className="w-3 h-3" />
@@ -1486,7 +1444,7 @@ export const InventoryView: React.FC = () => {
                                   type="button"
                                   disabled={isLoadingPreviewId === adj.id}
                                   onClick={() => handleOpenCancelAdjustmentModal(adj.id)}
-                                  className="text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 p-1 rounded-lg border border-rose-200 dark:border-rose-800 text-[10px] font-bold flex items-center gap-1 cursor-pointer shrink-0 active:scale-95 disabled:opacity-50"
+                                  className="text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 p-1 rounded-lg border border-rose-200 dark:border-rose-800 text-[10px] font-bold flex items-center gap-1 cursor-pointer shrink-0 active:scale-95 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
                                   title="Cancelar este ajuste y revertir el stock de inmediato"
                                 >
                                   {isLoadingPreviewId === adj.id ? (
@@ -1528,36 +1486,35 @@ export const InventoryView: React.FC = () => {
           <div className="max-w-5xl mx-auto flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-base font-bold text-slate-800">Productos con Stock Bajo o Agotado</h2>
-                <p className="text-xs text-slate-500">
+                <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">
+                  Productos con Stock Bajo o Agotado
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Artículos cuya existencia es menor o igual al inventario mínimo configurado.
                 </p>
               </div>
 
               <button
+                type="button"
                 onClick={fetchLowStock}
-                className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm"
+                className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-lilac-600' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-lilac-600 dark:text-lilac-400' : ''}`} />
                 <span>Actualizar</span>
               </button>
             </div>
 
             {lowStockProducts.length === 0 ? (
-              <div className="bg-white rounded-3xl border border-lilac-100 p-12 flex flex-col items-center justify-center text-center shadow-sm">
-                <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
-                  <CheckCircle2 className="w-7 h-7" />
-                </div>
-                <h3 className="text-base font-bold text-slate-800 mb-1">¡Inventario en orden!</h3>
-                <p className="text-xs text-slate-500 max-w-sm">
-                  No hay productos con existencia igual o inferior al stock mínimo en este momento.
-                </p>
-              </div>
+              <EmptyState
+                icon={CheckCircle2}
+                title="¡Inventario en orden!"
+                description="No hay productos con existencia menor o igual al stock mínimo configurado en este momento."
+              />
             ) : (
-              <div className="bg-white rounded-3xl border border-black/60 shadow-sm overflow-hidden">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
-                    <thead className="bg-slate-50 border-b border-black/60 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
+                    <thead className="bg-slate-50 dark:bg-slate-850 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[10px]">
                       <tr>
                         <th className="py-3 px-4">Código</th>
                         <th className="py-3 px-4">Producto</th>
@@ -1568,52 +1525,53 @@ export const InventoryView: React.FC = () => {
                         <th className="py-3 px-4 text-right">Acción</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-black/60">
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                       {lowStockProducts.map((p) => {
                         const isZeroOrNegative = p.stock <= 0
                         const deficit = Math.max(0, p.min_stock - p.stock)
 
                         return (
-                          <tr key={p.code} className="hover:bg-lilac-50/30 dark:hover:bg-slate-750/50 transition-colors border-b border-black/60 dark:border-slate-700">
-                            <td className="py-3 px-4 font-mono font-bold text-slate-700 dark:text-slate-300">
+                          <tr key={p.code} className="hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors border-b border-slate-100 dark:border-slate-800/80 h-11">
+                            <td className="py-2.5 px-4 font-mono font-bold text-slate-700 dark:text-slate-300">
                               {p.code}
                             </td>
-                            <td className="py-3 px-4">
+                            <td className="py-2.5 px-4">
                               <div className="font-bold text-slate-800 dark:text-slate-100">
                                 {getProductDisplayName(p.name, p.parent_name)}
                               </div>
                               {p.product_type === 'variation' && (
-                                <span className="inline-block text-[10px] text-lilac-600 dark:text-lilac-300 bg-lilac-50 dark:bg-slate-700 px-1.5 py-0.2 rounded font-medium mt-0.5 border border-transparent dark:border-slate-600">
+                                <span className="inline-block text-[10px] text-lilac-600 dark:text-lilac-300 bg-lilac-50 dark:bg-slate-800 px-1.5 py-0.2 rounded font-medium mt-0.5 border border-transparent dark:border-slate-700">
                                   Variación
                                 </span>
                               )}
                             </td>
-                            <td className="py-3 px-4 text-slate-500 dark:text-slate-400">
+                            <td className="py-2.5 px-4 text-slate-500 dark:text-slate-400">
                               {p.parent_category_name
                                 ? `${p.parent_category_name}${p.category_name ? ' > ' + p.category_name : ''}`
                                 : p.category_name || '—'}
                             </td>
-                            <td className="py-3 px-4 text-center">
+                            <td className="py-2.5 px-4 text-center">
                               <span
-                                className={`inline-block px-2.5 py-1 rounded-full text-xs font-black ${
+                                className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-mono font-black tabular-nums ${
                                   isZeroOrNegative
-                                    ? 'bg-rose-100 dark:bg-slate-700 text-rose-700 dark:text-rose-300 dark:border dark:border-rose-800/60'
-                                    : 'bg-amber-100 dark:bg-slate-700 text-amber-800 dark:text-amber-300 dark:border dark:border-amber-800/60'
+                                    ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800/60'
+                                    : 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60'
                                 }`}
                               >
                                 {p.stock}
                               </span>
                             </td>
-                            <td className="py-3 px-4 text-center font-bold text-slate-600 dark:text-slate-300">
+                            <td className="py-2.5 px-4 text-center font-bold font-mono tabular-nums text-slate-600 dark:text-slate-300">
                               {p.min_stock}
                             </td>
-                            <td className="py-3 px-4 text-center">
-                              <span className="font-extrabold text-rose-600 dark:text-rose-400">+{deficit}</span>
+                            <td className="py-2.5 px-4 text-center">
+                              <span className="font-extrabold font-mono tabular-nums text-rose-600 dark:text-rose-400">+{deficit}</span>
                             </td>
-                            <td className="py-3 px-4 text-right">
+                            <td className="py-2.5 px-4 text-right">
                               <button
+                                type="button"
                                 onClick={() => handleDirectAdjust(p)}
-                                className="px-3 py-1.5 bg-lilac-50 hover:bg-lilac-600 hover:text-white text-lilac-700 border border-lilac-200 rounded-xl text-xs font-bold transition-all shadow-xs inline-flex items-center gap-1.5"
+                                className="px-3 py-1.5 bg-lilac-50 dark:bg-lilac-950/40 hover:bg-lilac-600 dark:hover:bg-lilac-600 hover:text-white dark:hover:text-white text-lilac-700 dark:text-lilac-300 border border-lilac-200 dark:border-lilac-800/80 rounded-xl text-xs font-bold transition-all shadow-2xs inline-flex items-center gap-1.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
                               >
                                 <SlidersHorizontal className="w-3.5 h-3.5" />
                                 <span>Ajustar</span>
@@ -1654,20 +1612,21 @@ export const InventoryView: React.FC = () => {
           return (
             <div className="max-w-5xl mx-auto flex flex-col gap-4">
               {/* Filter Bar */}
-              <div className="bg-white p-4 rounded-2xl border border-lilac-100 shadow-sm flex flex-wrap items-center justify-between gap-3">
+              <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-3 flex-1">
                   {/* Date Selector */}
                   <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-lilac-600" />
+                    <Calendar className="w-4 h-4 text-lilac-600 dark:text-lilac-400" />
                     <input
                       type="date"
                       value={selectedDate}
                       onChange={(e) => setSelectedDate(e.target.value)}
-                      className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-lilac-500"
+                      className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-xl text-xs font-medium outline-none focus:border-lilac-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
                     />
                     <button
+                      type="button"
                       onClick={() => setSelectedDate(getTodayLocalDate())}
-                      className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                      className="px-2.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
                     >
                       Hoy
                     </button>
@@ -1675,11 +1634,11 @@ export const InventoryView: React.FC = () => {
 
                   {/* Movement Type Filter */}
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-500">Tipo:</span>
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Tipo:</span>
                     <select
                       value={selectedMovementType}
                       onChange={(e) => setSelectedMovementType(e.target.value as MovementType | 'all')}
-                      className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-lilac-500"
+                      className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-xl text-xs font-medium outline-none focus:border-lilac-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
                     >
                       <option value="all">Todos los movimientos</option>
                       <option value="venta">Ventas</option>
@@ -1698,13 +1657,13 @@ export const InventoryView: React.FC = () => {
                       value={movementSearchQuery}
                       onChange={(e) => setMovementSearchQuery(e.target.value)}
                       placeholder="Buscar por producto, código, motivo o folio..."
-                      className="w-full pl-8 pr-7 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:border-lilac-500"
+                      className="w-full pl-8 pr-7 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-xl text-xs font-medium outline-none focus:border-lilac-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
                     />
                     {movementSearchQuery && (
                       <button
                         type="button"
                         onClick={() => setMovementSearchQuery('')}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500 rounded"
                         title="Limpiar búsqueda"
                       >
                         <X className="w-3 h-3" />
@@ -1715,10 +1674,11 @@ export const InventoryView: React.FC = () => {
 
                 <div className="flex items-center gap-2">
                   <button
+                    type="button"
                     onClick={() => fetchMovements()}
-                    className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
+                    className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
                   >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-lilac-600' : ''}`} />
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-lilac-600 dark:text-lilac-400' : ''}`} />
                     <span>Refrescar</span>
                   </button>
 
@@ -1726,7 +1686,7 @@ export const InventoryView: React.FC = () => {
                     type="button"
                     onClick={() => handleExportMovements(filteredMovements)}
                     disabled={isExportingMovements || filteredMovements.length === 0}
-                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 dark:disabled:border dark:disabled:border-slate-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed active:scale-95"
+                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 dark:disabled:border dark:disabled:border-slate-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                     title={
                       filteredMovements.length === 0
                         ? 'No hay movimientos para exportar'
@@ -1742,28 +1702,28 @@ export const InventoryView: React.FC = () => {
               {/* Daily Summary Cards */}
               {filteredMovements.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="bg-white p-3.5 rounded-2xl border border-lilac-100 shadow-sm flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-500">Total Movimientos</span>
-                    <span className="text-lg font-black text-slate-800">{filteredMovements.length}</span>
+                  <div className="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Total Movimientos</span>
+                    <span className="text-lg font-black font-mono tabular-nums text-slate-800 dark:text-slate-100">{filteredMovements.length}</span>
                   </div>
-                  <div className="bg-white p-3.5 rounded-2xl border border-emerald-100 shadow-sm flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-emerald-600">
+                  <div className="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
                       <ArrowUpRight className="w-4 h-4" />
                       <span className="text-xs font-bold">Unidades Ingresadas</span>
                     </div>
-                    <span className="text-lg font-black text-emerald-600">
+                    <span className="text-lg font-black font-mono tabular-nums text-emerald-600 dark:text-emerald-400">
                       +
                       {filteredMovements
                         .filter((m) => m.delta > 0)
                         .reduce((sum, m) => sum + m.delta, 0)}
                     </span>
                   </div>
-                  <div className="bg-white p-3.5 rounded-2xl border border-rose-100 shadow-sm flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-rose-600">
+                  <div className="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
                       <ArrowDownRight className="w-4 h-4" />
                       <span className="text-xs font-bold">Unidades Salidas</span>
                     </div>
-                    <span className="text-lg font-black text-rose-600">
+                    <span className="text-lg font-black font-mono tabular-nums text-rose-600 dark:text-rose-400">
                       {filteredMovements
                         .filter((m) => m.delta < 0)
                         .reduce((sum, m) => sum + m.delta, 0)}
@@ -1774,24 +1734,28 @@ export const InventoryView: React.FC = () => {
 
               {/* Table */}
               {filteredMovements.length === 0 ? (
-                <div className="bg-white rounded-3xl border border-lilac-100 p-12 flex flex-col items-center justify-center text-center shadow-sm">
-                  <div className="w-14 h-14 rounded-2xl bg-lilac-50 text-lilac-400 flex items-center justify-center mb-3">
-                    <Calendar className="w-7 h-7" />
-                  </div>
-                  <h3 className="text-base font-bold text-slate-800 mb-1">
-                    {movements.length === 0 ? 'Sin movimientos registrados' : 'Sin coincidencias en la búsqueda'}
-                  </h3>
-                  <p className="text-xs text-slate-500 max-w-sm">
-                    {movements.length === 0
-                      ? `No hay movimientos de inventario registrados para la fecha (${selectedDate}).`
-                      : `Ningún movimiento coincide con "${movementSearchQuery}".`}
-                  </p>
-                </div>
+                <EmptyState
+                  icon={Calendar}
+                  title={movements.length === 0 ? 'Sin movimientos registrados' : 'Sin coincidencias en la búsqueda'}
+                  description={
+                    movements.length === 0
+                      ? `No hay movimientos de inventario registrados para la fecha seleccionada (${selectedDate}).`
+                      : `Ningún movimiento coincide con "${movementSearchQuery}". Intenta con otro término o limpia la búsqueda.`
+                  }
+                  action={
+                    movementSearchQuery
+                      ? {
+                          label: 'Limpiar Búsqueda',
+                          onClick: () => setMovementSearchQuery('')
+                        }
+                      : undefined
+                  }
+                />
               ) : (
-                <div className="bg-white dark:bg-slate-800 rounded-3xl border border-black/60 dark:border-slate-700 shadow-sm overflow-hidden">
+                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
-                      <thead className="bg-slate-50 dark:bg-slate-850 border-b border-black/60 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[10px]">
+                      <thead className="bg-slate-50 dark:bg-slate-850 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[10px]">
                         <tr>
                           <th className="py-3 px-4">Hora</th>
                           <th className="py-3 px-4">Tipo</th>
@@ -1803,24 +1767,24 @@ export const InventoryView: React.FC = () => {
                           <th className="py-3 px-4">Motivo / Referencia</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-black/60 dark:divide-slate-700">
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                         {filteredMovements.map((m) => {
                           const badge = getMovementBadge(m.type)
                           const isPositive = m.delta > 0
 
                           return (
-                            <tr key={m.id} className="hover:bg-lilac-50/30 dark:hover:bg-slate-750/50 transition-colors border-b border-black/60 dark:border-slate-700">
-                              <td className="py-3 px-4 font-mono text-slate-500 dark:text-slate-400">
+                            <tr key={m.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors border-b border-slate-100 dark:border-slate-800/80 h-11">
+                              <td className="py-2.5 px-4 font-mono tabular-nums text-slate-500 dark:text-slate-400">
                                 {formatTime(m.created_at)}
                               </td>
-                              <td className="py-3 px-4">
+                              <td className="py-2.5 px-4">
                                 <span
                                   className={`inline-block px-2.5 py-0.5 rounded-lg text-[11px] font-bold ${badge.bg} ${badge.text}`}
                                 >
                                   {badge.label}
                                 </span>
                               </td>
-                              <td className="py-3 px-4 font-mono font-bold text-slate-700 dark:text-slate-300">
+                              <td className="py-2.5 px-4 font-mono font-bold text-slate-700 dark:text-slate-300">
                                 {m.product_code === 'COMÚN' ? (
                                   <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-lilac-100 dark:bg-lilac-900/40 text-lilac-800 dark:text-lilac-300 border border-lilac-200 dark:border-lilac-700">
                                     COMÚN
@@ -1829,17 +1793,17 @@ export const InventoryView: React.FC = () => {
                                   m.product_code
                                 )}
                               </td>
-                              <td className="py-3 px-4 font-bold text-slate-800 dark:text-slate-100">
+                              <td className="py-2.5 px-4 font-bold text-slate-800 dark:text-slate-100">
                                 {getProductDisplayName(m.product_name, m.parent_name)}
                               </td>
-                              <td className="py-3 px-4 text-center">
-                                <span className="font-mono font-semibold text-slate-600 dark:text-slate-300 text-xs">
+                              <td className="py-2.5 px-4 text-center">
+                                <span className="font-mono tabular-nums font-semibold text-slate-600 dark:text-slate-300 text-xs">
                                   {m.product_code === 'COMÚN' ? '—' : m.stock_before !== undefined ? m.stock_before : '—'}
                                 </span>
                               </td>
-                              <td className="py-3 px-4 text-center">
+                              <td className="py-2.5 px-4 text-center">
                                 <span
-                                  className={`inline-flex items-center gap-0.5 font-black text-xs ${
+                                  className={`inline-flex items-center gap-0.5 font-black text-xs font-mono tabular-nums ${
                                     isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                                   }`}
                                 >
@@ -1847,12 +1811,12 @@ export const InventoryView: React.FC = () => {
                                   {isPositive ? `+${m.delta}` : m.delta}
                                 </span>
                               </td>
-                              <td className="py-3 px-4 text-center">
-                                <span className="font-mono font-bold text-slate-800 dark:text-slate-100 text-xs bg-slate-100/80 dark:bg-slate-700 dark:border dark:border-slate-600 px-2 py-0.5 rounded-md">
+                              <td className="py-2.5 px-4 text-center">
+                                <span className="font-mono tabular-nums font-bold text-slate-800 dark:text-slate-100 text-xs bg-slate-100/80 dark:bg-slate-800 dark:border dark:border-slate-700 px-2 py-0.5 rounded-md">
                                   {m.product_code === 'COMÚN' ? '—' : m.stock_after !== undefined ? m.stock_after : '—'}
                                 </span>
                               </td>
-                              <td className="py-3 px-4 text-slate-600 dark:text-slate-300">
+                              <td className="py-2.5 px-4 text-slate-600 dark:text-slate-300">
                                 {m.type === 'venta' && m.sale_folio ? (
                                   `Venta #${m.sale_folio}`
                                 ) : m.type === 'ajuste' ? (
@@ -1867,12 +1831,12 @@ export const InventoryView: React.FC = () => {
                                           if (e.key === 'Enter') handleSaveReasonEdit(m.id)
                                           if (e.key === 'Escape') handleCancelEditReason()
                                         }}
-                                        className="flex-1 px-2.5 py-1 text-xs bg-slate-50 dark:bg-slate-900 border border-lilac-500 rounded-lg outline-none text-slate-800 dark:text-slate-200"
+                                        className="flex-1 px-2.5 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-lilac-500 rounded-lg outline-none text-slate-800 dark:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
                                       />
                                       <button
                                         type="button"
                                         onClick={() => handleSaveReasonEdit(m.id)}
-                                        className="p-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md cursor-pointer shrink-0"
+                                        className="p-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                                         title="Guardar motivo"
                                       >
                                         <Check className="w-3.5 h-3.5" />
@@ -1880,7 +1844,7 @@ export const InventoryView: React.FC = () => {
                                       <button
                                         type="button"
                                         onClick={handleCancelEditReason}
-                                        className="p-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 text-slate-600 dark:text-slate-200 rounded-md cursor-pointer shrink-0"
+                                        className="p-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 text-slate-600 dark:text-slate-200 rounded-md cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
                                         title="Cancelar edición"
                                       >
                                         <X className="w-3.5 h-3.5" />
@@ -1895,7 +1859,7 @@ export const InventoryView: React.FC = () => {
                                         <button
                                           type="button"
                                           onClick={() => handleStartEditReason(m.id, m.reason, m.type, m.can_edit_reason)}
-                                          className="text-slate-400 hover:text-lilac-600 dark:hover:text-lilac-400 p-1 rounded hover:bg-lilac-50 dark:hover:bg-slate-700 transition-colors opacity-70 group-hover:opacity-100 cursor-pointer shrink-0"
+                                          className="text-slate-400 hover:text-lilac-600 dark:hover:text-lilac-400 p-1 rounded hover:bg-lilac-50 dark:hover:bg-slate-800 transition-colors opacity-70 group-hover:opacity-100 cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
                                           title="Editar motivo del ajuste"
                                         >
                                           <Pencil className="w-3.5 h-3.5" />
@@ -1936,7 +1900,7 @@ export const InventoryView: React.FC = () => {
         {activeTab === 'kardex' && (
           <div className="max-w-5xl mx-auto flex flex-col gap-6">
             {/* Search Bar Unificada */}
-            <div className="bg-white p-4 rounded-2xl border border-lilac-100 shadow-sm flex flex-col sm:flex-row items-center gap-3">
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row items-center gap-3">
               <div className="relative flex-1 w-full">
                 <Barcode className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
@@ -1948,7 +1912,7 @@ export const InventoryView: React.FC = () => {
                     if (e.key === 'Enter') handleCodeSearch('kardex')
                   }}
                   placeholder="Escanear o ingresar código de producto y presionar Enter..."
-                  className="w-full pl-10 pr-9 py-2 bg-slate-50 border border-slate-200 focus:border-lilac-500 focus:bg-white rounded-xl text-sm font-mono outline-none transition-all uppercase shadow-2xs"
+                  className="w-full pl-10 pr-9 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 focus:border-lilac-500 focus:bg-white dark:focus:bg-slate-800 rounded-xl text-sm font-mono outline-none transition-all uppercase shadow-2xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
                 />
                 {kardexCodeInput && (
                   <button
@@ -1957,8 +1921,8 @@ export const InventoryView: React.FC = () => {
                       setKardexCodeInput('')
                       kardexCodeInputRef.current?.focus()
                     }}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
-                    title="Limpiar"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-0.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500 rounded"
+                    title="Limpiar código"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -1969,7 +1933,7 @@ export const InventoryView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => handleOpenSearchModal('kardex')}
-                  className="w-full sm:w-auto px-4 py-2 bg-lilac-50 hover:bg-lilac-100 text-lilac-700 border border-lilac-200 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                  className="w-full sm:w-auto px-4 py-2 bg-lilac-50 dark:bg-lilac-950/40 hover:bg-lilac-100 dark:hover:bg-lilac-900/60 text-lilac-700 dark:text-lilac-300 border border-lilac-200 dark:border-lilac-800/80 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
                   title="Buscar en el catálogo de productos (F10)"
                 >
                   <Search className="w-4 h-4" />
@@ -1979,44 +1943,38 @@ export const InventoryView: React.FC = () => {
             </div>
 
             {!kardexProduct ? (
-              <div className="bg-white rounded-3xl border border-dashed border-lilac-200 p-12 flex flex-col items-center justify-center text-center">
-                <div className="w-16 h-16 rounded-2xl bg-lilac-50 text-lilac-400 flex items-center justify-center mb-4">
-                  <BookOpen className="w-8 h-8" />
-                </div>
-                <h3 className="text-base font-bold text-slate-700 mb-1">Kardex Histórico</h3>
-                <p className="text-xs text-slate-500 max-w-sm mb-6">
-                  Selecciona un producto para auditar cronológicamente todas sus entradas, salidas, ventas y ajustes de stock.
-                </p>
-                <button
-                  onClick={() => handleOpenSearchModal('kardex')}
-                  className="px-5 py-2.5 bg-lilac-600 hover:bg-lilac-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-2"
-                >
-                  <Search className="w-4 h-4" />
-                  <span>Seleccionar Producto</span>
-                </button>
-              </div>
+              <EmptyState
+                icon={BookOpen}
+                title="Kardex Histórico"
+                description="Selecciona un producto para auditar cronológicamente todas sus entradas, salidas, ventas y ajustes de stock."
+                action={{
+                  label: 'Seleccionar Producto (F10)',
+                  onClick: () => handleOpenSearchModal('kardex'),
+                  icon: Search
+                }}
+              />
             ) : (
               <div className="flex flex-col gap-4">
                 {/* Selected Product Banner */}
-                <div className="bg-white rounded-3xl border border-lilac-100 p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                      <span className="px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                         {kardexProduct.code}
                       </span>
                       {(kardexProduct.parent_category_name || kardexProduct.category_name) && (
-                        <span className="px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-lilac-50 text-lilac-700 border border-lilac-100">
+                        <span className="px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-lilac-50 dark:bg-slate-800 text-lilac-700 dark:text-lilac-300 border border-lilac-100 dark:border-slate-700">
                           {kardexProduct.parent_category_name
                             ? `${kardexProduct.parent_category_name}${kardexProduct.category_name ? ' > ' + kardexProduct.category_name : ''}`
                             : kardexProduct.category_name}
                         </span>
                       )}
                     </div>
-                    <h2 className="text-xl font-bold text-slate-800">
+                    <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
                       {getProductDisplayName(kardexProduct.name, kardexProduct.parent_name)}
                     </h2>
-                    <div className="text-xs text-slate-500">
-                      Precio de venta: <strong className="text-slate-700">{formatCLP(kardexProduct.sale_price)}</strong>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      Precio de venta: <strong className="text-slate-700 dark:text-slate-200 font-mono tabular-nums">{formatCLP(kardexProduct.sale_price)}</strong>
                     </div>
                   </div>
 
@@ -2025,7 +1983,7 @@ export const InventoryView: React.FC = () => {
                       type="button"
                       onClick={handleExportKardex}
                       disabled={isExportingKardex || kardexMovements.length === 0}
-                      className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 dark:disabled:border dark:disabled:border-slate-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed active:scale-95"
+                      className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 dark:disabled:border dark:disabled:border-slate-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                       title={
                         kardexMovements.length === 0
                           ? 'No hay movimientos en el kardex para exportar'
@@ -2036,15 +1994,16 @@ export const InventoryView: React.FC = () => {
                       <span>{isExportingKardex ? 'Exportando...' : 'Exportar Excel'}</span>
                     </button>
 
-                    <div className="flex flex-col items-center bg-slate-50 border border-slate-200 px-5 py-2.5 rounded-2xl">
-                      <span className="text-[10px] uppercase tracking-wider font-bold text-slate-600">Stock Actual</span>
-                      <span className="text-2xl font-black text-slate-800">{kardexProduct.stock}</span>
+                    <div className="flex flex-col items-center bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-5 py-2.5 rounded-2xl">
+                      <span className="text-[10px] uppercase tracking-wider font-bold text-slate-600 dark:text-slate-400">Stock Actual</span>
+                      <span className="text-2xl font-black font-mono tabular-nums text-slate-800 dark:text-slate-100">{kardexProduct.stock}</span>
                     </div>
 
                     <button
+                      type="button"
                       onClick={() => setKardexProduct(null)}
-                      className="p-2.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 border border-transparent hover:border-slate-200 transition-colors cursor-pointer"
-                      title="Cambiar producto"
+                      className="p-2.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
+                      title="Cambiar producto seleccionado"
                     >
                       <X className="w-5 h-5" />
                     </button>
@@ -2053,16 +2012,17 @@ export const InventoryView: React.FC = () => {
 
                 {/* Kardex Movements Table */}
                 {kardexMovements.length === 0 ? (
-                  <div className="bg-white rounded-3xl border border-lilac-100 p-8 flex flex-col items-center justify-center text-center">
-                    <p className="text-xs text-slate-500">
-                      Este producto aún no registra movimientos de inventario en el historial.
-                    </p>
-                  </div>
+                  <EmptyState
+                    icon={History}
+                    title="Sin movimientos registrados"
+                    description="Este producto aún no registra movimientos de inventario en el historial del kardex."
+                    compact={true}
+                  />
                 ) : (
-                  <div className="bg-white dark:bg-slate-800 rounded-3xl border border-black/60 dark:border-slate-700 shadow-sm overflow-hidden">
+                  <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-xs border-collapse">
-                        <thead className="bg-slate-50 dark:bg-slate-850 border-b border-black/60 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[10px]">
+                        <thead className="bg-slate-50 dark:bg-slate-850 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[10px]">
                           <tr>
                             <th className="py-3 px-4">Fecha y Hora</th>
                             <th className="py-3 px-4">Tipo</th>
@@ -2072,31 +2032,31 @@ export const InventoryView: React.FC = () => {
                             <th className="py-3 px-4">Motivo / Referencia</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-black/60 dark:divide-slate-700">
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                           {kardexMovements.map((m) => {
                             const badge = getMovementBadge(m.type)
                             const isPositive = m.delta > 0
 
                             return (
-                              <tr key={m.id} className="hover:bg-lilac-50/30 dark:hover:bg-slate-750/50 transition-colors border-b border-black/60 dark:border-slate-700">
-                                <td className="py-3 px-4 font-mono text-slate-600 dark:text-slate-400">
+                              <tr key={m.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors border-b border-slate-100 dark:border-slate-800/80 h-11">
+                                <td className="py-2.5 px-4 font-mono tabular-nums text-slate-600 dark:text-slate-400">
                                   {formatDateTime(m.created_at)}
                                 </td>
-                                <td className="py-3 px-4">
+                                <td className="py-2.5 px-4">
                                   <span
                                     className={`inline-block px-2.5 py-0.5 rounded-lg text-[11px] font-bold ${badge.bg} ${badge.text}`}
                                   >
                                     {badge.label}
                                   </span>
                                 </td>
-                                <td className="py-3 px-4 text-center">
-                                  <span className="font-mono font-semibold text-slate-600 dark:text-slate-300 text-xs">
+                                <td className="py-2.5 px-4 text-center">
+                                  <span className="font-mono tabular-nums font-semibold text-slate-600 dark:text-slate-300 text-xs">
                                     {m.stock_before !== undefined ? m.stock_before : '—'}
                                   </span>
                                 </td>
-                                <td className="py-3 px-4 text-center">
+                                <td className="py-2.5 px-4 text-center">
                                   <span
-                                    className={`inline-flex items-center gap-0.5 font-black text-xs ${
+                                    className={`inline-flex items-center gap-0.5 font-black text-xs font-mono tabular-nums ${
                                       isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
                                     }`}
                                   >
@@ -2104,12 +2064,12 @@ export const InventoryView: React.FC = () => {
                                     {isPositive ? `+${m.delta}` : m.delta}
                                   </span>
                                 </td>
-                                <td className="py-3 px-4 text-center">
-                                  <span className="font-mono font-bold text-slate-800 dark:text-slate-100 text-xs bg-slate-100/80 dark:bg-slate-700 dark:border dark:border-slate-600 px-2 py-0.5 rounded-md">
+                                <td className="py-2.5 px-4 text-center">
+                                  <span className="font-mono tabular-nums font-bold text-slate-800 dark:text-slate-100 text-xs bg-slate-100/80 dark:bg-slate-800 dark:border dark:border-slate-700 px-2 py-0.5 rounded-md">
                                     {m.stock_after !== undefined ? m.stock_after : '—'}
                                   </span>
                                 </td>
-                                <td className="py-3 px-4 text-slate-600 dark:text-slate-300">
+                                <td className="py-2.5 px-4 text-slate-600 dark:text-slate-300">
                                   {m.type === 'venta' && m.sale_folio ? (
                                     `Venta #${m.sale_folio}`
                                   ) : m.type === 'ajuste' ? (
@@ -2124,12 +2084,12 @@ export const InventoryView: React.FC = () => {
                                             if (e.key === 'Enter') handleSaveReasonEdit(m.id)
                                             if (e.key === 'Escape') handleCancelEditReason()
                                           }}
-                                          className="flex-1 px-2.5 py-1 text-xs bg-slate-50 dark:bg-slate-900 border border-lilac-500 rounded-lg outline-none text-slate-800 dark:text-slate-200"
+                                          className="flex-1 px-2.5 py-1 text-xs bg-slate-50 dark:bg-slate-800 border border-lilac-500 rounded-lg outline-none text-slate-800 dark:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
                                         />
                                         <button
                                           type="button"
                                           onClick={() => handleSaveReasonEdit(m.id)}
-                                          className="p-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md cursor-pointer shrink-0"
+                                          className="p-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                                           title="Guardar motivo"
                                         >
                                           <Check className="w-3.5 h-3.5" />
@@ -2137,7 +2097,7 @@ export const InventoryView: React.FC = () => {
                                         <button
                                           type="button"
                                           onClick={handleCancelEditReason}
-                                          className="p-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 text-slate-600 dark:text-slate-200 rounded-md cursor-pointer shrink-0"
+                                          className="p-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 text-slate-600 dark:text-slate-200 rounded-md cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
                                           title="Cancelar edición"
                                         >
                                           <X className="w-3.5 h-3.5" />
@@ -2153,7 +2113,7 @@ export const InventoryView: React.FC = () => {
                                             <button
                                               type="button"
                                               onClick={() => handleStartEditReason(m.id, m.reason, m.type, m.can_edit_reason)}
-                                              className="text-slate-400 hover:text-lilac-600 dark:hover:text-lilac-400 p-1 rounded hover:bg-lilac-50 dark:hover:bg-slate-700 transition-colors opacity-70 group-hover:opacity-100 cursor-pointer shrink-0"
+                                              className="text-slate-400 hover:text-lilac-600 dark:hover:text-lilac-400 p-1 rounded hover:bg-lilac-50 dark:hover:bg-slate-800 transition-colors opacity-70 group-hover:opacity-100 cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
                                               title="Editar motivo del ajuste"
                                             >
                                               <Pencil className="w-3.5 h-3.5" />
@@ -2173,7 +2133,7 @@ export const InventoryView: React.FC = () => {
                                               type="button"
                                               disabled={isLoadingPreviewId === m.id}
                                               onClick={() => handleOpenCancelAdjustmentModal(m.id)}
-                                              className="text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 p-1 rounded-lg border border-rose-200 dark:border-rose-800 text-[10px] font-bold flex items-center gap-1 cursor-pointer active:scale-95 disabled:opacity-50"
+                                              className="text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 p-1 rounded-lg border border-rose-200 dark:border-rose-800 text-[10px] font-bold flex items-center gap-1 cursor-pointer active:scale-95 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
                                               title="Cancelar este ajuste y revertir el stock de inmediato"
                                             >
                                               {isLoadingPreviewId === m.id ? (

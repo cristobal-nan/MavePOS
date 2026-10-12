@@ -25,6 +25,8 @@ import { UnsavedChangesModal } from './settings/UnsavedChangesModal'
 import { useSettingsStore, PendingNavigation } from '../store/settingsStore'
 import { useUIStore } from '../store/uiStore'
 
+import { ViewHeader, SubTabs, SubTabItem } from '../components/common'
+
 type SettingsSubTab =
   | 'business'
   | 'appearance'
@@ -36,6 +38,17 @@ type SettingsSubTab =
   | 'danger'
 
 const CONFIGURABLE_TABS: SettingsSubTab[] = ['business', 'printers', 'cash', 'inventory']
+
+const SETTINGS_SUBTABS: SubTabItem<SettingsSubTab>[] = [
+  { id: 'business', label: 'Datos del Negocio', icon: Store },
+  { id: 'appearance', label: 'Apariencia y Temas', icon: Palette },
+  { id: 'printers', label: 'Impresoras', icon: Printer },
+  { id: 'cash', label: 'Fondo y Retiro', icon: Wallet },
+  { id: 'inventory', label: 'Inventario', icon: Boxes },
+  { id: 'backups', label: 'Respaldos', icon: HardDrive },
+  { id: 'shortcuts', label: 'Atajos de Teclado', icon: Keyboard },
+  { id: 'danger', label: 'Mantenimiento', icon: AlertTriangle }
+]
 
 export const SettingsView: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<SettingsSubTab>('business')
@@ -71,30 +84,22 @@ export const SettingsView: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-900 overflow-hidden select-none relative">
-      {/* Top Header & Sub-navigation Tabs */}
-      <div className="bg-white dark:bg-slate-800 border-b border-lilac-100 dark:border-slate-700 px-4 sm:px-6 pt-3 gap-2 pb-0 flex flex-col shrink-0 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="w-8 h-8 rounded-lg sm:w-10 sm:h-10 sm:rounded-xl bg-lilac-100 dark:bg-lilac-950/60 text-lilac-600 dark:text-lilac-400 flex items-center justify-center shadow-inner shrink-0">
-              <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
-            </div>
-            <div>
-              <h1 className="text-base sm:text-lg font-bold text-slate-800 dark:text-slate-100 leading-tight">
-                Configuración del Sistema
-              </h1>
-            </div>
-          </div>
-
-          {/* Botón Global de Guardado (Fijo arriba a la derecha) */}
-          {isCurrentTabConfigurable && (
+      {/* ViewHeader Canónico */}
+      <ViewHeader
+        title="Configuración del Sistema"
+        icon={Settings}
+        badge="Sistema"
+        primaryAction={
+          isCurrentTabConfigurable ? (
             <button
               type="button"
               onClick={saveCurrentSettings}
               disabled={isSaving}
-              className={`px-5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-sm cursor-pointer disabled:opacity-50 ${
+              aria-busy={isSaving}
+              className={`px-5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-sm cursor-pointer disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 ${
                 isDirty
-                  ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/25 ring-2 ring-amber-300 animate-pulse'
-                  : 'bg-lilac-600 hover:bg-lilac-700 text-white shadow-lilac-600/20'
+                  ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/25 ring-2 ring-amber-300 focus-visible:ring-amber-500 animate-pulse'
+                  : 'bg-lilac-600 hover:bg-lilac-700 text-white shadow-lilac-600/20 focus-visible:ring-lilac-500'
               }`}
             >
               {isSaving ? (
@@ -102,120 +107,23 @@ export const SettingsView: React.FC = () => {
               ) : (
                 <Save className="w-4 h-4" />
               )}
-              <span>{isSaving ? 'Guardando...' : 'Guardar Cambios'}</span>
+              <span>{isSaving ? 'Guardando…' : 'Guardar Cambios'}</span>
               {isDirty && (
                 <span className="w-2 h-2 rounded-full bg-white animate-ping ml-0.5" />
               )}
             </button>
-          )}
-        </div>
+          ) : undefined
+        }
+      />
 
-        {/* Tab Buttons */}
-        <div className="flex items-center gap-1.5 sm:gap-2 border-b border-transparent -mb-px overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => handleSubTabClick('business')}
-            className={`flex items-center gap-1.5 sm:gap-2 px-3.5 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 ${
-              activeSubTab === 'business'
-                ? 'border-lilac-600 text-lilac-700 dark:text-lilac-300 bg-lilac-50/50 dark:bg-lilac-950/40'
-                : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-slate-700/50'
-            }`}
-          >
-            <Store className="w-4 h-4" />
-            <span>Datos del Negocio</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleSubTabClick('appearance')}
-            className={`flex items-center gap-1.5 sm:gap-2 px-3.5 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 ${
-              activeSubTab === 'appearance'
-                ? 'border-lilac-600 text-lilac-700 dark:text-lilac-300 bg-lilac-50/50 dark:bg-lilac-950/40'
-                : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-slate-700/50'
-            }`}
-          >
-            <Palette className="w-4 h-4" />
-            <span>Apariencia y Temas</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleSubTabClick('printers')}
-            className={`flex items-center gap-1.5 sm:gap-2 px-3.5 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 ${
-              activeSubTab === 'printers'
-                ? 'border-lilac-600 text-lilac-700 dark:text-lilac-300 bg-lilac-50/50 dark:bg-lilac-950/40'
-                : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-slate-700/50'
-            }`}
-          >
-            <Printer className="w-4 h-4" />
-            <span>Impresoras y Periféricos</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleSubTabClick('cash')}
-            className={`flex items-center gap-1.5 sm:gap-2 px-3.5 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 ${
-              activeSubTab === 'cash'
-                ? 'border-lilac-600 text-lilac-700 dark:text-lilac-300 bg-lilac-50/50 dark:bg-lilac-950/40'
-                : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-slate-700/50'
-            }`}
-          >
-            <Wallet className="w-4 h-4" />
-            <span>Fondo y Retiro</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleSubTabClick('inventory')}
-            className={`flex items-center gap-1.5 sm:gap-2 px-3.5 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 ${
-              activeSubTab === 'inventory'
-                ? 'border-lilac-600 text-lilac-700 dark:text-lilac-300 bg-lilac-50/50 dark:bg-lilac-950/40'
-                : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-slate-700/50'
-            }`}
-          >
-            <Boxes className="w-4 h-4" />
-            <span>Inventario</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleSubTabClick('backups')}
-            className={`flex items-center gap-1.5 sm:gap-2 px-3.5 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 ${
-              activeSubTab === 'backups'
-                ? 'border-lilac-600 text-lilac-700 dark:text-lilac-300 bg-lilac-50/50 dark:bg-lilac-950/40'
-                : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-slate-700/50'
-            }`}
-          >
-            <HardDrive className="w-4 h-4" />
-            <span>Respaldos</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleSubTabClick('shortcuts')}
-            className={`flex items-center gap-1.5 sm:gap-2 px-3.5 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 ${
-              activeSubTab === 'shortcuts'
-                ? 'border-lilac-600 text-lilac-700 dark:text-lilac-300 bg-lilac-50/50 dark:bg-lilac-950/40'
-                : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/70 dark:hover:bg-slate-700/50'
-            }`}
-          >
-            <Keyboard className="w-4 h-4" />
-            <span>Atajos de Teclado</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleSubTabClick('danger')}
-            className={`flex items-center gap-1.5 sm:gap-2 px-3.5 py-2.5 text-xs font-semibold rounded-t-xl transition-all border-b-2 shrink-0 ${
-              activeSubTab === 'danger'
-                ? 'border-rose-600 text-rose-700 dark:text-rose-400 bg-rose-50/50 dark:bg-rose-950/40'
-                : 'border-transparent text-rose-600 dark:text-rose-400 hover:text-rose-800 dark:hover:text-rose-300 hover:bg-rose-50/60 dark:hover:bg-rose-950/30'
-            }`}
-          >
-            <AlertTriangle className="w-4 h-4" />
-            <span>Mantenimiento</span>
-          </button>
-        </div>
+      {/* SubTabs Canónicas de Navegación */}
+      <div className="px-4 sm:px-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center shrink-0 h-11 sm:h-12 overflow-x-auto">
+        <SubTabs<SettingsSubTab>
+          tabs={SETTINGS_SUBTABS}
+          activeTab={activeSubTab}
+          onChange={handleSubTabClick}
+          ariaLabel="Subsecciones de configuración"
+        />
       </div>
 
       {/* Main Content Body */}

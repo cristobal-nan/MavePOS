@@ -94,8 +94,17 @@ export const AppearanceSettingsTab: React.FC = () => {
             return (
               <div
                 key={option.id}
+                role="button"
+                tabIndex={0}
+                aria-pressed={isSelected}
                 onClick={() => handleSelectSurface(option.id)}
-                className={`p-4 rounded-2xl border-2 cursor-pointer flex flex-col justify-between gap-3 relative overflow-hidden group shadow-sm hover:shadow-md transition-all duration-200 ${
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    handleSelectSurface(option.id)
+                  }
+                }}
+                className={`p-4 rounded-2xl border-2 cursor-pointer flex flex-col justify-between gap-3 relative overflow-hidden group shadow-sm hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500 ${
                   isSelected
                     ? 'border-lilac-600 bg-lilac-50/40 dark:bg-slate-700/80 ring-2 ring-lilac-100 dark:ring-lilac-950'
                     : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600'
@@ -162,8 +171,17 @@ export const AppearanceSettingsTab: React.FC = () => {
           return (
             <div
               key={theme.id}
+              role="button"
+              tabIndex={0}
+              aria-pressed={isSelected}
               onClick={() => handleSelectTheme(theme.id)}
-              className={`p-5 rounded-2xl border-2 cursor-pointer flex flex-col justify-between gap-4 bg-white dark:bg-slate-800 relative overflow-hidden group shadow-sm hover:shadow-md transition-all duration-200 ${
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  handleSelectTheme(theme.id)
+                }
+              }}
+              className={`p-5 rounded-2xl border-2 cursor-pointer flex flex-col justify-between gap-4 bg-white dark:bg-slate-800 relative overflow-hidden group shadow-sm hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500 ${
                 isSelected
                   ? 'border-lilac-600 ring-2 ring-lilac-100 dark:ring-lilac-950'
                   : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600'

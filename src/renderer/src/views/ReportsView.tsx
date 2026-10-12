@@ -36,6 +36,7 @@ import { FullReportData, ReportFilter, ReportPeriodType } from '../../../shared/
 import { formatCLP } from '../utils/formatters'
 import { useUIStore } from '../store/uiStore'
 import { resolveSurface } from '../theme/themes'
+import { ViewHeader, EmptyState } from '../components/common'
 
 const PAYMENT_COLORS: Record<string, string> = {
   Efectivo: '#10B981', // Emerald
@@ -176,313 +177,352 @@ export const ReportsView: React.FC = () => {
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-slate-50 overflow-hidden select-none">
-      {/* Top Header */}
-      <div className="bg-white border-b border-lilac-100 px-4 sm:px-6 py-3 flex items-center justify-between shrink-0 shadow-sm">
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="w-8 h-8 rounded-lg sm:w-10 sm:h-10 sm:rounded-xl bg-lilac-100 text-lilac-600 flex items-center justify-center shadow-inner shrink-0">
-            <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5" />
-          </div>
-          <div>
-            <h1 className="text-base sm:text-lg font-bold text-slate-800 leading-tight">
-              Reportes
-            </h1>
-          </div>
-        </div>
+    <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-900 overflow-hidden select-none">
+      {/* ViewHeader Canónico */}
+      <ViewHeader
+        title="Reportes y Analíticas"
+        icon={BarChart3}
+        badge="Métricas"
+        primaryAction={
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="bg-slate-100 dark:bg-slate-800 p-1 rounded-xl flex items-center gap-1 border border-slate-200/80 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => setPeriodType('today')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500 cursor-pointer ${
+                  periodType === 'today'
+                    ? 'bg-lilac-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+                }`}
+              >
+                Hoy
+              </button>
+              <button
+                type="button"
+                onClick={() => setPeriodType('last7days')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500 cursor-pointer ${
+                  periodType === 'last7days'
+                    ? 'bg-lilac-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+                }`}
+              >
+                Últimos 7 días
+              </button>
+              <button
+                type="button"
+                onClick={() => setPeriodType('thisMonth')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500 cursor-pointer ${
+                  periodType === 'thisMonth'
+                    ? 'bg-lilac-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+                }`}
+              >
+                Este Mes
+              </button>
+              <button
+                type="button"
+                onClick={() => setPeriodType('lastMonth')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500 cursor-pointer ${
+                  periodType === 'lastMonth'
+                    ? 'bg-lilac-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+                }`}
+              >
+                Mes Anterior
+              </button>
+              <button
+                type="button"
+                onClick={() => setPeriodType('custom')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500 cursor-pointer ${
+                  periodType === 'custom'
+                    ? 'bg-lilac-600 text-white shadow-sm'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700/60'
+                }`}
+              >
+                Personalizado
+              </button>
+            </div>
 
-        {/* Period Selector Tabs and Actions */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1 border border-slate-200/60">
+            {/* Action Buttons */}
             <button
-              onClick={() => setPeriodType('today')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                periodType === 'today'
-                  ? 'bg-lilac-600 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-              }`}
+              type="button"
+              onClick={fetchReport}
+              disabled={loading}
+              title="Actualizar datos"
+              aria-label="Actualizar datos"
+              className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl transition-colors border border-slate-200/80 dark:border-slate-700 flex items-center justify-center disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500 cursor-pointer"
             >
-              Hoy
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-lilac-600' : ''}`} />
             </button>
+
             <button
-              onClick={() => setPeriodType('last7days')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                periodType === 'last7days'
-                  ? 'bg-lilac-600 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-              }`}
+              type="button"
+              onClick={handleExportExcel}
+              disabled={exporting || loading || !reportData}
+              className="flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 cursor-pointer"
             >
-              Últimos 7 días
-            </button>
-            <button
-              onClick={() => setPeriodType('thisMonth')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                periodType === 'thisMonth'
-                  ? 'bg-lilac-600 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-              }`}
-            >
-              Este Mes
-            </button>
-            <button
-              onClick={() => setPeriodType('lastMonth')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                periodType === 'lastMonth'
-                  ? 'bg-lilac-600 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-              }`}
-            >
-              Mes Anterior
-            </button>
-            <button
-              onClick={() => setPeriodType('custom')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                periodType === 'custom'
-                  ? 'bg-lilac-600 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-              }`}
-            >
-              Personalizado
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>{exporting ? 'Exportando…' : 'Exportar Excel'}</span>
             </button>
           </div>
-
-          {/* Action Buttons */}
-          <button
-            onClick={fetchReport}
-            disabled={loading}
-            title="Actualizar datos"
-            className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-colors border border-slate-200/60 flex items-center justify-center disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-lilac-600' : ''}`} />
-          </button>
-
-          <button
-            onClick={handleExportExcel}
-            disabled={exporting || loading || !reportData}
-            className="flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50 active:scale-95"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>{exporting ? 'Exportando...' : 'Exportar Excel'}</span>
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Main Content Body */}
       <div className="flex-1 p-5 sm:p-6 flex flex-col gap-6 overflow-y-auto">
         {/* Custom Date Pickers (if periodType === 'custom') */}
         {periodType === 'custom' && (
-        <div className="bg-white p-3.5 rounded-2xl border border-lilac-100 shadow-sm flex flex-wrap items-center gap-4 text-xs animate-in fade-in duration-200">
-          <div className="flex items-center gap-2 text-slate-600 font-semibold">
-            <Calendar className="w-4 h-4 text-lilac-600" />
-            <span>Rango de Fechas Personalizado:</span>
+          <div className="bg-white dark:bg-slate-800 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-wrap items-center gap-4 text-xs animate-in fade-in duration-200">
+            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300 font-semibold">
+              <Calendar className="w-4 h-4 text-lilac-600 dark:text-lilac-400" />
+              <span>Rango de Fechas Personalizado:</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500 dark:text-slate-400">Desde:</span>
+              <input
+                type="date"
+                value={customStart}
+                onChange={(e) => setCustomStart(e.target.value)}
+                className="px-3 py-1.5 border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 font-mono tabular-nums focus:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-slate-500 dark:text-slate-400">Hasta:</span>
+              <input
+                type="date"
+                value={customEnd}
+                onChange={(e) => setCustomEnd(e.target.value)}
+                className="px-3 py-1.5 border border-slate-200 dark:border-slate-700 rounded-xl font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 font-mono tabular-nums focus:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={fetchReport}
+              className="px-3 py-1.5 bg-lilac-600 hover:bg-lilac-700 text-white font-bold rounded-xl transition-colors shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500 cursor-pointer"
+            >
+              Aplicar Filtro
+            </button>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-slate-500">Desde:</span>
-            <input
-              type="date"
-              value={customStart}
-              onChange={(e) => setCustomStart(e.target.value)}
-              className="px-3 py-1.5 border border-slate-200 rounded-xl font-medium text-slate-700 focus:outline-none focus:border-lilac-500 focus:ring-2 focus:ring-lilac-100"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-slate-500">Hasta:</span>
-            <input
-              type="date"
-              value={customEnd}
-              onChange={(e) => setCustomEnd(e.target.value)}
-              className="px-3 py-1.5 border border-slate-200 rounded-xl font-medium text-slate-700 focus:outline-none focus:border-lilac-500 focus:ring-2 focus:ring-lilac-100"
-            />
-          </div>
-          <button
-            onClick={fetchReport}
-            className="px-3 py-1.5 bg-lilac-600 hover:bg-lilac-700 text-white font-bold rounded-xl transition-colors shadow-sm"
+        )}
+
+        {/* Export Notification */}
+        {exportNotification && (
+          <div
+            className={`p-3.5 rounded-2xl border text-xs flex items-center justify-between shadow-sm animate-in fade-in duration-200 ${
+              exportNotification.type === 'success'
+                ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300'
+                : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300'
+            }`}
           >
-            Aplicar Filtro
-          </button>
-        </div>
-      )}
-
-      {/* Export Notification */}
-      {exportNotification && (
-        <div
-          className={`p-3.5 rounded-2xl border text-xs flex items-center justify-between shadow-sm animate-in fade-in duration-200 ${
-            exportNotification.type === 'success'
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-              : 'bg-red-50 border-red-200 text-red-800'
-          }`}
-        >
-          <div className="flex items-center gap-2">
-            {exportNotification.type === 'success' ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            ) : (
-              <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-            )}
-            <span className="font-semibold">{exportNotification.message}</span>
+            <div className="flex items-center gap-2">
+              {exportNotification.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+              )}
+              <span className="font-semibold">{exportNotification.message}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setExportNotification(null)}
+              aria-label="Cerrar notificación"
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-bold ml-4 cursor-pointer"
+            >
+              ×
+            </button>
           </div>
-          <button
-            onClick={() => setExportNotification(null)}
-            className="text-slate-400 hover:text-slate-600 font-bold ml-4"
-          >
-            ×
-          </button>
-        </div>
-      )}
+        )}
 
-      {/* Date Range Subtitle */}
-      {reportData && (
-        <div className="flex items-center justify-between text-xs text-slate-500 px-1 -mt-2">
-          <div className="flex items-center gap-1.5 font-medium">
-            <Calendar className="w-3.5 h-3.5 text-lilac-600" />
-            <span>
-              Período analizado: <strong className="text-slate-700">{reportData.dateRange.start}</strong> al{' '}
-              <strong className="text-slate-700">{reportData.dateRange.end}</strong>
-            </span>
+        {/* Skeleton de Carga Inicial para Cero Layout Shift */}
+        {loading && !reportData && (
+          <div className="space-y-6 animate-pulse" aria-busy="true" aria-label="Cargando reportes">
+            <div className="h-4 w-72 bg-slate-200 dark:bg-slate-700/60 rounded-md" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 h-[108px] flex flex-col justify-between">
+                  <div className="flex justify-between items-center">
+                    <div className="h-3 w-20 bg-slate-200 dark:bg-slate-700 rounded" />
+                    <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-700" />
+                  </div>
+                  <div className="h-6 w-28 bg-slate-200 dark:bg-slate-700 rounded font-mono tabular-nums" />
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 h-80 rounded-2xl" />
+              <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 h-80 rounded-2xl" />
+            </div>
           </div>
-          <div>
-            <span>
-              Comparando contra:{' '}
-              <strong className="text-slate-600">
-                {reportData.dateRange.prevStart} al {reportData.dateRange.prevEnd}
-              </strong>
-            </span>
-          </div>
-        </div>
-      )}
+        )}
 
-      {/* 2. Key Performance Indicators (KPI Cards) */}
-      {reportData && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          {/* Card 1: Ventas Totales */}
-          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-lilac-100 dark:border-slate-700 shadow-sm relative overflow-hidden flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Ventas Netas</span>
-              <div className="w-8 h-8 rounded-lg bg-lilac-100 dark:bg-slate-700 text-lilac-600 dark:text-lilac-400 flex items-center justify-center">
-                <DollarSign className="w-4 h-4" />
-              </div>
+        {/* Estado Vacío Canónico si no hay datos */}
+        {!loading && !reportData && (
+          <EmptyState
+            icon={BarChart3}
+            title="Sin información de reportes"
+            description="No se encontraron registros de ventas ni métricas para el período seleccionado."
+            action={{
+              label: 'Actualizar datos',
+              onClick: fetchReport
+            }}
+          />
+        )}
+
+        {/* Date Range Subtitle */}
+        {reportData && (
+          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1 -mt-2">
+            <div className="flex items-center gap-1.5 font-medium">
+              <Calendar className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
+              <span>
+                Período analizado: <strong className="text-slate-700 dark:text-slate-200 font-mono tabular-nums">{reportData.dateRange.start}</strong> al{' '}
+                <strong className="text-slate-700 dark:text-slate-200 font-mono tabular-nums">{reportData.dateRange.end}</strong>
+              </span>
             </div>
             <div>
-              <h3 className="text-xl font-extrabold text-slate-800 dark:text-white tracking-tight">
-                {formatCLP(reportData.kpi.totalSales)}
-              </h3>
-              <div className="flex items-center gap-1.5 mt-2">
-                {reportData.kpi.salesGrowthPct !== null ? (
-                  reportData.kpi.salesGrowthPct > 0 ? (
-                    <span className="inline-flex items-center text-[11px] font-bold text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-slate-700 px-1.5 py-0.5 rounded-md border border-transparent dark:border-emerald-700/50">
-                      <ArrowUpRight className="w-3 h-3 mr-0.5" />
-                      +{reportData.kpi.salesGrowthPct}%
-                    </span>
-                  ) : reportData.kpi.salesGrowthPct < 0 ? (
-                    <span className="inline-flex items-center text-[11px] font-bold text-red-600 dark:text-rose-300 bg-red-50 dark:bg-slate-700 px-1.5 py-0.5 rounded-md border border-transparent dark:border-rose-700/50">
-                      <ArrowDownRight className="w-3 h-3 mr-0.5" />
-                      {reportData.kpi.salesGrowthPct}%
-                    </span>
+              <span>
+                Comparando contra:{' '}
+                <strong className="text-slate-600 dark:text-slate-300 font-mono tabular-nums">
+                  {reportData.dateRange.prevStart} al {reportData.dateRange.prevEnd}
+                </strong>
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* 2. Key Performance Indicators (KPI Cards con espacio reservado) */}
+        {reportData && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* Card 1: Ventas Totales */}
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Ventas Netas</span>
+                <div className="w-8 h-8 rounded-lg bg-lilac-100 dark:bg-slate-700 text-lilac-600 dark:text-lilac-400 flex items-center justify-center">
+                  <DollarSign className="w-4 h-4" />
+                </div>
+              </div>
+              <div>
+                <h3 className="text-xl font-extrabold text-slate-800 dark:text-white tracking-tight font-mono tabular-nums">
+                  {formatCLP(reportData.kpi.totalSales)}
+                </h3>
+                <div className="flex items-center gap-1.5 mt-2">
+                  {reportData.kpi.salesGrowthPct !== null ? (
+                    reportData.kpi.salesGrowthPct > 0 ? (
+                      <span className="inline-flex items-center text-[11px] font-bold text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-slate-700 px-1.5 py-0.5 rounded-md border border-transparent dark:border-emerald-700/50 font-mono tabular-nums">
+                        <ArrowUpRight className="w-3 h-3 mr-0.5" />
+                        +{reportData.kpi.salesGrowthPct}%
+                      </span>
+                    ) : reportData.kpi.salesGrowthPct < 0 ? (
+                      <span className="inline-flex items-center text-[11px] font-bold text-rose-600 dark:text-rose-300 bg-rose-50 dark:bg-slate-700 px-1.5 py-0.5 rounded-md border border-transparent dark:border-rose-700/50 font-mono tabular-nums">
+                        <ArrowDownRight className="w-3 h-3 mr-0.5" />
+                        {reportData.kpi.salesGrowthPct}%
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center text-[11px] font-bold text-slate-500 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded-md font-mono tabular-nums">
+                        <Minus className="w-3 h-3 mr-0.5" />
+                        0%
+                      </span>
+                    )
                   ) : (
-                    <span className="inline-flex items-center text-[11px] font-bold text-slate-500 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded-md">
-                      <Minus className="w-3 h-3 mr-0.5" />
-                      0%
-                    </span>
-                  )
-                ) : (
-                  <span className="text-[11px] text-slate-400 font-medium">Sin datos prev.</span>
-                )}
-                <span className="text-[11px] text-slate-400">vs período ant.</span>
+                    <span className="text-[11px] text-slate-400 font-medium">Sin datos prev.</span>
+                  )}
+                  <span className="text-[11px] text-slate-400">vs período ant.</span>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Card 2: Cantidad de Ventas */}
-          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-lilac-100 dark:border-slate-700 shadow-sm relative overflow-hidden flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Transacciones</span>
-              <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-slate-700 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-                <ShoppingBag className="w-4 h-4" />
+            {/* Card 2: Cantidad de Ventas */}
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Transacciones</span>
+                <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-slate-700 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                  <ShoppingBag className="w-4 h-4" />
+                </div>
               </div>
-            </div>
-            <div>
-              <h3 className="text-xl font-extrabold text-slate-800 dark:text-white tracking-tight">
-                {reportData.kpi.salesCount}{' '}
-                <span className="text-xs font-semibold text-slate-400">ventas</span>
-              </h3>
-              <div className="flex items-center gap-1.5 mt-2">
-                {reportData.kpi.countGrowthPct !== null ? (
-                  reportData.kpi.countGrowthPct >= 0 ? (
-                    <span className="inline-flex items-center text-[11px] font-bold text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-slate-700 px-1.5 py-0.5 rounded-md border border-transparent dark:border-emerald-700/50">
-                      <ArrowUpRight className="w-3 h-3 mr-0.5" />
-                      +{reportData.kpi.countGrowthPct}%
-                    </span>
+              <div>
+                <h3 className="text-xl font-extrabold text-slate-800 dark:text-white tracking-tight font-mono tabular-nums">
+                  {reportData.kpi.salesCount}{' '}
+                  <span className="text-xs font-semibold text-slate-400">ventas</span>
+                </h3>
+                <div className="flex items-center gap-1.5 mt-2">
+                  {reportData.kpi.countGrowthPct !== null ? (
+                    reportData.kpi.countGrowthPct >= 0 ? (
+                      <span className="inline-flex items-center text-[11px] font-bold text-emerald-600 dark:text-emerald-300 bg-emerald-50 dark:bg-slate-700 px-1.5 py-0.5 rounded-md border border-transparent dark:border-emerald-700/50 font-mono tabular-nums">
+                        <ArrowUpRight className="w-3 h-3 mr-0.5" />
+                        +{reportData.kpi.countGrowthPct}%
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center text-[11px] font-bold text-rose-600 dark:text-rose-300 bg-rose-50 dark:bg-slate-700 px-1.5 py-0.5 rounded-md border border-transparent dark:border-rose-700/50 font-mono tabular-nums">
+                        <ArrowDownRight className="w-3 h-3 mr-0.5" />
+                        {reportData.kpi.countGrowthPct}%
+                      </span>
+                    )
                   ) : (
-                    <span className="inline-flex items-center text-[11px] font-bold text-red-600 dark:text-rose-300 bg-red-50 dark:bg-slate-700 px-1.5 py-0.5 rounded-md border border-transparent dark:border-rose-700/50">
-                      <ArrowDownRight className="w-3 h-3 mr-0.5" />
-                      {reportData.kpi.countGrowthPct}%
-                    </span>
-                  )
-                ) : (
-                  <span className="text-[11px] text-slate-400 font-medium">Sin datos prev.</span>
-                )}
-                <span className="text-[11px] text-slate-400">vs período ant.</span>
+                    <span className="text-[11px] text-slate-400 font-medium">Sin datos prev.</span>
+                  )}
+                  <span className="text-[11px] text-slate-400">vs período ant.</span>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Card 3: Ticket Promedio */}
-          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-lilac-100 dark:border-slate-700 shadow-sm relative overflow-hidden flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Ticket Promedio</span>
-              <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-slate-700 text-purple-600 dark:text-purple-400 flex items-center justify-center">
-                <Receipt className="w-4 h-4" />
+            {/* Card 3: Ticket Promedio */}
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Ticket Promedio</span>
+                <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-slate-700 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                  <Receipt className="w-4 h-4" />
+                </div>
+              </div>
+              <div>
+                <h3 className="text-xl font-extrabold text-slate-800 dark:text-white tracking-tight font-mono tabular-nums">
+                  {formatCLP(reportData.kpi.averageTicket)}
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-2 font-mono tabular-nums">
+                  Ant: {formatCLP(reportData.kpi.prevAverageTicket)}
+                </p>
               </div>
             </div>
-            <div>
-              <h3 className="text-xl font-extrabold text-slate-800 dark:text-white tracking-tight">
-                {formatCLP(reportData.kpi.averageTicket)}
-              </h3>
-              <p className="text-[11px] text-slate-400 mt-2">
-                Ant: {formatCLP(reportData.kpi.prevAverageTicket)}
-              </p>
-            </div>
-          </div>
 
-          {/* Card 4: Unidades Vendidas */}
-          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-lilac-100 dark:border-slate-700 shadow-sm relative overflow-hidden flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Unidades Vendidas</span>
-              <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-slate-700 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-                <Package className="w-4 h-4" />
+            {/* Card 4: Unidades Vendidas */}
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Unidades Vendidas</span>
+                <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-slate-700 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                  <Package className="w-4 h-4" />
+                </div>
+              </div>
+              <div>
+                <h3 className="text-xl font-extrabold text-slate-800 dark:text-white tracking-tight font-mono tabular-nums">
+                  {reportData.kpi.unitsSold}{' '}
+                  <span className="text-xs font-semibold text-slate-400">unidades</span>
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-2 font-mono tabular-nums">
+                  Ant: {reportData.kpi.prevUnitsSold} un.
+                </p>
               </div>
             </div>
-            <div>
-              <h3 className="text-xl font-extrabold text-slate-800 dark:text-white tracking-tight">
-                {reportData.kpi.unitsSold}{' '}
-                <span className="text-xs font-semibold text-slate-400">unidades</span>
-              </h3>
-              <p className="text-[11px] text-slate-400 mt-2">
-                Ant: {reportData.kpi.prevUnitsSold} un.
-              </p>
-            </div>
-          </div>
 
-          {/* Card 5: Margen Bruto Estimado */}
-          <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-lilac-100 dark:border-slate-700 shadow-sm relative overflow-hidden flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Margen Estimado</span>
-              <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                <TrendingUp className="w-4 h-4" />
+            {/* Card 5: Margen Bruto Estimado */}
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm relative overflow-hidden flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Margen Estimado</span>
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                  <TrendingUp className="w-4 h-4" />
+                </div>
               </div>
-            </div>
-            <div>
-              <h3 className="text-xl font-extrabold text-slate-800 dark:text-white tracking-tight">
-                {formatCLP(reportData.kpi.estimatedMargin)}
-              </h3>
-              <div className="flex items-center gap-1.5 mt-2">
-                <span className="text-[11px] font-bold text-lilac-700 dark:text-lilac-300 bg-lilac-100 dark:bg-slate-700 px-1.5 py-0.5 rounded-md border border-transparent dark:border-lilac-700/50">
-                  {reportData.kpi.marginPercentage}% margen
-                </span>
-                <span className="text-[11px] text-slate-400">bruto</span>
+              <div>
+                <h3 className="text-xl font-extrabold text-slate-800 dark:text-white tracking-tight font-mono tabular-nums">
+                  {formatCLP(reportData.kpi.estimatedMargin)}
+                </h3>
+                <div className="flex items-center gap-1.5 mt-2">
+                  <span className="text-[11px] font-bold text-lilac-700 dark:text-lilac-300 bg-lilac-100 dark:bg-slate-700 px-1.5 py-0.5 rounded-md border border-transparent dark:border-lilac-700/50 font-mono tabular-nums">
+                    {reportData.kpi.marginPercentage}% margen
+                  </span>
+                  <span className="text-[11px] text-slate-400">bruto</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* 3. Main Charts Grid */}
       {reportData && (
@@ -811,12 +851,12 @@ export const ReportsView: React.FC = () => {
                           />
                           <span className="font-bold text-slate-800 dark:text-slate-100">{s.supplierName}</span>
                         </td>
-                        <td className="py-2.5 px-3 text-center font-bold text-slate-700 dark:text-slate-200">{s.unitsSold}</td>
-                        <td className="py-2.5 px-3 text-right font-extrabold text-lilac-700 dark:text-lilac-300">
+                        <td className="py-2.5 px-3 text-center font-bold text-slate-700 dark:text-slate-200 font-mono tabular-nums">{s.unitsSold}</td>
+                        <td className="py-2.5 px-3 text-right font-extrabold text-lilac-700 dark:text-lilac-300 font-mono tabular-nums">
                           {formatCLP(s.totalRevenue)}
                         </td>
                         <td className="py-2.5 px-3 text-right">
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-mono tabular-nums">
                             {s.percentage}%
                           </span>
                         </td>
@@ -839,7 +879,7 @@ export const ReportsView: React.FC = () => {
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-lilac-100 dark:border-slate-700 shadow-sm p-5 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-slate-800 dark:text-white">Detalle de Productos Vendidos en el Período</h2>
-            <span className="text-xs text-slate-400 font-medium">
+            <span className="text-xs text-slate-400 font-medium font-mono tabular-nums">
               {reportData.topProducts.length} productos con mayor rotación
             </span>
           </div>
@@ -860,7 +900,7 @@ export const ReportsView: React.FC = () => {
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700 font-medium text-slate-700 dark:text-slate-200">
                 {reportData.topProducts.map((p, idx) => (
                   <tr key={p.code} className="hover:bg-lilac-50/40 dark:hover:bg-slate-700/50 transition-colors">
-                    <td className="py-2.5 px-3 font-bold text-slate-400">{idx + 1}</td>
+                    <td className="py-2.5 px-3 font-bold text-slate-400 font-mono tabular-nums">{idx + 1}</td>
                     <td className="py-2.5 px-3 font-mono text-slate-500 dark:text-slate-400">{p.code}</td>
                     <td className="py-2.5 px-3 font-bold text-slate-800 dark:text-slate-100">{p.name}</td>
                     <td className="py-2.5 px-3">
@@ -868,9 +908,9 @@ export const ReportsView: React.FC = () => {
                         {p.categoryName}
                       </span>
                     </td>
-                    <td className="py-2.5 px-3 text-right">{formatCLP(p.unitPrice)}</td>
-                    <td className="py-2.5 px-3 text-center font-bold text-slate-900 dark:text-white">{p.unitsSold}</td>
-                    <td className="py-2.5 px-3 text-right font-extrabold text-lilac-700 dark:text-lilac-300">
+                    <td className="py-2.5 px-3 text-right font-mono tabular-nums">{formatCLP(p.unitPrice)}</td>
+                    <td className="py-2.5 px-3 text-center font-bold text-slate-900 dark:text-white font-mono tabular-nums">{p.unitsSold}</td>
+                    <td className="py-2.5 px-3 text-right font-extrabold text-lilac-700 dark:text-lilac-300 font-mono tabular-nums">
                       {formatCLP(p.totalRevenue)}
                     </td>
                   </tr>

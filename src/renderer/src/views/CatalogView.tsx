@@ -29,6 +29,7 @@ import { ExcelUnifiedModal } from '../components/ExcelUnifiedModal'
 import { BulkCategoryModal } from '../components/BulkCategoryModal'
 import { BulkGroupVariableModal } from '../components/BulkGroupVariableModal'
 import { useModalStack } from '../utils/modalStack'
+import { ViewHeader, SubTabs } from '../components/common'
 
 export const CatalogView: React.FC = () => {
   const {
@@ -240,168 +241,162 @@ export const CatalogView: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-900 overflow-hidden select-none">
-      {/* Top Header & Actions */}
-      <div
-        className={`px-4 sm:px-6 py-3 flex items-center justify-between shrink-0 shadow-sm transition-colors border-b ${
-          selectedProductIds.size > 0
-            ? 'bg-lilac-600 border-lilac-600 text-white'
-            : 'bg-white dark:bg-slate-850 border-lilac-100 dark:border-slate-800 text-slate-800 dark:text-white'
-        }`}
-      >
-        {selectedProductIds.size > 0 ? (
-          <>
-            <div className="flex items-center gap-2.5 text-xs font-bold">
-              <span className="bg-white/20 px-2.5 py-1 rounded-full text-white font-extrabold shadow-inner">
-                {selectedProductIds.size}
+      {/* Top Header & Actions: ViewHeader unificado o Barra contextual de selección */}
+      {selectedProductIds.size > 0 ? (
+        <div className="px-4 sm:px-6 py-3 flex items-center justify-between shrink-0 shadow-sm transition-colors border-b bg-lilac-600 border-lilac-700 text-white">
+          <div className="flex items-center gap-2.5 text-xs font-bold">
+            <span className="bg-white/20 px-2.5 py-1 rounded-full text-white font-extrabold shadow-inner font-mono tabular-nums">
+              {selectedProductIds.size}
+            </span>
+            <span className="text-sm tracking-tight font-extrabold">
+              {selectedProductIds.size === 1
+                ? '1 producto seleccionado'
+                : `${selectedProductIds.size} productos seleccionados`}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsBulkCategoryModalOpen(true)}
+              className="px-3.5 py-1.5 bg-white text-lilac-900 hover:bg-lilac-50 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              title="Asignar Categoría y/o Proveedores a los productos seleccionados"
+            >
+              <FolderInput className="w-4 h-4 text-lilac-600" />
+              <span>Categoría y Proveedores...</span>
+            </button>
+
+            <button
+              onClick={() => setIsBulkGroupModalOpen(true)}
+              className="px-3.5 py-1.5 bg-white/15 hover:bg-white/25 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-white/20 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              title="Agrupar productos seleccionados bajo un producto variable con variaciones"
+            >
+              <GitBranch className="w-4 h-4 text-lilac-200" />
+              <span>Agrupar como Variable...</span>
+            </button>
+
+            <button
+              onClick={handleExportSelected}
+              disabled={isExporting}
+              className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              title="Exportar únicamente los productos seleccionados a un archivo Excel (.xlsx)"
+            >
+              <Download className="w-4 h-4" />
+              <span>{isExporting ? 'Exportando...' : 'Exportar Seleccionados'}</span>
+            </button>
+
+            <button
+              onClick={handleBulkDelete}
+              className="px-3.5 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              title="Eliminar (soft delete) los productos seleccionados"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Eliminar</span>
+            </button>
+
+            <div className="h-5 w-px bg-white/25 mx-1" />
+
+            <button
+              onClick={handleDeselectAll}
+              className="px-3 py-1.5 hover:bg-white/20 rounded-xl text-white/90 hover:text-white transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              title="Deseleccionar todos"
+            >
+              <X className="w-4 h-4" />
+              <span>Deseleccionar</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <ViewHeader
+          title="Catálogo de Productos"
+          icon={Layers}
+          badge={
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-lilac-100 text-lilac-800 dark:bg-slate-800 dark:text-lilac-300 tabular-nums border border-lilac-200/60 dark:border-slate-700">
+              {products.length} productos
+            </span>
+          }
+          primaryAction={
+            <button
+              onClick={handleOpenNewProduct}
+              className="px-3.5 py-2 bg-lilac-600 hover:bg-lilac-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-lilac-500/20 flex items-center gap-1.5 cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Nuevo Producto</span>
+            </button>
+          }
+        >
+          <button
+            onClick={() => setIsCategoryModalOpen(true)}
+            className="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-lilac-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 hover:text-lilac-800 dark:hover:text-lilac-300 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-200/60 dark:border-slate-700 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
+          >
+            <Layers className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
+            <span>Categorías</span>
+          </button>
+
+          <button
+            onClick={() => setIsSupplierModalOpen(true)}
+            className="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-lilac-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 hover:text-lilac-800 dark:hover:text-lilac-300 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-200/60 dark:border-slate-700 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
+          >
+            <Truck className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
+            <span>Proveedores</span>
+          </button>
+
+          <button
+            onClick={() => setIsFilterDrawerOpen(true)}
+            className={`px-3 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5 border cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500 ${
+              selectedCategory || selectedSupplier || selectedProductType !== 'all'
+                ? 'bg-lilac-50 dark:bg-slate-800 text-lilac-700 dark:text-lilac-300 border-lilac-300 dark:border-slate-600 font-semibold shadow-2xs'
+                : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200/60 dark:border-slate-700'
+            }`}
+            title="Abrir panel de filtros"
+          >
+            <Filter className={`w-3.5 h-3.5 ${selectedCategory || selectedSupplier || selectedProductType !== 'all' ? 'text-lilac-600 dark:text-lilac-400' : 'text-slate-500 dark:text-slate-400'}`} />
+            <span>Filtros</span>
+            {selectedProductType !== 'all' ? (
+              <span className="px-1.5 py-0.5 rounded-md bg-lilac-600 dark:bg-lilac-500 text-white text-[10px] font-bold">
+                {selectedProductType === 'sellable'
+                  ? 'Vendibles'
+                  : selectedProductType === 'simple'
+                  ? 'Simples'
+                  : selectedProductType === 'variable'
+                  ? 'Variables'
+                  : 'Variaciones'}
               </span>
-              <span className="text-sm tracking-tight font-extrabold">
-                {selectedProductIds.size === 1
-                  ? '1 producto seleccionado'
-                  : `${selectedProductIds.size} productos seleccionados`}
-              </span>
-            </div>
+            ) : (selectedCategory || selectedSupplier) ? (
+              <span className="w-2 h-2 rounded-full bg-lilac-600 dark:bg-lilac-400" />
+            ) : null}
+          </button>
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIsBulkCategoryModalOpen(true)}
-                className="px-3.5 py-1.5 bg-white text-lilac-900 hover:bg-lilac-50 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
-                title="Asignar Categoría y/o Proveedores a los productos seleccionados"
-              >
-                <FolderInput className="w-4 h-4 text-lilac-600" />
-                <span>Categoría y Proveedores...</span>
-              </button>
+          {products.length === 0 && (
+            <button
+              onClick={() => seedSampleData()}
+              className="px-3 py-2 bg-emerald-50 dark:bg-slate-800 hover:bg-emerald-100 dark:hover:bg-slate-750 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 animate-pulse cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
+              title="Carga el catálogo de muestra con departamentos, subcategorías, productos simples y variables con variaciones"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>Cargar datos de prueba</span>
+            </button>
+          )}
 
-              <button
-                onClick={() => setIsBulkGroupModalOpen(true)}
-                className="px-3.5 py-1.5 bg-white/15 hover:bg-white/25 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-white/20 cursor-pointer"
-                title="Agrupar productos seleccionados bajo un producto variable con variaciones"
-              >
-                <GitBranch className="w-4 h-4 text-lilac-200" />
-                <span>Agrupar como Variable...</span>
-              </button>
+          <button
+            onClick={() => fetchProducts(undefined, 'catalog')}
+            title="Recargar catálogo"
+            aria-label="Recargar catálogo"
+            className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition-colors border border-slate-200/60 dark:border-slate-700 flex items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
 
-              <button
-                onClick={handleExportSelected}
-                disabled={isExporting}
-                className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
-                title="Exportar únicamente los productos seleccionados a un archivo Excel (.xlsx)"
-              >
-                <Download className="w-4 h-4" />
-                <span>{isExporting ? 'Exportando...' : 'Exportar Seleccionados'}</span>
-              </button>
-
-              <button
-                onClick={handleBulkDelete}
-                className="px-3.5 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
-                title="Eliminar (soft delete) los productos seleccionados"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>Eliminar</span>
-              </button>
-
-              <div className="h-5 w-px bg-white/25 mx-1" />
-
-              <button
-                onClick={handleDeselectAll}
-                className="px-3 py-1.5 hover:bg-white/20 rounded-xl text-white/90 hover:text-white transition-colors cursor-pointer flex items-center gap-1.5 text-xs font-bold"
-                title="Deseleccionar todos"
-              >
-                <X className="w-4 h-4" />
-                <span>Deseleccionar</span>
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            {/* Left: Title & Icon */}
-            <div className="flex items-center gap-2 sm:gap-3">
-              <div className="w-8 h-8 rounded-lg sm:w-10 sm:h-10 sm:rounded-xl bg-lilac-100 dark:bg-slate-800 text-lilac-600 dark:text-lilac-400 flex items-center justify-center shadow-inner shrink-0">
-                <Layers className="w-4 h-4 sm:w-5 sm:h-5" />
-              </div>
-              <div>
-                <h1 className="text-base sm:text-lg font-bold text-slate-800 dark:text-white leading-tight">
-                  Productos
-                </h1>
-              </div>
-            </div>
-
-            {/* Right: Actions in Header (Same placement as Reports) */}
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={handleOpenNewProduct}
-                className="px-3.5 py-2 bg-lilac-600 hover:bg-lilac-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-lilac-500/20 flex items-center gap-1.5 cursor-pointer active:scale-95"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Nuevo Producto</span>
-              </button>
-
-              <button
-                onClick={() => setIsCategoryModalOpen(true)}
-                className="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-lilac-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 hover:text-lilac-800 dark:hover:text-lilac-300 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-200/60 dark:border-slate-700 cursor-pointer"
-              >
-                <Layers className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
-                <span>Categorías</span>
-              </button>
-
-              <button
-                onClick={() => setIsSupplierModalOpen(true)}
-                className="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-lilac-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 hover:text-lilac-800 dark:hover:text-lilac-300 rounded-xl text-xs font-medium transition-colors flex items-center gap-1.5 border border-slate-200/60 dark:border-slate-700 cursor-pointer"
-              >
-                <Truck className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
-                <span>Proveedores</span>
-              </button>
-
-              {/* Botón de Filtros para abrir menú lateral */}
-              <button
-                onClick={() => setIsFilterDrawerOpen(true)}
-                className={`px-3 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5 border cursor-pointer ${
-                  selectedCategory || selectedSupplier || selectedProductType !== 'all'
-                    ? 'bg-lilac-50 dark:bg-slate-800 text-lilac-700 dark:text-lilac-300 border-lilac-300 dark:border-slate-600 font-semibold shadow-2xs'
-                    : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200/60 dark:border-slate-700'
-                }`}
-                title="Abrir panel de filtros"
-              >
-                <Filter className={`w-3.5 h-3.5 ${selectedCategory || selectedSupplier || selectedProductType !== 'all' ? 'text-lilac-600 dark:text-lilac-400' : 'text-slate-500 dark:text-slate-400'}`} />
-                <span>Filtros</span>
-                {(selectedCategory || selectedSupplier || selectedProductType !== 'all') && (
-                  <span className="w-2 h-2 rounded-full bg-lilac-600 dark:bg-lilac-400" />
-                )}
-              </button>
-
-              {products.length === 0 && (
-                <button
-                  onClick={() => seedSampleData()}
-                  className="px-3 py-2 bg-emerald-50 dark:bg-slate-800 hover:bg-emerald-100 dark:hover:bg-slate-750 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 animate-pulse cursor-pointer"
-                  title="Carga el catálogo de muestra con departamentos, subcategorías, productos simples y variables con variaciones"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                  <span>Cargar datos de prueba</span>
-                </button>
-              )}
-
-              {/* Refresh Button */}
-              <button
-                onClick={() => fetchProducts(undefined, 'catalog')}
-                title="Recargar catálogo"
-                className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition-colors border border-slate-200/60 dark:border-slate-700 flex items-center justify-center cursor-pointer"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </button>
-
-              {/* Excel Button con estilo unificado a Reportes */}
-              <button
-                onClick={() => setIsExcelModalOpen(true)}
-                disabled={isExporting}
-                title="Importar o exportar productos en formato Excel (.xlsx)"
-                className="flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50 active:scale-95 cursor-pointer"
-              >
-                <FileSpreadsheet className="w-4 h-4" />
-                <span>Importar / Exportar</span>
-              </button>
-            </div>
-          </>
-        )}
-      </div>
+          <button
+            onClick={() => setIsExcelModalOpen(true)}
+            disabled={isExporting}
+            title="Importar o exportar productos en formato Excel (.xlsx)"
+            className="flex items-center gap-2 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all disabled:opacity-50 active:scale-95 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>Importar / Exportar</span>
+          </button>
+        </ViewHeader>
+      )}
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col p-4 overflow-hidden">
@@ -485,17 +480,22 @@ export const CatalogView: React.FC = () => {
           onClick={handleBackdropStockBlocked}
           className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 select-none animate-in fade-in duration-150"
         >
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="stock-blocked-title"
+            className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150"
+          >
             <div className="px-6 py-4 bg-amber-50 dark:bg-slate-850 border-b border-amber-200/80 dark:border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-slate-800 text-amber-700 dark:text-amber-400 flex items-center justify-center shrink-0">
                   <AlertTriangle className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                  <h4 id="stock-blocked-title" className="text-sm font-bold text-slate-900 dark:text-white">
                     No es posible eliminar
                   </h4>
-                  <p className="text-[11px] text-amber-800 dark:text-amber-300 font-mono">
+                  <p className="text-[11px] text-amber-800 dark:text-amber-300 font-mono tabular-nums">
                     {stockBlockedProduct.code || stockBlockedProduct.name}
                   </p>
                 </div>
@@ -503,7 +503,8 @@ export const CatalogView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setStockBlockedProduct(null)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                aria-label="Cerrar aviso"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -521,7 +522,7 @@ export const CatalogView: React.FC = () => {
 
               <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs">
                 <span className="font-semibold text-slate-600 dark:text-slate-300">Existencia actual registrada:</span>
-                <span className="font-mono font-black text-rose-600 dark:text-rose-300 text-sm bg-rose-50 dark:bg-slate-700 px-2.5 py-0.5 rounded-lg border border-rose-200 dark:border-rose-900/60">
+                <span className="font-mono font-black tabular-nums text-rose-600 dark:text-rose-300 text-sm bg-rose-50 dark:bg-slate-700 px-2.5 py-0.5 rounded-lg border border-rose-200 dark:border-rose-900/60">
                   {stockBlockedProduct.stock} {stockBlockedProduct.stock === 1 ? 'unidad' : 'unidades'}
                 </span>
               </div>
@@ -535,7 +536,7 @@ export const CatalogView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setStockBlockedProduct(null)}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors cursor-pointer"
+                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
               >
                 Volver
               </button>
@@ -543,7 +544,7 @@ export const CatalogView: React.FC = () => {
                 type="button"
                 autoFocus
                 onClick={handleGoToAdjustInventory}
-                className="px-5 py-2.5 rounded-xl bg-lilac-600 hover:bg-lilac-700 text-white text-xs font-black shadow-md flex items-center gap-2 transition-all cursor-pointer"
+                className="px-5 py-2.5 rounded-xl bg-lilac-600 hover:bg-lilac-700 text-white text-xs font-black shadow-md flex items-center gap-2 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
               >
                 <Boxes className="w-4 h-4" />
                 <span>Ir a Ajustar Inventario</span>
@@ -559,17 +560,22 @@ export const CatalogView: React.FC = () => {
           onClick={handleBackdropDeleteBulk}
           className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 select-none animate-in fade-in duration-150"
         >
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bulk-delete-title"
+            className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150"
+          >
             <div className="px-6 py-4 bg-slate-50 dark:bg-slate-850 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-rose-100 dark:bg-slate-800 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
                   <Trash2 className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">
+                  <h4 id="bulk-delete-title" className="text-sm font-bold text-slate-900 dark:text-white">
                     Eliminar productos seleccionados
                   </h4>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 tabular-nums">
                     {selectedProductIds.size} producto(s) marcados
                   </p>
                 </div>
@@ -577,7 +583,8 @@ export const CatalogView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsBulkDeleteModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                aria-label="Cerrar modal de eliminación"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -601,7 +608,7 @@ export const CatalogView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsBulkDeleteModalOpen(false)}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors cursor-pointer"
+                className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
               >
                 Cancelar (Esc)
               </button>
@@ -609,7 +616,7 @@ export const CatalogView: React.FC = () => {
                 type="button"
                 autoFocus
                 onClick={handleConfirmBulkDelete}
-                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-md shadow-rose-600/25 flex items-center gap-2 transition-all cursor-pointer"
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-md shadow-rose-600/25 flex items-center gap-2 transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
               >
                 <Trash2 className="w-4 h-4" />
                 <span>Sí, Eliminar {selectedProductIds.size} productos</span>
@@ -671,123 +678,140 @@ export const CatalogView: React.FC = () => {
       )}
 
       {/* Drawer / Menú Lateral de Filtros (Aparece desde la derecha) */}
-      {isFilterDrawerOpen && (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="filter-drawer-title"
+        onClick={handleBackdropFilterDrawer}
+        className={`fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex justify-end select-none transition-all duration-200 ${
+          isFilterDrawerOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none hidden'
+        }`}
+      >
         <div
-          onClick={handleBackdropFilterDrawer}
-          className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex justify-end select-none animate-in fade-in duration-200"
+          onClick={(e) => e.stopPropagation()}
+          className="w-80 sm:w-96 bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col border-l border-slate-200 dark:border-slate-800 animate-in slide-in-from-right duration-200"
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="w-80 sm:w-96 bg-white dark:bg-slate-900 h-full shadow-2xl flex flex-col border-l border-slate-200 dark:border-slate-800 animate-in slide-in-from-right duration-200"
-          >
-            {/* Header del Drawer */}
-            <div className="p-4 sm:p-5 border-b border-lilac-100 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-850">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-lilac-100 dark:bg-slate-800 text-lilac-600 dark:text-lilac-400 flex items-center justify-center shrink-0">
-                  <Filter className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-800 dark:text-white leading-tight">Filtros del Catálogo</h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Ajusta los criterios de búsqueda</p>
-                </div>
+          {/* Header del Drawer */}
+          <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-850">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-lilac-100 dark:bg-slate-800 text-lilac-600 dark:text-lilac-400 flex items-center justify-center shrink-0">
+                <Filter className="w-4 h-4" />
               </div>
-              <button
-                type="button"
-                onClick={() => setIsFilterDrawerOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-                title="Cerrar panel (Esc)"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <div>
+                <h3 id="filter-drawer-title" className="text-sm font-bold text-slate-800 dark:text-white leading-tight">
+                  Filtros del Catálogo
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">Ajusta los criterios de búsqueda</p>
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={() => setIsFilterDrawerOpen(false)}
+              aria-label="Cerrar panel de filtros"
+              className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
+              title="Cerrar panel (Esc)"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
 
-            {/* Contenido / Opciones de Filtro */}
-            <div className="p-5 flex-1 flex flex-col gap-5 overflow-y-auto">
-              {/* 1. Categoría */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                  <Layers className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
-                  <span>Categoría</span>
-                </label>
-                <select
-                  value={selectedCategory || ''}
-                  onChange={(e) => setSelectedCategory(e.target.value ? Number(e.target.value) : null)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-lilac-500 cursor-pointer"
-                >
-                  <option value="">Todas las categorías</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* 2. Proveedor */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                  <Truck className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
-                  <span>Proveedor</span>
-                </label>
-                <select
-                  value={selectedSupplier || ''}
-                  onChange={(e) => setSelectedSupplier(e.target.value ? Number(e.target.value) : null)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-lilac-500 cursor-pointer"
-                >
-                  <option value="">Todos los proveedores</option>
-                  {suppliers.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* 3. Tipo de Producto */}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+          {/* Contenido / Opciones de Filtro */}
+          <div className="p-5 flex-1 flex flex-col gap-5 overflow-y-auto">
+            {/* 1. Tipo de Producto (Switch con SubTabs canónicas) */}
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
                   <Box className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
                   <span>Tipo de Producto</span>
-                </label>
-                <select
-                  value={selectedProductType}
-                  onChange={(e) => setSelectedProductType(e.target.value as any)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-lilac-500 cursor-pointer"
-                >
-                  <option value="sellable">Productos vendibles (Simples y Variaciones)</option>
-                  <option value="simple">Solo Simples</option>
-                  <option value="variation">Solo Variaciones</option>
-                  <option value="variable">Solo Variables (Padres)</option>
-                  <option value="all">Ver todo el catálogo (incluyendo padres)</option>
-                </select>
-              </div>
+                </span>
+                {selectedProductType !== 'all' && (
+                  <span className="text-[10px] text-lilac-600 dark:text-lilac-400 font-bold bg-lilac-50 dark:bg-slate-800 px-2 py-0.5 rounded-full border border-lilac-200/60 dark:border-slate-700">
+                    Activo
+                  </span>
+                )}
+              </label>
+              <SubTabs
+                tabs={[
+                  { id: 'all', label: 'Todos' },
+                  { id: 'sellable', label: 'Vendibles' },
+                  { id: 'simple', label: 'Simples' },
+                  { id: 'variable', label: 'Variables' },
+                  { id: 'variation', label: 'Variaciones' }
+                ]}
+                activeTab={selectedProductType}
+                onChange={(tabId) => setSelectedProductType(tabId as any, 'catalog')}
+                ariaLabel="Filtrar catálogo por tipo de producto"
+                size="sm"
+                variant="pills"
+                className="w-full flex-wrap justify-start"
+              />
             </div>
 
-            {/* Footer con botón de Limpiar filtros */}
-            <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 flex items-center justify-between gap-3 shrink-0">
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedCategory(null)
-                  setSelectedSupplier(null)
-                  setSelectedProductType('all', 'catalog')
-                }}
-                disabled={!selectedCategory && !selectedSupplier && selectedProductType === 'all'}
-                className="text-xs text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-semibold px-3 py-2 rounded-xl hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors disabled:opacity-40 cursor-pointer"
+            {/* 2. Categoría */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
+                <span>Categoría</span>
+              </label>
+              <select
+                value={selectedCategory || ''}
+                onChange={(e) => setSelectedCategory(e.target.value ? Number(e.target.value) : null)}
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500 cursor-pointer"
               >
-                Limpiar filtros
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsFilterDrawerOpen(false)}
-                className="px-4 py-2 bg-lilac-600 hover:bg-lilac-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+                <option value="">Todas las categorías</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 3. Proveedor */}
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Truck className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
+                <span>Proveedor</span>
+              </label>
+              <select
+                value={selectedSupplier || ''}
+                onChange={(e) => setSelectedSupplier(e.target.value ? Number(e.target.value) : null)}
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500 cursor-pointer"
               >
-                Aplicar
-              </button>
+                <option value="">Todos los proveedores</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
+
+          {/* Footer con botón de Limpiar filtros */}
+          <div className="p-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-850 flex items-center justify-between gap-3 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedCategory(null)
+                setSelectedSupplier(null)
+                setSelectedProductType('all', 'catalog')
+              }}
+              disabled={!selectedCategory && !selectedSupplier && selectedProductType === 'all'}
+              className="text-xs text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-semibold px-3 py-2 rounded-xl hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors disabled:opacity-40 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
+            >
+              Limpiar filtros
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsFilterDrawerOpen(false)}
+              className="px-4 py-2 bg-lilac-600 hover:bg-lilac-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
+            >
+              Aplicar
+            </button>
+          </div>
         </div>
-      )}
+      </div>
       </div>
     </div>
   )

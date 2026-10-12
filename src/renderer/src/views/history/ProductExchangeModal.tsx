@@ -89,26 +89,29 @@ export const ProductExchangeModal: React.FC<ProductExchangeModalProps> = ({
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="product-exchange-title"
       onClick={handleBackdropClick}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 animate-in fade-in duration-200"
     >
-      <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 flex flex-col max-h-[90vh] overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-b border-amber-200/60 flex items-center justify-between shrink-0">
+        <div className="px-6 py-4 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-b border-amber-200/60 dark:border-amber-900/40 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-md shadow-amber-500/20">
               <ArrowLeftRight className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-slate-900">
+                <h3 id="product-exchange-title" className="text-base font-bold text-slate-900 dark:text-white">
                   Iniciar Cambio de Producto
                 </h3>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 font-mono tabular-nums">
                   Venta Folio #{saleDetail.folio}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-mono tabular-nums">
                 Fecha original: {formatDateTime(saleDateStr)}
               </p>
             </div>
@@ -117,7 +120,8 @@ export const ProductExchangeModal: React.FC<ProductExchangeModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full hover:bg-slate-200 text-slate-400 hover:text-slate-600 flex items-center justify-center transition-colors"
+            aria-label="Cerrar modal de cambio"
+            className="w-8 h-8 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500 cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -127,11 +131,11 @@ export const ProductExchangeModal: React.FC<ProductExchangeModalProps> = ({
         <div className="p-6 overflow-y-auto flex flex-col gap-4">
           {/* Advertencia si supera los 30 días */}
           {isExceeded && (
-            <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5 shadow-xs">
-              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-2.5 shadow-xs">
+              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               <div>
                 <p className="font-bold">Venta realizada hace {daysDiff} días (más de 1 mes)</p>
-                <p className="text-amber-700 mt-0.5">
+                <p className="text-amber-700 dark:text-amber-300 mt-0.5">
                   El plazo comercial estándar de 30 días para cambios ha expirado. Puedes autorizar y continuar con el cambio según el criterio comercial de la tienda.
                 </p>
               </div>
@@ -139,20 +143,20 @@ export const ProductExchangeModal: React.FC<ProductExchangeModalProps> = ({
           )}
 
           <div>
-            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-2">
+            <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-2">
               Selecciona los productos y unidades que el cliente devuelve:
             </h4>
 
             {eligibleItems.every((it) => it.availableQty === 0) ? (
-              <div className="p-6 text-center text-slate-500 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+              <div className="p-6 text-center text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
                 <p className="text-xs font-semibold">
                   Todos los productos de esta venta ya han sido devueltos previamente.
                 </p>
               </div>
             ) : (
-              <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+              <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-xs">
                 <table className="w-full text-left text-xs border-collapse">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
+                  <thead className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold">
                     <tr>
                       <th className="py-2.5 px-3">Producto</th>
                       <th className="py-2.5 px-3 text-right">Precio Unit.</th>
@@ -161,26 +165,28 @@ export const ProductExchangeModal: React.FC<ProductExchangeModalProps> = ({
                       <th className="py-2.5 px-3 text-right">Crédito</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
                     {eligibleItems.map((item) => (
                       <tr
                         key={item.product_code}
                         className={`transition-colors ${
-                          item.selectedQty > 0 ? 'bg-amber-50' : 'hover:bg-slate-100'
+                          item.selectedQty > 0
+                            ? 'bg-amber-50/60 dark:bg-amber-950/20'
+                            : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/50'
                         }`}
                       >
                         <td className="py-2.5 px-3">
-                          <p className="font-bold text-slate-900">{item.name}</p>
-                          <p className="text-[10px] text-slate-400 font-mono">
+                          <p className="font-bold text-slate-900 dark:text-white">{item.name}</p>
+                          <p className="text-[10px] text-slate-400 font-mono tabular-nums">
                             {item.product_code}
                           </p>
                         </td>
 
-                        <td className="py-2.5 px-3 text-right font-medium text-slate-600">
+                        <td className="py-2.5 px-3 text-right font-medium text-slate-600 dark:text-slate-300 font-mono tabular-nums">
                           {formatCLP(item.unit_price)}
                         </td>
 
-                        <td className="py-2.5 px-3 text-center font-bold text-slate-700">
+                        <td className="py-2.5 px-3 text-center font-bold text-slate-700 dark:text-slate-300 font-mono tabular-nums">
                           {item.availableQty} un.
                         </td>
 
@@ -188,7 +194,7 @@ export const ProductExchangeModal: React.FC<ProductExchangeModalProps> = ({
                           {item.availableQty === 0 ? (
                             <span className="text-[10px] text-slate-400 italic">Agotado</span>
                           ) : (
-                            <div className="inline-flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+                            <div className="inline-flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
                               <button
                                 type="button"
                                 disabled={item.selectedQty <= 0}
@@ -199,12 +205,13 @@ export const ProductExchangeModal: React.FC<ProductExchangeModalProps> = ({
                                     item.availableQty
                                   )
                                 }
-                                className="w-6 h-6 rounded-lg bg-white shadow-xs flex items-center justify-center text-slate-600 hover:text-slate-900 disabled:opacity-30"
+                                aria-label={`Restar unidad a ${item.name}`}
+                                className="w-6 h-6 rounded-lg bg-white dark:bg-slate-700 shadow-xs flex items-center justify-center text-slate-600 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-lilac-500"
                               >
                                 <Minus className="w-3 h-3" />
                               </button>
 
-                              <span className="w-7 text-center font-black text-slate-900 text-xs">
+                              <span className="w-7 text-center font-black text-slate-900 dark:text-white text-xs font-mono tabular-nums">
                                 {item.selectedQty}
                               </span>
 
@@ -218,7 +225,8 @@ export const ProductExchangeModal: React.FC<ProductExchangeModalProps> = ({
                                     item.availableQty
                                   )
                                 }
-                                className="w-6 h-6 rounded-lg bg-white shadow-xs flex items-center justify-center text-slate-600 hover:text-slate-900 disabled:opacity-30"
+                                aria-label={`Añadir unidad a ${item.name}`}
+                                className="w-6 h-6 rounded-lg bg-white dark:bg-slate-700 shadow-xs flex items-center justify-center text-slate-600 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white disabled:opacity-30 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-lilac-500"
                               >
                                 <Plus className="w-3 h-3" />
                               </button>
@@ -226,9 +234,9 @@ export const ProductExchangeModal: React.FC<ProductExchangeModalProps> = ({
                           )}
                         </td>
 
-                        <td className="py-2.5 px-3 text-right font-bold text-slate-900">
+                        <td className="py-2.5 px-3 text-right font-bold text-slate-900 dark:text-white font-mono tabular-nums">
                           {item.subtotal > 0 ? (
-                            <span className="text-amber-700">+{formatCLP(item.subtotal)}</span>
+                            <span className="text-amber-600 dark:text-amber-400">+{formatCLP(item.subtotal)}</span>
                           ) : (
                             <span className="text-slate-400">$ 0</span>
                           )}
@@ -242,26 +250,26 @@ export const ProductExchangeModal: React.FC<ProductExchangeModalProps> = ({
           </div>
 
           {/* Resumen del Crédito */}
-          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-200 flex items-center justify-between">
+          <div className="p-4 rounded-2xl bg-amber-500/10 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold">
                 <PackageCheck className="w-5 h-5" />
               </div>
               <div>
-                <p className="text-xs font-bold text-slate-900">
+                <p className="text-xs font-bold text-slate-900 dark:text-white">
                   Crédito a Favor Generado por el Cambio
                 </p>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-mono tabular-nums">
                   {totalItemsToReturn} producto(s) a devolver
                 </p>
               </div>
             </div>
 
             <div className="text-right">
-              <span className="text-2xl font-black text-amber-700 block">
+              <span className="text-2xl font-black text-amber-600 dark:text-amber-400 block font-mono tabular-nums">
                 {formatCLP(totalCredit)}
               </span>
-              <span className="text-[10px] text-amber-800 font-semibold">
+              <span className="text-[10px] text-amber-700 dark:text-amber-300 font-semibold">
                 Para aplicar en nuevos productos
               </span>
             </div>
@@ -269,11 +277,11 @@ export const ProductExchangeModal: React.FC<ProductExchangeModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 bg-white dark:bg-slate-850 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
+        <div className="px-6 py-4 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs transition-colors border border-slate-200 dark:border-slate-700"
+            className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs transition-colors border border-slate-200 dark:border-slate-700 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
           >
             Cancelar
           </button>
@@ -282,7 +290,7 @@ export const ProductExchangeModal: React.FC<ProductExchangeModalProps> = ({
             type="button"
             disabled={totalCredit <= 0}
             onClick={handleConfirm}
-            className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-md shadow-amber-500/20 flex items-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-md shadow-amber-500/20 flex items-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
           >
             <span>Transferir a Ventas para Cambio</span>
             <ArrowLeftRight className="w-4 h-4" />

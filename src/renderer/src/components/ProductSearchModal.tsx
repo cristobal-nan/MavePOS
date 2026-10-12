@@ -114,6 +114,9 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
       className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4"
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="product-search-modal-title"
         style={{
           width: `${modalSize.width}px`,
           height: `${modalSize.height}px`,
@@ -122,19 +125,20 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
           minWidth: '540px',
           minHeight: '400px'
         }}
-        className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-black/60 dark:border-slate-800 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 relative select-none"
+        className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150 relative select-none"
       >
         {/* Header Ultra Compacto */}
-        <div className="px-4 py-1.5 bg-white dark:bg-slate-850 border-b border-black/60 dark:border-slate-800 flex items-center justify-between shrink-0 h-9">
+        <div className="px-4 py-1.5 bg-white dark:bg-slate-850 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 h-9">
           <div className="flex items-center gap-1.5 text-slate-800 dark:text-slate-100 font-bold text-xs">
             <div className="w-5 h-5 rounded-md bg-lilac-100 dark:bg-slate-800 text-lilac-600 dark:text-lilac-400 flex items-center justify-center">
               <Search className="w-3 h-3" />
             </div>
-            <span>{title}</span>
+            <span id="product-search-modal-title">{title}</span>
           </div>
           <button
             onClick={handleClose}
-            className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            aria-label="Cerrar modal de búsqueda"
+            className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
           >
             <X className="w-4 h-4" />
           </button>
@@ -157,7 +161,7 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
           <div className="flex items-center gap-3">
             <button
               onClick={handleClose}
-              className="px-4 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl font-medium text-slate-700 dark:text-slate-200 transition-colors"
+              className="px-4 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl font-medium text-slate-700 dark:text-slate-200 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
             >
               Cerrar (Esc)
             </button>
@@ -167,8 +171,9 @@ export const ProductSearchModal: React.FC<ProductSearchModalProps> = ({
         {/* Bottom-Right Corner Resize Grip Handle */}
         <div
           onMouseDown={handleStartResize}
-          className="absolute right-0 bottom-0 w-5 h-5 cursor-nwse-resize flex items-end justify-end p-1 text-slate-400 hover:text-lilac-600 transition-colors z-20 group"
+          className="absolute right-0 bottom-0 w-5 h-5 cursor-nwse-resize flex items-end justify-end p-1 text-slate-400 hover:text-lilac-600 dark:hover:text-lilac-400 transition-colors z-20 group"
           title="Arrastra para redimensionar ventana horizontal y verticalmente"
+          aria-hidden="true"
         >
           <svg className="w-3.5 h-3.5" viewBox="0 0 10 10" fill="currentColor">
             <circle cx="8" cy="8" r="1.2" />

@@ -27,6 +27,9 @@ import { SalesHistoryModal } from './history/SalesHistoryModal'
 import { CashWithdrawalModal } from './history/CashWithdrawalModal'
 import { CommonProductModal } from '../components/CommonProductModal'
 import { useModalStack } from '../utils/modalStack'
+import { useMemoryCatalogStore } from '../store/memoryCatalogStore'
+import { EmptyState } from '../components/common'
+import clsx from 'clsx'
 
 export const SalesView: React.FC = () => {
   const { currentSession } = useCashStore()
@@ -561,7 +564,10 @@ export const SalesView: React.FC = () => {
     if (!rawCode) return
 
     try {
-      const product = await window.api.getProductByCode(rawCode)
+      // 1. Consulta ultrarrápida a memoria RAM (0.01 ms)
+      const memoryProd = useMemoryCatalogStore.getState().getByCodeFast(rawCode)
+      const product = memoryProd || (await window.api.getProductByCode(rawCode))
+
       if (product && product.code) {
         if ((Number(product.stock) || 0) <= 0) {
           showOutOfStockAlert(product.name)
@@ -704,88 +710,98 @@ export const SalesView: React.FC = () => {
   return (
     <div onClick={handleContainerClick} className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-900 select-none overflow-hidden">
       {/* Top Bar: Barcode Input + Simultaneous Tickets */}
-      <div className="bg-white dark:bg-slate-900 border-b border-lilac-200 px-4 py-2 flex flex-col gap-2 shadow-xs">
+      <div className="bg-white dark:bg-slate-900 border-b border-lilac-200 dark:border-slate-800 px-4 py-2.5 flex flex-col gap-2 shadow-2xs">
         {/* Ticket mini-tabs */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 overflow-x-auto">
+          <div role="tablist" aria-label="Tickets de venta simultáneos" className="flex items-center gap-1.5 overflow-x-auto">
             {tickets.map((t, idx) => {
               const isActive = activeTicketIndex === idx
               const hasItems = t.items.length > 0
               const isSavedPending = Boolean(t.id)
-
               const isExchangeTab = Boolean(t.exchangeInfo)
 
               return (
-                <div
+                <button
                   key={idx}
-                  role="button"
-                  tabIndex={0}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
                   onClick={() => selectTicket(idx)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      selectTicket(idx)
-                    }
-                  }}
-                  className={`h-8 pl-3 pr-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer select-none ${
+                  className={clsx(
+                    'h-8 pl-3 pr-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer select-none',
+                    'transition-colors duration-150 motion-reduce:transition-none',
+                    'focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:ring-offset-1 focus-visible:outline-none dark:focus-visible:ring-offset-slate-900',
                     isActive
                       ? isExchangeTab
-                        ? 'bg-amber-600 text-white shadow-sm ring-2 ring-amber-400/50'
-                        : 'bg-lilac-600 text-white shadow-xs'
+                        ? 'bg-amber-600 text-white shadow-2xs ring-2 ring-amber-400/50'
+                        : 'bg-lilac-600 text-white shadow-2xs'
                       : isExchangeTab
-                      ? 'bg-amber-100/80 hover:bg-amber-200/80 text-amber-900 border border-amber-300'
-                      : 'bg-slate-100 hover:bg-lilac-50 text-slate-600'
-                  }`}
+                      ? 'bg-amber-100/80 dark:bg-amber-950/60 hover:bg-amber-200/80 dark:hover:bg-amber-900/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700/60'
+                      : 'bg-slate-100 dark:bg-slate-800 hover:bg-lilac-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60'
+                  )}
                 >
                   {isExchangeTab ? (
-                    <ArrowLeftRight className="w-3.5 h-3.5 opacity-90 text-amber-200 shrink-0" />
+                    <ArrowLeftRight className="w-3.5 h-3.5 opacity-90 text-amber-200 shrink-0" aria-hidden="true" />
                   ) : (
-                    isSavedPending && <Clock className="w-3 h-3 opacity-80" />
+                    isSavedPending && <Clock className="w-3 h-3 opacity-80 shrink-0" aria-hidden="true" />
                   )}
                   <span>{t.label}</span>
                   {hasItems && (
                     <span
-                      className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                      className={clsx(
+                        'text-[10px] px-1.5 py-0.2 rounded-full font-bold tabular-nums',
                         isActive
                           ? isExchangeTab
                             ? 'bg-amber-700 text-amber-100'
                             : 'bg-lilac-700 text-lilac-100'
                           : isExchangeTab
-                          ? 'bg-amber-200 text-amber-900'
-                          : 'bg-slate-200 text-slate-700'
-                      }`}
+                          ? 'bg-amber-200 dark:bg-amber-900 text-amber-900 dark:text-amber-100'
+                          : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200'
+                      )}
                     >
                       {t.items.reduce((s, it) => s + it.quantity, 0)}
                     </span>
                   )}
-                  <button
-                    type="button"
+                  <span
+                    role="button"
+                    tabIndex={0}
                     onClick={(e) => handleDeleteTicketByIndex(e, idx)}
-                    className={`p-1 rounded-md transition-colors ml-0.5 cursor-pointer ${
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.stopPropagation()
+                        handleDeleteTicketByIndex(e as any, idx)
+                      }
+                    }}
+                    className={clsx(
+                      'p-1 rounded-md ml-0.5 cursor-pointer transition-colors duration-150',
                       isActive
                         ? isExchangeTab
                           ? 'text-amber-200 hover:text-white hover:bg-amber-700'
                           : 'text-lilac-200 hover:text-white hover:bg-lilac-700'
-                        : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
-                    }`}
+                        : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40'
+                    )}
+                    aria-label={`Descartar ticket ${t.label}`}
                     title={`Descartar / Cerrar ${t.label}`}
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                    <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                  </span>
+                </button>
               )
             })}
 
             <button
+              type="button"
               onClick={() => createTicket(currentSession?.id)}
-              className="h-8 w-8 rounded-lg bg-slate-100 hover:bg-lilac-100 text-slate-600 hover:text-lilac-800 flex items-center justify-center transition-colors"
-              title="Nuevo ticket en blanco"
+              aria-label="Crear nuevo ticket en blanco (Ctrl+T)"
+              title="Nuevo ticket en blanco (Ctrl+T)"
+              className="h-8 w-8 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-lilac-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-lilac-800 dark:hover:text-lilac-300 flex items-center justify-center transition-colors duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:ring-offset-1 focus-visible:outline-none dark:focus-visible:ring-offset-slate-900"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
 
           <div className="text-xs text-slate-400 font-medium hidden sm:block">
-            Atajos: <span className="font-semibold text-slate-600">F10</span> Buscar &bull; <span className="font-semibold text-slate-600">F12</span> Cobrar
+            Atajos: <span className="font-semibold text-slate-600 dark:text-slate-300">F10</span> Buscar &bull; <span className="font-semibold text-slate-600 dark:text-slate-300">F12</span> Cobrar
           </div>
         </div>
 
@@ -793,9 +809,11 @@ export const SalesView: React.FC = () => {
         <form onSubmit={handleBarcodeSubmit} className="flex items-center gap-2">
           <div className="relative flex-1">
             <Barcode
-              className={`w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 transition-colors ${
-                barcodeError ? 'text-rose-500 duration-100' : 'text-slate-400 duration-700'
-              }`}
+              aria-hidden="true"
+              className={clsx(
+                'w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 transition-colors duration-150',
+                barcodeError ? 'text-rose-500' : 'text-slate-400'
+              )}
             />
             <input
               ref={barcodeInputRef}
@@ -810,7 +828,6 @@ export const SalesView: React.FC = () => {
                   setBarcodeError(null)
                 }
 
-                // Si se está ejecutando la animación, no sobrescribir desde onChange
                 if (isAnimatingScanRef.current) {
                   return
                 }
@@ -824,7 +841,6 @@ export const SalesView: React.FC = () => {
                   return
                 }
 
-                // Si está animando y se presiona otra tecla o Enter, prevenir conflicto
                 if (isAnimatingScanRef.current) {
                   e.preventDefault()
                   return
@@ -836,8 +852,6 @@ export const SalesView: React.FC = () => {
                   const timestamps = scanTimestampsRef.current
                   const count = timestamps.length
 
-                  // Evaluamos si los últimos caracteres llegaron en ráfaga rápida de escáner
-                  // (al menos 3 caracteres con un promedio entre pulsaciones < 40ms)
                   if (count >= 3) {
                     let totalDiff = 0
                     for (let i = 1; i < count; i++) {
@@ -847,7 +861,6 @@ export const SalesView: React.FC = () => {
                     scanTimestampsRef.current = []
 
                     if (avgDiff < 45) {
-                      // Fue un escaneo con lector de código de barras
                       e.preventDefault()
                       const codeToAnimate = barcodeInput.trim()
                       if (codeToAnimate) {
@@ -857,14 +870,11 @@ export const SalesView: React.FC = () => {
                     }
                   }
 
-                  // Si fue escrito manualmente a velocidad humana (> 45ms), Enter procesa directo
                   scanTimestampsRef.current = []
                   return
                 }
 
-                // Guardar timestamps solo de teclas de caracteres regulares
                 if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
-                  // Si pasó más de 500ms desde la última tecla, reiniciar lista de timestamps
                   if (
                     scanTimestampsRef.current.length > 0 &&
                     now - scanTimestampsRef.current[scanTimestampsRef.current.length - 1] > 500
@@ -872,25 +882,26 @@ export const SalesView: React.FC = () => {
                     scanTimestampsRef.current = [now]
                   } else {
                     scanTimestampsRef.current.push(now)
-                    // Mantener solo los últimos 40 timestamps para evitar acumulación
                     if (scanTimestampsRef.current.length > 40) {
                       scanTimestampsRef.current.shift()
                     }
                   }
                 }
               }}
-              placeholder={barcodeError || 'Escanear código de barras o escribir código y presionar Enter...'}
-              className={`w-full pl-9 pr-4 py-2 rounded-xl text-sm font-mono placeholder:font-sans focus:outline-none uppercase shadow-inner transition-all border ${
+              placeholder={barcodeError || 'Escanear código de barras o escribir código y presionar Enter…'}
+              className={clsx(
+                'w-full pl-9 pr-4 py-2 rounded-xl text-sm font-mono placeholder:font-sans uppercase shadow-inner transition-colors duration-150 border',
+                'focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:outline-none dark:focus-visible:ring-offset-slate-900',
                 barcodeError
-                  ? 'input-barcode-error border-rose-500 bg-rose-50 text-rose-700 duration-100'
-                  : 'bg-slate-50 border-slate-200 focus:border-lilac-500 focus:bg-white text-slate-800 placeholder:text-slate-400 duration-700 ease-out'
-              }`}
+                  ? 'input-barcode-error border-rose-500 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300'
+                  : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500'
+              )}
             />
           </div>
 
           <button
             type="submit"
-            className="px-4 py-2 bg-lilac-600 hover:bg-lilac-700 text-white rounded-xl text-xs font-bold transition-colors shadow-xs cursor-pointer border border-lilac-600 dark:border-lilac-500"
+            className="px-4 py-2 bg-lilac-600 hover:bg-lilac-700 active:bg-lilac-800 text-white rounded-xl text-xs font-bold transition-colors duration-150 motion-reduce:transition-none shadow-2xs cursor-pointer border border-lilac-600 dark:border-lilac-500 focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:outline-none"
           >
             Agregar (Enter)
           </button>
@@ -898,9 +909,10 @@ export const SalesView: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsSearchModalOpen(true)}
-            className="px-4 py-2 bg-lilac-100 hover:bg-lilac-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-lilac-800 dark:text-lilac-300 border border-lilac-300 dark:border-slate-600 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+            aria-label="Buscar producto en el catálogo (F10)"
+            className="px-4 py-2 bg-lilac-100 hover:bg-lilac-200 active:bg-lilac-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-lilac-800 dark:text-lilac-200 border border-lilac-300 dark:border-slate-600 rounded-xl text-xs font-bold transition-colors duration-150 motion-reduce:transition-none flex items-center gap-1.5 shadow-2xs cursor-pointer focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:outline-none"
           >
-            <Search className="w-3.5 h-3.5" />
+            <Search className="w-3.5 h-3.5" aria-hidden="true" />
             <span>Buscar (F10)</span>
           </button>
         </form>
@@ -1001,10 +1013,10 @@ export const SalesView: React.FC = () => {
               e.preventDefault()
             }
           }}
-          className="flex-1 bg-white rounded-2xl border border-black/60 shadow-sm overflow-auto"
+          className="flex-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xs overflow-auto"
         >
           <table className="w-full text-left border-collapse">
-            <thead className="bg-slate-100 sticky top-0 z-10 text-xs font-semibold text-slate-600 border-b border-black/60">
+            <thead className="bg-slate-100 dark:bg-slate-850 sticky top-0 z-10 text-xs font-semibold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-800">
               <tr>
                 <th className="py-2.5 px-3 w-32">Código</th>
                 <th className="py-2.5 px-3">Producto / Descripción</th>
@@ -1015,17 +1027,20 @@ export const SalesView: React.FC = () => {
                 <th className="py-2.5 px-3 text-center w-16"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-black/60 text-base">
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-base">
               {activeTicket.items.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-20 text-center text-slate-400">
-                    <div className="flex flex-col items-center justify-center">
-                      <div className="w-12 h-12 rounded-2xl bg-lilac-50 text-lilac-400 flex items-center justify-center mb-2">
-                        <ShoppingCart className="w-6 h-6" />
-                      </div>
-                      <p className="font-semibold text-slate-600">Ticket vacío</p>
-                      <p className="text-xs text-slate-400">Escanea un código de barras o presiona F10 para buscar</p>
-                    </div>
+                  <td colSpan={7} className="py-14 px-4 text-center">
+                    <EmptyState
+                      icon={ShoppingCart}
+                      title="Ticket vacío"
+                      description="Escanea un código de barras o presiona F10 para buscar productos en el catálogo."
+                      action={{
+                        label: 'Buscar producto (F10)',
+                        onClick: () => setIsSearchModalOpen(true),
+                        icon: Search
+                      }}
+                    />
                   </td>
                 </tr>
               ) : (
@@ -1049,16 +1064,17 @@ export const SalesView: React.FC = () => {
                         }
                       }}
                       onClick={() => setSelectedProductCode(rowKey)}
-                      className={`transition-colors cursor-pointer border-b border-black/60 ${
+                      className={clsx(
+                        'transition-colors duration-150 cursor-pointer border-b border-slate-200 dark:border-slate-800',
                         isSelected
-                          ? 'product-row-highlighted bg-lilac-100/90 font-medium'
-                          : 'hover:bg-slate-50'
-                      }`}
+                          ? 'product-row-highlighted bg-lilac-100/80 dark:bg-slate-750 font-medium text-slate-900 dark:text-white'
+                          : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                      )}
                     >
                       {/* Código */}
-                      <td className="py-2 px-3 font-mono text-slate-600">
+                      <td className="py-2 px-3 font-mono text-slate-600 dark:text-slate-300">
                         {isCommon ? (
-                          <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-lilac-100 dark:bg-lilac-900/40 text-lilac-800 dark:text-lilac-300 border border-lilac-200 dark:border-lilac-700">
+                          <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-lilac-100 dark:bg-lilac-950/60 text-lilac-800 dark:text-lilac-200 border border-lilac-200 dark:border-lilac-800/50">
                             COMÚN
                           </span>
                         ) : (
@@ -1068,28 +1084,30 @@ export const SalesView: React.FC = () => {
 
                       {/* Nombre & Variante */}
                       <td className="py-2 px-3">
-                        <span className="font-bold text-slate-800">{it.name}</span>
+                        <span className="font-bold text-slate-900 dark:text-slate-100">{it.name}</span>
                         {it.variant_label && (
-                          <span className="ml-2 text-[11px] text-lilac-700 bg-lilac-50 border border-lilac-200 px-1.5 py-0.5 rounded font-medium">
+                          <span className="ml-2 text-[11px] text-lilac-700 dark:text-lilac-300 bg-lilac-50 dark:bg-slate-800 border border-lilac-200 dark:border-slate-700 px-1.5 py-0.5 rounded font-medium">
                             {it.variant_label}
                           </span>
                         )}
                       </td>
 
                       {/* Precio Unitario */}
-                      <td className="py-2 px-3 text-right font-medium text-slate-700">
+                      <td className="py-2 px-3 text-right font-medium text-slate-700 dark:text-slate-200 tabular-nums">
                         {formatCLP(it.unit_price)}
                       </td>
 
                       {/* Cantidad con controles + y - */}
                       <td className="py-2 px-3 text-center">
-                        <div className="inline-flex items-center border border-slate-200 rounded-lg overflow-hidden bg-slate-50">
+                        <div className="inline-flex items-center border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden bg-slate-50 dark:bg-slate-800">
                           <button
                             type="button"
                             onClick={() => handleDecreaseQuantity(it, idx)}
-                            className="px-2 py-1 text-slate-600 hover:bg-lilac-100 hover:text-lilac-900 transition-colors"
+                            aria-label={`Disminuir cantidad de ${it.name}`}
+                            title={`Disminuir cantidad de ${it.name}`}
+                            className="px-2 py-1 text-slate-600 dark:text-slate-300 hover:bg-lilac-100 dark:hover:bg-slate-700 hover:text-lilac-900 dark:hover:text-white transition-colors duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:outline-none"
                           >
-                            <Minus className="w-3 h-3" />
+                            <Minus className="w-3 h-3" aria-hidden="true" />
                           </button>
                           <input
                             type="number"
@@ -1134,7 +1152,8 @@ export const SalesView: React.FC = () => {
                               }
                               updateQuantity(it.product_code, v, idx)
                             }}
-                            className="w-12 text-center text-xs font-bold bg-white py-1 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            aria-label={`Cantidad para ${it.name}`}
+                            className="w-12 text-center text-xs font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-white py-1 focus:outline-none tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                           <button
                             type="button"
@@ -1151,15 +1170,17 @@ export const SalesView: React.FC = () => {
                               }
                               updateQuantity(it.product_code, it.quantity + 1, idx)
                             }}
-                            className="px-2 py-1 text-slate-600 hover:bg-lilac-100 hover:text-lilac-900 transition-colors"
+                            aria-label={`Aumentar cantidad de ${it.name}`}
+                            title={`Aumentar cantidad de ${it.name}`}
+                            className="px-2 py-1 text-slate-600 dark:text-slate-300 hover:bg-lilac-100 dark:hover:bg-slate-700 hover:text-lilac-900 dark:hover:text-white transition-colors duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:outline-none"
                           >
-                            <Plus className="w-3 h-3" />
+                            <Plus className="w-3 h-3" aria-hidden="true" />
                           </button>
                         </div>
                       </td>
 
                       {/* Importe */}
-                      <td className="py-2 px-3 text-right font-black text-slate-900">
+                      <td className="py-2 px-3 text-right font-black text-slate-900 dark:text-white tabular-nums">
                         {formatCLP(importe)}
                       </td>
 
@@ -1169,13 +1190,14 @@ export const SalesView: React.FC = () => {
                           <span className="text-slate-400 font-medium">—</span>
                         ) : (
                           <span
-                            className={`font-semibold ${
+                            className={clsx(
+                              'font-semibold tabular-nums',
                               isStockCritical
-                                ? 'text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md'
+                                ? 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-2 py-0.5 rounded-md'
                                 : remainingStock !== null && remainingStock <= 5
-                                ? 'text-amber-600'
-                                : 'text-slate-600'
-                            }`}
+                                ? 'text-amber-600 dark:text-amber-400'
+                                : 'text-slate-600 dark:text-slate-300'
+                            )}
                           >
                             {remainingStock} un.
                           </span>
@@ -1194,10 +1216,11 @@ export const SalesView: React.FC = () => {
                               index: idx
                             })
                           }}
-                          className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                          title="Eliminar producto"
+                          aria-label={`Quitar ${it.name} del ticket`}
+                          title={`Quitar ${it.name} del ticket`}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-4 h-4" aria-hidden="true" />
                         </button>
                       </td>
                     </tr>
@@ -1210,15 +1233,16 @@ export const SalesView: React.FC = () => {
       </div>
 
       {/* Bottom Footer Bar: Totals & Action Buttons */}
-      <div className="bg-white dark:bg-slate-800 border-t border-lilac-200 dark:border-slate-700 px-6 py-3 flex items-center justify-between shadow-lg">
+      <div className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-6 py-3 flex items-center justify-between shadow-lg">
         {/* Left Side Buttons & Hint */}
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => setIsHistoryModalOpen(true)}
-            className="self-stretch px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/80 hover:bg-lilac-50 dark:hover:bg-slate-700 hover:border-lilac-300 dark:border-slate-600 text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-lilac-700 dark:hover:text-lilac-300 flex items-center gap-2 transition-all shadow-sm cursor-pointer"
+            aria-label="Historial de Ventas"
+            className="self-stretch px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-lilac-50 dark:hover:bg-slate-750 text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-lilac-700 dark:hover:text-lilac-300 flex items-center gap-2 transition-colors duration-150 motion-reduce:transition-none shadow-2xs cursor-pointer focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:outline-none"
           >
-            <History className="w-4 h-4 text-lilac-600 dark:text-lilac-400" />
+            <History className="w-4 h-4 text-lilac-600 dark:text-lilac-400" aria-hidden="true" />
             <span>Historial de Ventas</span>
           </button>
 
@@ -1226,18 +1250,20 @@ export const SalesView: React.FC = () => {
             <button
               type="button"
               onClick={() => setIsWithdrawalModalOpen(true)}
-              className="px-3.5 py-1.5 rounded-xl border border-amber-200 dark:border-amber-700/60 bg-amber-50 dark:bg-slate-700/80 hover:bg-amber-100 dark:hover:bg-slate-700 text-xs font-bold text-amber-850 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-200 flex items-center gap-2 transition-all shadow-sm cursor-pointer"
+              aria-label="Registrar salida de dinero"
+              className="px-3.5 py-1.5 rounded-xl border border-amber-200 dark:border-amber-700/60 bg-amber-50 dark:bg-slate-800 hover:bg-amber-100 dark:hover:bg-slate-750 text-xs font-bold text-amber-900 dark:text-amber-300 hover:text-amber-950 dark:hover:text-amber-200 flex items-center gap-2 transition-colors duration-150 motion-reduce:transition-none shadow-2xs cursor-pointer focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:outline-none"
             >
-              <ArrowUpRight className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+              <ArrowUpRight className="w-4 h-4 text-amber-600 dark:text-amber-400" aria-hidden="true" />
               <span>Salida de Dinero</span>
             </button>
 
             <button
               type="button"
               onClick={() => setIsCommonProductModalOpen(true)}
-              className="px-3.5 py-1.5 rounded-xl border border-lilac-200 dark:border-lilac-700/60 bg-lilac-50 dark:bg-slate-700/80 hover:bg-lilac-100 dark:hover:bg-slate-700 text-xs font-bold text-lilac-850 dark:text-lilac-300 hover:text-lilac-900 dark:hover:text-lilac-200 flex items-center gap-2 transition-all shadow-sm cursor-pointer"
+              aria-label="Agregar producto común (Ctrl+P)"
+              className="px-3.5 py-1.5 rounded-xl border border-lilac-200 dark:border-lilac-700/60 bg-lilac-50 dark:bg-slate-800 hover:bg-lilac-100 dark:hover:bg-slate-750 text-xs font-bold text-lilac-900 dark:text-lilac-300 hover:text-lilac-950 dark:hover:text-lilac-200 flex items-center gap-2 transition-colors duration-150 motion-reduce:transition-none shadow-2xs cursor-pointer focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:outline-none"
             >
-              <PackagePlus className="w-4 h-4 text-lilac-600 dark:text-lilac-400" />
+              <PackagePlus className="w-4 h-4 text-lilac-600 dark:text-lilac-400" aria-hidden="true" />
               <span>Producto Común (Ctrl+P)</span>
             </button>
           </div>
@@ -1247,32 +1273,32 @@ export const SalesView: React.FC = () => {
         {isExchange && exchangeInfo && exchangeBalance ? (
           <div className="flex items-center gap-6">
             <div className="text-right">
-              <span className="text-xs text-slate-400 font-medium">Nuevos artículos:</span>
-              <div className="text-sm font-bold text-slate-700 dark:text-slate-200">{totalItemsCount} unidades</div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 font-semibold">{formatCLP(totalAmount)}</div>
+              <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">Nuevos artículos:</span>
+              <div className="text-sm font-bold text-slate-700 dark:text-slate-200 tabular-nums">{totalItemsCount} unidades</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 font-semibold tabular-nums">{formatCLP(totalAmount)}</div>
             </div>
 
             <div className="text-right">
-              <span className="text-xs text-slate-400 font-medium">Crédito aplicado:</span>
-              <div className="text-sm font-bold text-amber-700 dark:text-amber-400">− {formatCLP(exchangeInfo.exchangeCredit)}</div>
+              <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">Crédito aplicado:</span>
+              <div className="text-sm font-bold text-amber-700 dark:text-amber-400 tabular-nums">− {formatCLP(exchangeInfo.exchangeCredit)}</div>
             </div>
 
             {exchangeBalance.status === 'insufficient' ? (
               <div className="text-right">
                 <span className="text-xs text-rose-500 font-bold block">Falta por cubrir:</span>
-                <span className="text-2xl font-black text-rose-600 dark:text-rose-400">
+                <span className="text-2xl font-black text-rose-600 dark:text-rose-400 tabular-nums">
                   {formatCLP(exchangeBalance.remainingCredit)}
                 </span>
               </div>
             ) : exchangeBalance.status === 'exact' ? (
               <div className="text-right">
                 <span className="text-xs text-emerald-600 dark:text-emerald-400 font-bold block">Cambio Exacto:</span>
-                <span className="text-2xl font-black text-emerald-700 dark:text-emerald-400">$ 0</span>
+                <span className="text-2xl font-black text-emerald-700 dark:text-emerald-400 tabular-nums">$ 0</span>
               </div>
             ) : (
               <div className="text-right">
                 <span className="text-xs text-amber-600 dark:text-amber-400 font-bold block">Diferencia a Pagar:</span>
-                <span className="text-3xl font-black text-slate-900 dark:text-white">
+                <span className="text-3xl font-black text-slate-900 dark:text-white tabular-nums">
                   {formatCLP(exchangeBalance.differenceToPay)}
                 </span>
               </div>
@@ -1283,20 +1309,20 @@ export const SalesView: React.FC = () => {
                 type="button"
                 onClick={handleCobrarClick}
                 disabled={activeTicket.items.length === 0}
-                className="px-8 py-3.5 rounded-2xl font-black text-base transition-all shadow-md bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed flex items-center gap-2 active:scale-[0.99] disabled:opacity-50"
+                className="px-8 py-3.5 rounded-xl font-black text-base transition-colors duration-150 motion-reduce:transition-none shadow-sm bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 cursor-not-allowed flex items-center gap-2 disabled:opacity-50"
                 title={`No es posible cobrar: Faltan ${formatCLP(exchangeBalance.remainingCredit)} por cubrir.`}
               >
-                <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                <span>Cobrar (Faltan {formatCLP(exchangeBalance.remainingCredit)})</span>
+                <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                <span className="tabular-nums">Cobrar (Faltan {formatCLP(exchangeBalance.remainingCredit)})</span>
               </button>
             ) : exchangeBalance.status === 'exact' ? (
               <button
                 type="button"
                 onClick={() => setIsConfirmExactModalOpen(true)}
                 disabled={activeTicket.items.length === 0}
-                className="px-8 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-base transition-all shadow-lg shadow-emerald-500/30 flex items-center gap-2 active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none hover:shadow-emerald-500/40 cursor-pointer"
+                className="px-8 py-3.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl font-black text-base transition-colors duration-150 motion-reduce:transition-none shadow-md shadow-emerald-500/25 flex items-center gap-2 active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none cursor-pointer focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
               >
-                <CheckCircle2 className="w-5 h-5" />
+                <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
                 <span>Cobrar ($ 0) (F12)</span>
               </button>
             ) : (
@@ -1304,23 +1330,23 @@ export const SalesView: React.FC = () => {
                 type="button"
                 onClick={() => setIsCheckoutModalOpen(true)}
                 disabled={activeTicket.items.length === 0}
-                className="px-8 py-3.5 bg-amber-600 hover:bg-amber-700 text-white rounded-2xl font-black text-base transition-all shadow-lg shadow-amber-500/30 flex items-center gap-2 active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+                className="px-8 py-3.5 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-xl font-black text-base transition-colors duration-150 motion-reduce:transition-none shadow-md shadow-amber-500/25 flex items-center gap-2 active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none cursor-pointer focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:outline-none"
               >
-                <CheckCircle className="w-5 h-5" />
-                <span>Cobrar Diferencia ({formatCLP(exchangeBalance.differenceToPay)}) (F12)</span>
+                <CheckCircle className="w-5 h-5" aria-hidden="true" />
+                <span className="tabular-nums">Cobrar Diferencia ({formatCLP(exchangeBalance.differenceToPay)}) (F12)</span>
               </button>
             )}
           </div>
         ) : (
           <div className="flex items-center gap-6">
             <div className="text-right">
-              <span className="text-xs text-slate-400 font-medium">Artículos en ticket:</span>
-              <div className="text-sm font-bold text-slate-700 dark:text-slate-200">{totalItemsCount} unidades</div>
+              <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">Artículos en ticket:</span>
+              <div className="text-sm font-bold text-slate-700 dark:text-slate-200 tabular-nums">{totalItemsCount} unidades</div>
             </div>
 
             <div className="text-right">
-              <span className="text-xs text-slate-400 font-medium">Total a Pagar:</span>
-              <div className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+              <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">Total a Pagar:</span>
+              <div className="text-3xl font-black text-slate-900 dark:text-white tracking-tight tabular-nums">
                 {formatCLP(totalAmount)}
               </div>
             </div>
@@ -1329,9 +1355,9 @@ export const SalesView: React.FC = () => {
               type="button"
               onClick={() => setIsCheckoutModalOpen(true)}
               disabled={activeTicket.items.length === 0}
-              className="px-8 py-3.5 bg-lilac-600 hover:bg-lilac-700 text-white rounded-2xl font-black text-base transition-all shadow-lg shadow-lilac-500/30 flex items-center gap-2 active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none hover:shadow-lilac-500/40 cursor-pointer disabled:cursor-not-allowed"
+              className="px-8 py-3.5 bg-lilac-600 hover:bg-lilac-700 active:bg-lilac-800 text-white rounded-xl font-black text-base transition-colors duration-150 motion-reduce:transition-none shadow-md shadow-lilac-500/25 flex items-center gap-2 active:scale-[0.99] disabled:opacity-40 disabled:pointer-events-none cursor-pointer focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:ring-offset-1 focus-visible:outline-none dark:focus-visible:ring-offset-slate-900"
             >
-              <CheckCircle className="w-5 h-5" />
+              <CheckCircle className="w-5 h-5" aria-hidden="true" />
               <span>Cobrar (F12)</span>
             </button>
           </div>
@@ -1387,18 +1413,18 @@ export const SalesView: React.FC = () => {
 
       {/* Modal de Confirmación para Cambio Exacto ($ 0) */}
       {isConfirmExactModalOpen && isExchange && exchangeInfo && (
-        <div onClick={handleBackdropConfirmExact} className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 animate-in fade-in duration-150 select-none">
-          <div className="bg-white rounded-3xl shadow-2xl border border-lilac-200 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
+        <div onClick={handleBackdropConfirmExact} className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150 select-none">
+          <div role="dialog" aria-modal="true" aria-labelledby="confirm-exact-title" className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
             {/* Header */}
-            <div className="px-6 py-5 bg-gradient-to-r from-emerald-50 via-teal-50 to-white border-b border-emerald-100 flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center shadow-xs shrink-0">
-                <ArrowLeftRight className="w-6 h-6" />
+            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-850/80 border-b border-slate-200 dark:border-slate-700 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/50 flex items-center justify-center shrink-0 shadow-2xs" aria-hidden="true">
+                <ArrowLeftRight className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-black text-slate-900">
-                  ¿Confirmar Cambio de Productos?
+                <h3 id="confirm-exact-title" className="text-base font-bold text-slate-900 dark:text-slate-100">
+                  ¿Confirmar cambio de productos?
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Cambio exacto sin saldo restante ni diferencia a pagar
                 </p>
               </div>
@@ -1406,29 +1432,29 @@ export const SalesView: React.FC = () => {
 
             {/* Contenido / Resumen */}
             <div className="p-6 flex flex-col gap-4">
-              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-2.5 text-xs">
+              <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700/80 rounded-xl p-4 space-y-2.5 text-xs text-slate-700 dark:text-slate-300">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500 font-medium">Venta original:</span>
-                  <span className="font-bold font-mono text-slate-800 bg-white px-2 py-0.5 rounded border border-slate-200">
+                  <span className="text-slate-500 dark:text-slate-400 font-medium">Venta original:</span>
+                  <span className="font-bold font-mono text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 tabular-nums">
                     Folio #{exchangeInfo.originalFolio}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500 font-medium">Total crédito devuelto:</span>
-                  <span className="font-bold text-amber-700">{formatCLP(exchangeInfo.exchangeCredit)}</span>
+                  <span className="text-slate-500 dark:text-slate-400 font-medium">Total crédito devuelto:</span>
+                  <span className="font-bold text-amber-700 dark:text-amber-400 tabular-nums">{formatCLP(exchangeInfo.exchangeCredit)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500 font-medium">Total nuevos artículos ({totalItemsCount} un.):</span>
-                  <span className="font-bold text-slate-800">{formatCLP(totalAmount)}</span>
+                  <span className="text-slate-500 dark:text-slate-400 font-medium">Total nuevos artículos ({totalItemsCount} un.):</span>
+                  <span className="font-bold text-slate-900 dark:text-slate-100 tabular-nums">{formatCLP(totalAmount)}</span>
                 </div>
-                <div className="pt-2 border-t border-slate-200 flex items-center justify-between font-black text-sm">
-                  <span className="text-emerald-800">Diferencia a Pagar:</span>
-                  <span className="text-emerald-700 text-lg">$ 0</span>
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between font-black text-sm">
+                  <span className="text-emerald-800 dark:text-emerald-300">Diferencia a Pagar:</span>
+                  <span className="text-emerald-700 dark:text-emerald-400 text-lg tabular-nums">$ 0</span>
                 </div>
               </div>
 
-              <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 text-emerald-900 text-xs flex items-start gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+              <div className="p-3 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200 text-xs flex items-start gap-2.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" aria-hidden="true" />
                 <p className="leading-relaxed">
                   El valor de los nuevos productos es exactamente igual al saldo del cambio.
                   Se repondrá el stock de los productos devueltos y se descontará el nuevo stock sin registrar movimientos de dinero en caja.
@@ -1437,12 +1463,12 @@ export const SalesView: React.FC = () => {
             </div>
 
             {/* Footer / Botones */}
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
+            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-850/80 border-t border-slate-200 dark:border-slate-700 flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setIsConfirmExactModalOpen(false)}
                 disabled={isFinalizingExact}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+                className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:outline-none"
               >
                 Volver a la Venta
               </button>
@@ -1450,13 +1476,13 @@ export const SalesView: React.FC = () => {
                 type="button"
                 onClick={handleFinalizeExactExchange}
                 disabled={isFinalizingExact}
-                className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-md shadow-emerald-600/25 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-black shadow-md shadow-emerald-600/25 flex items-center gap-2 transition-colors duration-150 cursor-pointer disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
               >
                 {isFinalizingExact ? (
-                  <span>Procesando cambio...</span>
+                  <span>Procesando cambio…</span>
                 ) : (
                   <>
-                    <CheckCircle2 className="w-4 h-4" />
+                    <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
                     <span>Confirmar y Cobrar ($ 0)</span>
                   </>
                 )}
@@ -1468,18 +1494,18 @@ export const SalesView: React.FC = () => {
 
       {/* Modal de Confirmación para Eliminar Producto del Ticket */}
       {itemToDelete && (
-        <div onClick={handleBackdropItemToDelete} className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 animate-in fade-in duration-150 select-none">
-          <div className="bg-white rounded-3xl shadow-2xl border border-rose-200 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
+        <div onClick={handleBackdropItemToDelete} className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150 select-none">
+          <div role="dialog" aria-modal="true" aria-labelledby="delete-item-title" className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-rose-200 dark:border-rose-900/60 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
             {/* Header */}
-            <div className="px-6 py-5 bg-gradient-to-r from-rose-50 via-rose-50/50 to-white border-b border-rose-100 flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shadow-xs shrink-0">
-                <Trash2 className="w-6 h-6" />
+            <div className="px-6 py-4 bg-rose-50 dark:bg-rose-950/40 border-b border-rose-100 dark:border-rose-900/40 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 border border-rose-200/60 dark:border-rose-800/50 flex items-center justify-center shrink-0 shadow-2xs" aria-hidden="true">
+                <Trash2 className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-black text-slate-900">
+                <h3 id="delete-item-title" className="text-base font-bold text-slate-900 dark:text-slate-100">
                   ¿Quitar producto del ticket?
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   La cantidad a vender llegó a 0
                 </p>
               </div>
@@ -1487,19 +1513,19 @@ export const SalesView: React.FC = () => {
 
             {/* Contenido / Detalle del Producto */}
             <div className="p-6 flex flex-col gap-4">
-              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex flex-col gap-2 text-xs">
+              <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700/80 rounded-xl p-4 flex flex-col gap-2 text-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-500 font-medium">Código:</span>
-                  <span className="font-bold font-mono text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200">
+                  <span className="text-slate-500 dark:text-slate-400 font-medium">Código:</span>
+                  <span className="font-bold font-mono text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
                     {itemToDelete.code}
                   </span>
                 </div>
-                <div className="flex items-start justify-between gap-2 pt-1 border-t border-slate-200/60">
-                  <span className="text-slate-500 font-medium shrink-0">Producto:</span>
-                  <span className="font-bold text-slate-900 text-right">
+                <div className="flex items-start justify-between gap-2 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                  <span className="text-slate-500 dark:text-slate-400 font-medium shrink-0">Producto:</span>
+                  <span className="font-bold text-slate-900 dark:text-slate-100 text-right">
                     {itemToDelete.name}
                     {itemToDelete.variant_label && (
-                      <span className="ml-1.5 text-[10px] text-lilac-700 bg-lilac-50 border border-lilac-200 px-1.5 py-0.5 rounded font-medium">
+                      <span className="ml-1.5 text-[10px] text-lilac-700 dark:text-lilac-300 bg-lilac-50 dark:bg-slate-800 border border-lilac-200 dark:border-slate-700 px-1.5 py-0.5 rounded font-medium">
                         {itemToDelete.variant_label}
                       </span>
                     )}
@@ -1507,20 +1533,20 @@ export const SalesView: React.FC = () => {
                 </div>
               </div>
 
-              <p className="text-xs text-slate-600 leading-relaxed">
+              <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                 ¿Confirmas que deseas eliminar este producto del ticket de venta?
               </p>
             </div>
 
             {/* Footer / Botones */}
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
+            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-850/80 border-t border-slate-200 dark:border-slate-700 flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => {
                   setItemToDelete(null)
                   barcodeInputRef.current?.focus()
                 }}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+                className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:outline-none"
               >
                 Cancelar (Esc)
               </button>
@@ -1532,9 +1558,9 @@ export const SalesView: React.FC = () => {
                   setItemToDelete(null)
                   barcodeInputRef.current?.focus()
                 }}
-                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-md shadow-rose-600/25 flex items-center gap-2 transition-all cursor-pointer"
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white text-xs font-black shadow-md shadow-rose-600/25 flex items-center gap-2 transition-colors duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-4 h-4" aria-hidden="true" />
                 <span>Sí, Quitar (Enter)</span>
               </button>
             </div>
@@ -1544,17 +1570,19 @@ export const SalesView: React.FC = () => {
 
       {/* Modal de confirmación para descartar ticket / cancelar cambio */}
       {ticketToDiscard && (
-        <div onClick={handleBackdropTicketDiscard} className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 select-none animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
+        <div onClick={handleBackdropTicketDiscard} className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 select-none animate-in fade-in duration-150">
+          <div role="dialog" aria-modal="true" aria-labelledby="discard-ticket-title" className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
             {/* Header */}
-            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-850/80 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                  className={clsx(
+                    'w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-2xs border',
                     ticketToDiscard.exchangeInfo
-                      ? 'bg-amber-100 text-amber-600'
-                      : 'bg-rose-100 text-rose-600'
-                  }`}
+                      ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200/60 dark:border-amber-800/50'
+                      : 'bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border-rose-200/60 dark:border-rose-800/50'
+                  )}
+                  aria-hidden="true"
                 >
                   {ticketToDiscard.exchangeInfo ? (
                     <ArrowLeftRight className="w-5 h-5" />
@@ -1563,12 +1591,12 @@ export const SalesView: React.FC = () => {
                   )}
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-slate-900">
+                  <h4 id="discard-ticket-title" className="text-sm font-bold text-slate-900 dark:text-slate-100">
                     {ticketToDiscard.exchangeInfo
                       ? 'Cancelar Operación de Cambio'
                       : `Descartar ${ticketToDiscard.label}`}
                   </h4>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
                     {ticketToDiscard.exchangeInfo
                       ? `Venta original Folio #${ticketToDiscard.exchangeInfo.originalFolio}`
                       : `${ticketToDiscard.itemsCount} producto(s) en este ticket`}
@@ -1581,9 +1609,10 @@ export const SalesView: React.FC = () => {
                   setTicketToDiscard(null)
                   barcodeInputRef.current?.focus()
                 }}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
+                aria-label="Cerrar modal"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:outline-none"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
 
@@ -1591,32 +1620,32 @@ export const SalesView: React.FC = () => {
             <div className="p-6 flex flex-col gap-3">
               {ticketToDiscard.exchangeInfo ? (
                 <>
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 flex flex-col gap-1 text-xs">
-                    <span className="font-bold text-amber-900">
+                  <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 rounded-xl p-3.5 flex flex-col gap-1 text-xs">
+                    <span className="font-bold text-amber-900 dark:text-amber-200">
                       ¿Deseas cancelar la operación de cambio de producto?
                     </span>
-                    <span className="text-amber-700 text-[11px]">
+                    <span className="text-amber-700 dark:text-amber-300 text-[11px] tabular-nums">
                       Crédito a favor:{' '}
                       <strong className="font-bold">
                         {formatCLP(ticketToDiscard.exchangeInfo.exchangeCredit)}
                       </strong>
                     </span>
                   </div>
-                  <p className="text-xs text-slate-600 leading-relaxed">
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                     Al cerrar este ticket se cancelará la operación de cambio y no se procesará la reposición ni salida de inventario.
                   </p>
                 </>
               ) : (
                 <>
-                  <div className="bg-rose-50 border border-rose-200 rounded-xl p-3.5 flex flex-col gap-1 text-xs">
-                    <span className="font-bold text-rose-900">
+                  <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 rounded-xl p-3.5 flex flex-col gap-1 text-xs">
+                    <span className="font-bold text-rose-900 dark:text-rose-200">
                       ¿Deseas descartar el ticket y sus productos?
                     </span>
-                    <span className="text-rose-700 text-[11px]">
+                    <span className="text-rose-700 dark:text-rose-300 text-[11px] tabular-nums">
                       Se perderán los {ticketToDiscard.itemsCount} producto(s) agregados.
                     </span>
                   </div>
-                  <p className="text-xs text-slate-600 leading-relaxed">
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                     Esta acción descartará el ticket actual y sus productos ingresados.
                   </p>
                 </>
@@ -1624,14 +1653,14 @@ export const SalesView: React.FC = () => {
             </div>
 
             {/* Footer / Botones */}
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3">
+            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-850/80 border-t border-slate-200 dark:border-slate-700 flex items-center justify-end gap-3">
               <button
                 type="button"
                 onClick={() => {
                   setTicketToDiscard(null)
                   barcodeInputRef.current?.focus()
                 }}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+                className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:outline-none"
               >
                 {ticketToDiscard.exchangeInfo ? 'Continuar con el cambio (Esc)' : 'Mantener ticket (Esc)'}
               </button>
@@ -1644,20 +1673,21 @@ export const SalesView: React.FC = () => {
                   deleteTicket(idx)
                   barcodeInputRef.current?.focus()
                 }}
-                className={`px-5 py-2.5 rounded-xl text-white text-xs font-black shadow-md flex items-center gap-2 transition-all cursor-pointer ${
+                className={clsx(
+                  'px-5 py-2.5 rounded-xl text-white text-xs font-black shadow-md flex items-center gap-2 transition-colors duration-150 cursor-pointer focus-visible:ring-2 focus-visible:outline-none',
                   ticketToDiscard.exchangeInfo
-                    ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/25'
-                    : 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/25'
-                }`}
+                    ? 'bg-amber-600 hover:bg-amber-700 active:bg-amber-800 shadow-amber-600/25 focus-visible:ring-amber-500'
+                    : 'bg-rose-600 hover:bg-rose-700 active:bg-rose-800 shadow-rose-600/25 focus-visible:ring-rose-500'
+                )}
               >
                 {ticketToDiscard.exchangeInfo ? (
                   <>
-                    <X className="w-4 h-4" />
+                    <X className="w-4 h-4" aria-hidden="true" />
                     <span>Sí, Cancelar Cambio (Enter)</span>
                   </>
                 ) : (
                   <>
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-4 h-4" aria-hidden="true" />
                     <span>Sí, Descartar (Enter)</span>
                   </>
                 )}
@@ -1669,18 +1699,18 @@ export const SalesView: React.FC = () => {
 
       {/* Modal informativo de Reglas de Cambio (reemplaza alert nativo) */}
       {exchangeAlert && (
-        <div onClick={handleBackdropExchangeAlert} className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4 select-none animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
-            <div className="px-6 py-4 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
+        <div onClick={handleBackdropExchangeAlert} className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 select-none animate-in fade-in duration-150">
+          <div role="dialog" aria-modal="true" aria-labelledby="exchange-alert-title" className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-amber-200 dark:border-amber-800/60 max-w-md w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
+            <div className="px-6 py-4 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-800/60 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/50 flex items-center justify-center shrink-0 shadow-2xs" aria-hidden="true">
                   <AlertTriangle className="w-5 h-5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-slate-900">
+                  <h4 id="exchange-alert-title" className="text-sm font-bold text-slate-900 dark:text-slate-100">
                     Cambio no completado
                   </h4>
-                  <p className="text-[11px] text-amber-800">
+                  <p className="text-[11px] text-amber-800 dark:text-amber-300">
                     Regla de cambio de producto
                   </p>
                 </div>
@@ -1691,19 +1721,20 @@ export const SalesView: React.FC = () => {
                   setExchangeAlert(null)
                   barcodeInputRef.current?.focus()
                 }}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-200 transition-colors cursor-pointer"
+                aria-label="Cerrar modal"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:outline-none"
               >
-                <X className="w-4 h-4" />
+                <X className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
 
             <div className="p-6 flex flex-col gap-3">
-              <p className="text-xs text-slate-700 leading-relaxed font-medium whitespace-pre-line">
+              <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-medium whitespace-pre-line">
                 {exchangeAlert}
               </p>
             </div>
 
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end">
+            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-850/80 border-t border-slate-200 dark:border-slate-700 flex items-center justify-end">
               <button
                 type="button"
                 autoFocus
@@ -1711,7 +1742,7 @@ export const SalesView: React.FC = () => {
                   setExchangeAlert(null)
                   barcodeInputRef.current?.focus()
                 }}
-                className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-black shadow-md shadow-amber-600/25 transition-all cursor-pointer"
+                className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-xs font-black shadow-md shadow-amber-600/25 transition-colors duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:outline-none"
               >
                 Entendido (Enter)
               </button>
@@ -1722,22 +1753,22 @@ export const SalesView: React.FC = () => {
 
       {/* Mensaje de Producto sin stock o stock máximo alcanzado (duración 2.2 segundos al medio de la pantalla) */}
       {stockAlert && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none p-4 select-none animate-in fade-in zoom-in-95 duration-150">
-          <div className="bg-white border-2 border-rose-500 rounded-3xl shadow-2xl px-8 py-6 flex items-center gap-5 max-w-lg mx-auto ring-8 ring-rose-500/10">
-            <div className="w-14 h-14 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 shadow-inner">
+        <div role="status" aria-live="assertive" className="fixed inset-0 z-[100] flex items-center justify-center pointer-events-none p-4 select-none animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white dark:bg-slate-850 border-2 border-rose-500 rounded-2xl shadow-2xl px-8 py-6 flex items-center gap-5 max-w-lg mx-auto ring-8 ring-rose-500/10">
+            <div className="w-14 h-14 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200/60 dark:border-rose-800/50 flex items-center justify-center shrink-0 shadow-inner" aria-hidden="true">
               <AlertTriangle className="w-8 h-8" />
             </div>
             <div className="flex flex-col">
-              <span className="text-xl font-black text-rose-600 tracking-tight">
+              <span className="text-xl font-black text-rose-600 dark:text-rose-400 tracking-tight">
                 {stockAlert.title}
               </span>
               {stockAlert.productName && (
-                <span className="text-xs font-bold text-slate-800 mt-1 line-clamp-1">
+                <span className="text-xs font-bold text-slate-900 dark:text-slate-100 mt-1 line-clamp-1">
                   {stockAlert.productName}
                 </span>
               )}
               {stockAlert.message && (
-                <span className="text-xs text-slate-500 mt-0.5">
+                <span className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   {stockAlert.message}
                 </span>
               )}

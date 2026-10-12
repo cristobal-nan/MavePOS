@@ -11,8 +11,10 @@ import {
   ArrowRight,
   Printer,
   FileText,
-  Archive
+  Archive,
+  Loader2
 } from 'lucide-react'
+import clsx from 'clsx'
 import { PaymentMethod, CompletedSaleResult } from '@shared/types'
 import { formatCLP, parseCLP } from '../utils/formatters'
 import { calculatePaymentChange } from '@shared/finance'
@@ -298,36 +300,44 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   return (
     <div
       onClick={handleBackdropClick}
-      className="fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150 select-none"
     >
-      <div className="bg-white rounded-3xl shadow-2xl border border-lilac-100 max-w-lg w-full overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="checkout-modal-title"
+        className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-lg w-full overflow-hidden flex flex-col animate-in zoom-in-95 duration-150"
+      >
         {/* Success Screen */}
         {completedResult ? (
           <div className="p-8 flex flex-col items-center text-center">
-            <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4 shadow-sm">
+            <div
+              className="w-16 h-16 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-4 shadow-2xs border border-emerald-200/80 dark:border-emerald-800/60"
+              aria-hidden="true"
+            >
               <CheckCircle className="w-9 h-9" />
             </div>
 
-            <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full uppercase tracking-wider mb-2">
-              Venta Completada con Éxito
+            <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/50 px-3 py-1 rounded-full uppercase tracking-wider mb-2">
+              Venta completada con éxito
             </span>
 
-            <h3 className="text-2xl font-black text-slate-800 mb-0.5">
+            <h3 id="checkout-modal-title" className="text-2xl font-black text-slate-900 dark:text-slate-100 mb-0.5 tabular-nums">
               Folio #{completedResult.sale.folio}
             </h3>
-            <span className="text-xs font-semibold text-lilac-600 bg-lilac-50 px-2.5 py-0.5 rounded-full mb-2">
-              Ticket de Turno #{completedResult.sale.ticket_number ?? 0}
+            <span className="text-xs font-semibold text-lilac-700 dark:text-lilac-300 bg-lilac-50 dark:bg-lilac-950/40 border border-lilac-200/60 dark:border-lilac-800/50 px-2.5 py-0.5 rounded-full mb-2 tabular-nums">
+              Ticket de turno #{completedResult.sale.ticket_number ?? 0}
             </span>
-            <p className="text-sm text-slate-500 mb-4">
-              Total pagado: <span className="font-bold text-slate-700">{formatCLP(completedResult.sale.total)}</span>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+              Total pagado: <span className="font-bold text-slate-800 dark:text-slate-200 tabular-nums">{formatCLP(completedResult.sale.total)}</span>
             </p>
 
             {completedResult.change > 0 && (
-              <div className="w-full bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-4 text-center">
-                <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">
-                  Vuelto a Entregar
+              <div className="w-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl p-4 mb-4 text-center">
+                <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">
+                  Vuelto a entregar
                 </span>
-                <div className="text-3xl font-black text-emerald-600 mt-1">
+                <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400 mt-1 tabular-nums">
                   {formatCLP(completedResult.change)}
                 </div>
               </div>
@@ -336,16 +346,17 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
             {/* Print Status Message */}
             {printStatusMsg && (
               <div
-                className={`w-full p-2.5 rounded-xl text-xs font-semibold mb-3 flex items-center gap-2 ${
+                className={clsx(
+                  'w-full p-2.5 rounded-xl text-xs font-semibold mb-3 flex items-center gap-2',
                   printStatusMsg.type === 'success'
-                    ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
-                    : 'bg-rose-50 border border-rose-200 text-rose-800'
-                }`}
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                    : 'bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200'
+                )}
               >
                 {printStatusMsg.type === 'success' ? (
-                  <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+                  <CheckCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                 ) : (
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                 )}
                 <span>{printStatusMsg.text}</span>
               </div>
@@ -357,127 +368,161 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 type="button"
                 onClick={handlePrintThermal}
                 disabled={isPrintingThermal}
-                className="py-2.5 px-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-[11px] font-bold transition-all flex flex-col items-center gap-1.5 disabled:opacity-50"
+                className="py-2.5 px-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-750 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-bold transition-colors duration-150 motion-reduce:transition-none flex flex-col items-center gap-1.5 disabled:opacity-50 cursor-pointer focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:ring-offset-1 focus-visible:outline-none dark:focus-visible:ring-offset-slate-900"
               >
-                <Printer className="w-4 h-4 text-lilac-600" />
-                <span>{isPrintingThermal ? 'Imprimiendo...' : 'Ticket Térmico'}</span>
+                {isPrintingThermal ? (
+                  <Loader2 className="w-4 h-4 text-lilac-600 dark:text-lilac-400 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Printer className="w-4 h-4 text-lilac-600 dark:text-lilac-400" aria-hidden="true" />
+                )}
+                <span>{isPrintingThermal ? 'Imprimiendo…' : 'Ticket térmico'}</span>
               </button>
 
               <button
                 type="button"
                 onClick={handlePrintNormal}
                 disabled={isPrintingNormal}
-                className="py-2.5 px-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-[11px] font-bold transition-all flex flex-col items-center gap-1.5 disabled:opacity-50"
+                className="py-2.5 px-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-750 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-bold transition-colors duration-150 motion-reduce:transition-none flex flex-col items-center gap-1.5 disabled:opacity-50 cursor-pointer focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:ring-offset-1 focus-visible:outline-none dark:focus-visible:ring-offset-slate-900"
               >
-                <FileText className="w-4 h-4 text-lilac-600" />
-                <span>{isPrintingNormal ? 'Imprimiendo...' : 'Comprobante Normal'}</span>
+                {isPrintingNormal ? (
+                  <Loader2 className="w-4 h-4 text-lilac-600 dark:text-lilac-400 animate-spin" aria-hidden="true" />
+                ) : (
+                  <FileText className="w-4 h-4 text-lilac-600 dark:text-lilac-400" aria-hidden="true" />
+                )}
+                <span>{isPrintingNormal ? 'Imprimiendo…' : 'Comprobante normal'}</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleOpenDrawer}
                 disabled={isOpeningDrawer}
-                className="py-2.5 px-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-[11px] font-bold transition-all flex flex-col items-center gap-1.5 disabled:opacity-50"
+                className="py-2.5 px-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-750 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-bold transition-colors duration-150 motion-reduce:transition-none flex flex-col items-center gap-1.5 disabled:opacity-50 cursor-pointer focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:ring-offset-1 focus-visible:outline-none dark:focus-visible:ring-offset-slate-900"
               >
-                <Archive className="w-4 h-4 text-amber-600" />
-                <span>{isOpeningDrawer ? 'Abriendo...' : 'Abrir Cajón'}</span>
+                {isOpeningDrawer ? (
+                  <Loader2 className="w-4 h-4 text-amber-600 dark:text-amber-400 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Archive className="w-4 h-4 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                )}
+                <span>{isOpeningDrawer ? 'Abriendo…' : 'Abrir cajón'}</span>
               </button>
             </div>
 
             <button
               onClick={onClose}
-              className="w-full py-3.5 bg-lilac-600 hover:bg-lilac-700 text-white rounded-2xl font-bold text-sm transition-all shadow-md shadow-lilac-500/25 flex items-center justify-center gap-2"
+              className="w-full py-3.5 bg-lilac-600 hover:bg-lilac-700 active:bg-lilac-800 text-white rounded-xl font-bold text-sm transition-colors duration-150 motion-reduce:transition-none shadow-md shadow-lilac-500/25 flex items-center justify-center gap-2 cursor-pointer focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:ring-offset-1 focus-visible:outline-none dark:focus-visible:ring-offset-slate-900"
             >
-              <span>Continuar con Nueva Venta</span>
-              <ArrowRight className="w-4 h-4" />
+              <span>Continuar con nueva venta</span>
+              <ArrowRight className="w-4 h-4" aria-hidden="true" />
             </button>
           </div>
         ) : (
           /* Payment Form Screen */
           <>
             {/* Header */}
-            <div className="px-6 py-4 bg-slate-50 border-b border-lilac-100 flex items-center justify-between">
-              <div className="flex items-center gap-2 font-bold text-slate-800">
-                <Receipt className="w-5 h-5 text-lilac-600" />
-                <span>Cobro de Venta</span>
+            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-850/80 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+              <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-slate-100">
+                <Receipt className="w-5 h-5 text-lilac-600 dark:text-lilac-400" aria-hidden="true" />
+                <h2 id="checkout-modal-title" className="text-base font-bold tracking-tight">Cobro de Venta</h2>
               </div>
               <button
                 onClick={onClose}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-200 transition-colors"
+                aria-label="Cerrar modal de cobro"
+                title="Cerrar modal de cobro"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors duration-150 motion-reduce:transition-none cursor-pointer focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:outline-none"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5" aria-hidden="true" />
               </button>
             </div>
 
             {/* Total Banner */}
-            <div className="bg-lilac-600 px-6 py-4 text-white flex items-center justify-between shadow-inner">
-              <span className="text-sm font-medium text-lilac-100">Total a Pagar:</span>
-              <span className="text-3xl font-black tracking-tight">{formatCLP(totalAmount)}</span>
+            <div className="bg-lilac-600 dark:bg-lilac-950/80 dark:border-b dark:border-lilac-800/60 px-6 py-4 text-white flex items-center justify-between shadow-inner">
+              <span className="text-sm font-medium text-lilac-100 dark:text-lilac-200">Total a pagar:</span>
+              <span className="text-3xl font-black tracking-tight tabular-nums">{formatCLP(totalAmount)}</span>
             </div>
 
             <div className="p-6 space-y-5">
               {error && (
-                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+                <div className="p-3.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 rounded-xl text-xs text-rose-700 dark:text-rose-300 font-medium flex items-center gap-2" role="alert">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-500 dark:text-rose-400" aria-hidden="true" />
                   <span>{error}</span>
                 </div>
               )}
 
               {/* Payment Method Selector */}
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-2">
-                  Método de Pago:
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-2">
+                  Método de pago:
                 </label>
-                <div className="grid grid-cols-4 gap-2">
+                <div role="tablist" aria-label="Métodos de pago" className="grid grid-cols-4 gap-2">
                   <button
                     type="button"
+                    role="tab"
+                    aria-selected={activeMethod === 'cash'}
                     onClick={() => setActiveMethod('cash')}
-                    className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center gap-1.5 border ${
+                    className={clsx(
+                      'py-2.5 px-2 rounded-xl text-xs font-bold flex flex-col items-center gap-1.5 border cursor-pointer',
+                      'transition-colors duration-150 motion-reduce:transition-none',
+                      'focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:ring-offset-1 focus-visible:outline-none dark:focus-visible:ring-offset-slate-900',
                       activeMethod === 'cash'
-                        ? 'bg-lilac-100 text-lilac-900 border-lilac-300 ring-2 ring-lilac-400/50'
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                    }`}
+                        ? 'bg-lilac-100 text-lilac-950 border-lilac-300 ring-2 ring-lilac-400/50 dark:bg-lilac-950/80 dark:text-lilac-100 dark:border-lilac-700'
+                        : 'bg-white dark:bg-slate-850 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750'
+                    )}
                   >
-                    <Banknote className="w-4 h-4 text-emerald-600" />
+                    <Banknote className="w-4 h-4 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
                     <span>Efectivo</span>
                   </button>
 
                   <button
                     type="button"
+                    role="tab"
+                    aria-selected={activeMethod === 'card'}
                     onClick={() => setActiveMethod('card')}
-                    className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center gap-1.5 border ${
+                    className={clsx(
+                      'py-2.5 px-2 rounded-xl text-xs font-bold flex flex-col items-center gap-1.5 border cursor-pointer',
+                      'transition-colors duration-150 motion-reduce:transition-none',
+                      'focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:ring-offset-1 focus-visible:outline-none dark:focus-visible:ring-offset-slate-900',
                       activeMethod === 'card'
-                        ? 'bg-lilac-100 text-lilac-900 border-lilac-300 ring-2 ring-lilac-400/50'
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                    }`}
+                        ? 'bg-lilac-100 text-lilac-950 border-lilac-300 ring-2 ring-lilac-400/50 dark:bg-lilac-950/80 dark:text-lilac-100 dark:border-lilac-700'
+                        : 'bg-white dark:bg-slate-850 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750'
+                    )}
                   >
-                    <CreditCard className="w-4 h-4 text-blue-600" />
+                    <CreditCard className="w-4 h-4 text-blue-600 dark:text-blue-400" aria-hidden="true" />
                     <span>Tarjeta</span>
                   </button>
 
                   <button
                     type="button"
+                    role="tab"
+                    aria-selected={activeMethod === 'transfer'}
                     onClick={() => setActiveMethod('transfer')}
-                    className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center gap-1.5 border ${
+                    className={clsx(
+                      'py-2.5 px-2 rounded-xl text-xs font-bold flex flex-col items-center gap-1.5 border cursor-pointer',
+                      'transition-colors duration-150 motion-reduce:transition-none',
+                      'focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:ring-offset-1 focus-visible:outline-none dark:focus-visible:ring-offset-slate-900',
                       activeMethod === 'transfer'
-                        ? 'bg-lilac-100 text-lilac-900 border-lilac-300 ring-2 ring-lilac-400/50'
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                    }`}
+                        ? 'bg-lilac-100 text-lilac-950 border-lilac-300 ring-2 ring-lilac-400/50 dark:bg-lilac-950/80 dark:text-lilac-100 dark:border-lilac-700'
+                        : 'bg-white dark:bg-slate-850 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750'
+                    )}
                   >
-                    <SendHorizontal className="w-4 h-4 text-amber-600" />
+                    <SendHorizontal className="w-4 h-4 text-amber-600 dark:text-amber-400" aria-hidden="true" />
                     <span>Transf.</span>
                   </button>
 
                   <button
                     type="button"
+                    role="tab"
+                    aria-selected={activeMethod === 'mixed'}
                     onClick={() => setActiveMethod('mixed')}
-                    className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center gap-1.5 border ${
+                    className={clsx(
+                      'py-2.5 px-2 rounded-xl text-xs font-bold flex flex-col items-center gap-1.5 border cursor-pointer',
+                      'transition-colors duration-150 motion-reduce:transition-none',
+                      'focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:ring-offset-1 focus-visible:outline-none dark:focus-visible:ring-offset-slate-900',
                       activeMethod === 'mixed'
-                        ? 'bg-lilac-100 text-lilac-900 border-lilac-300 ring-2 ring-lilac-400/50'
-                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                    }`}
+                        ? 'bg-lilac-100 text-lilac-950 border-lilac-300 ring-2 ring-lilac-400/50 dark:bg-lilac-950/80 dark:text-lilac-100 dark:border-lilac-700'
+                        : 'bg-white dark:bg-slate-850 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-750'
+                    )}
                   >
-                    <Coins className="w-4 h-4 text-lilac-600" />
+                    <Coins className="w-4 h-4 text-lilac-600 dark:text-lilac-400" aria-hidden="true" />
                     <span>Mixto</span>
                   </button>
                 </div>
@@ -485,16 +530,17 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
               {/* Method Detail: Cash */}
               {activeMethod === 'cash' && (
-                <div className="space-y-4 bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
+                <div className="space-y-4 bg-slate-50 dark:bg-slate-850/60 p-4 rounded-xl border border-slate-200/80 dark:border-slate-700/80">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label htmlFor="cash-given-input" className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
                       ¿Con cuánto paga el cliente?
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-lg font-bold text-slate-400">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-lg font-bold text-slate-400 dark:text-slate-500" aria-hidden="true">
                         $
                       </span>
                       <input
+                        id="cash-given-input"
                         ref={cashInputRef}
                         type="text"
                         inputMode="numeric"
@@ -503,7 +549,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           const val = parseCLP(e.target.value)
                           setCashGiven(val === 0 && !e.target.value.trim() ? '' : val.toLocaleString('es-CL'))
                         }}
-                        className="w-full pl-8 pr-4 py-2.5 text-xl font-black text-slate-800 bg-white border border-slate-300 rounded-xl focus:outline-none focus:border-lilac-500 shadow-inner"
+                        className="w-full pl-8 pr-4 py-2.5 text-xl font-black text-slate-900 dark:text-white bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:outline-none tabular-nums shadow-inner"
                       />
                     </div>
                   </div>
@@ -511,13 +557,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   {/* Common bills */}
                   {commonBills.length > 0 && (
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[11px] font-semibold text-slate-400">Paga con:</span>
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Paga con:</span>
                       {commonBills.map((b) => (
                         <button
                           key={b.label}
                           type="button"
                           onClick={() => handleSelectQuickBill(b.amount)}
-                          className="px-2.5 py-1 text-xs bg-white hover:bg-lilac-50 text-slate-700 hover:text-lilac-800 border border-slate-200 rounded-lg font-semibold transition-colors shadow-2xs"
+                          className="px-2.5 py-1 text-xs bg-white dark:bg-slate-800 hover:bg-lilac-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 hover:text-lilac-800 dark:hover:text-lilac-200 border border-slate-200 dark:border-slate-700 rounded-lg font-semibold transition-colors duration-150 motion-reduce:transition-none shadow-2xs tabular-nums cursor-pointer focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:outline-none"
                         >
                           {b.label}
                         </button>
@@ -526,12 +572,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   )}
 
                   {/* Vuelto Calculation */}
-                  <div className="bg-white p-3 rounded-xl border border-slate-200 flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-600">Vuelto:</span>
+                  <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Vuelto:</span>
                     <span
-                      className={`text-xl font-black ${
-                        parsedCashGiven >= totalAmount ? 'text-emerald-600' : 'text-slate-400'
-                      }`}
+                      className={clsx(
+                        'text-xl font-black tabular-nums',
+                        parsedCashGiven >= totalAmount
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-slate-400 dark:text-slate-500'
+                      )}
                     >
                       {formatCLP(cashChange)}
                     </span>
@@ -541,37 +590,45 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
               {/* Method Detail: Card */}
               {activeMethod === 'card' && (
-                <div className="p-5 bg-blue-50/50 border border-blue-200/60 rounded-2xl flex items-center gap-3">
-                  <CreditCard className="w-8 h-8 text-blue-600 shrink-0" />
-                  <div className="text-xs text-slate-600">
-                    <p className="font-bold text-slate-800 mb-0.5">Pago con Tarjeta de Débito / Crédito</p>
-                    <p>Pasa la tarjeta por el POS Transbank o Redelcom por el monto total de <strong>{formatCLP(totalAmount)}</strong>.</p>
+                <div className="p-5 bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200/70 dark:border-blue-900/50 rounded-xl flex items-center gap-3">
+                  <CreditCard className="w-8 h-8 text-blue-600 dark:text-blue-400 shrink-0" aria-hidden="true" />
+                  <div className="text-xs text-slate-600 dark:text-slate-300">
+                    <p className="font-bold text-slate-900 dark:text-slate-100 mb-0.5">Pago con tarjeta de débito o crédito</p>
+                    <p>
+                      Pasa la tarjeta por el POS Transbank o Redelcom por el monto total de{' '}
+                      <strong className="text-slate-900 dark:text-slate-100 tabular-nums">{formatCLP(totalAmount)}</strong>.
+                    </p>
                   </div>
                 </div>
               )}
 
               {/* Method Detail: Transfer */}
               {activeMethod === 'transfer' && (
-                <div className="p-5 bg-amber-50/50 border border-amber-200/60 rounded-2xl flex items-center gap-3">
-                  <SendHorizontal className="w-8 h-8 text-amber-600 shrink-0" />
-                  <div className="text-xs text-slate-600">
-                    <p className="font-bold text-slate-800 mb-0.5">Transferencia Bancaria</p>
-                    <p>Verifica el comprobante por el monto exacto de <strong>{formatCLP(totalAmount)}</strong>.</p>
+                <div className="p-5 bg-amber-50/60 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-900/50 rounded-xl flex items-center gap-3">
+                  <SendHorizontal className="w-8 h-8 text-amber-600 dark:text-amber-400 shrink-0" aria-hidden="true" />
+                  <div className="text-xs text-slate-600 dark:text-slate-300">
+                    <p className="font-bold text-slate-900 dark:text-slate-100 mb-0.5">Transferencia bancaria</p>
+                    <p>
+                      Verifica el comprobante recibido por el monto exacto de{' '}
+                      <strong className="text-slate-900 dark:text-slate-100 tabular-nums">{formatCLP(totalAmount)}</strong>.
+                    </p>
                   </div>
                 </div>
               )}
 
               {/* Method Detail: Mixed */}
               {activeMethod === 'mixed' && (
-                <div className="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
-                  <p className="text-xs text-slate-500 font-medium">
-                    Ingresa los montos parciales para cada método (la suma debe ser {formatCLP(totalAmount)}):
+                <div className="space-y-3 bg-slate-50 dark:bg-slate-850/60 p-4 rounded-xl border border-slate-200/80 dark:border-slate-700/80">
+                  <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+                    Ingresa los montos parciales para cada método (la suma debe ser{' '}
+                    <strong className="text-slate-800 dark:text-slate-200 tabular-nums">{formatCLP(totalAmount)}</strong>):
                   </p>
 
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <span className="w-24 text-xs font-semibold text-slate-700">Efectivo:</span>
+                      <label htmlFor="mixed-cash-input" className="w-24 text-xs font-semibold text-slate-700 dark:text-slate-300">Efectivo:</label>
                       <input
+                        id="mixed-cash-input"
                         type="text"
                         value={mixedCash}
                         onChange={(e) => {
@@ -579,13 +636,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           setMixedCash(val === 0 && !e.target.value.trim() ? '' : val.toLocaleString('es-CL'))
                         }}
                         placeholder="0"
-                        className="flex-1 px-3 py-1.5 text-sm font-bold bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-lilac-500"
+                        className="flex-1 px-3 py-1.5 text-sm font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-600 rounded-lg focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:outline-none tabular-nums"
                       />
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="w-24 text-xs font-semibold text-slate-700">Tarjeta:</span>
+                      <label htmlFor="mixed-card-input" className="w-24 text-xs font-semibold text-slate-700 dark:text-slate-300">Tarjeta:</label>
                       <input
+                        id="mixed-card-input"
                         type="text"
                         value={mixedCard}
                         onChange={(e) => {
@@ -593,13 +651,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           setMixedCard(val === 0 && !e.target.value.trim() ? '' : val.toLocaleString('es-CL'))
                         }}
                         placeholder="0"
-                        className="flex-1 px-3 py-1.5 text-sm font-bold bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-lilac-500"
+                        className="flex-1 px-3 py-1.5 text-sm font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-600 rounded-lg focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:outline-none tabular-nums"
                       />
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="w-24 text-xs font-semibold text-slate-700">Transf.:</span>
+                      <label htmlFor="mixed-transfer-input" className="w-24 text-xs font-semibold text-slate-700 dark:text-slate-300">Transf.:</label>
                       <input
+                        id="mixed-transfer-input"
                         type="text"
                         value={mixedTransfer}
                         onChange={(e) => {
@@ -607,19 +666,20 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           setMixedTransfer(val === 0 && !e.target.value.trim() ? '' : val.toLocaleString('es-CL'))
                         }}
                         placeholder="0"
-                        className="flex-1 px-3 py-1.5 text-sm font-bold bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-lilac-500"
+                        className="flex-1 px-3 py-1.5 text-sm font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-600 rounded-lg focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:outline-none tabular-nums"
                       />
                     </div>
                   </div>
 
-                  <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-xs font-bold">
-                    <span>Suma actual:</span>
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs font-bold">
+                    <span className="text-slate-600 dark:text-slate-400">Suma actual:</span>
                     <span
-                      className={
+                      className={clsx(
+                        'tabular-nums font-mono',
                         parseCLP(mixedCash) + parseCLP(mixedCard) + parseCLP(mixedTransfer) === totalAmount
-                          ? 'text-emerald-600'
-                          : 'text-rose-600'
-                      }
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-rose-600 dark:text-rose-400'
+                      )}
                     >
                       {formatCLP(parseCLP(mixedCash) + parseCLP(mixedCard) + parseCLP(mixedTransfer))} / {formatCLP(totalAmount)}
                     </span>
@@ -633,22 +693,30 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   type="button"
                   onClick={() => handleConfirmPayment(true)}
                   disabled={isSubmitting}
-                  className="py-3.5 px-4 bg-lilac-600 hover:bg-lilac-700 text-white rounded-2xl font-bold text-sm transition-all shadow-md shadow-lilac-500/25 flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-50 cursor-pointer"
+                  className="py-3 px-4 bg-lilac-600 hover:bg-lilac-700 active:bg-lilac-800 text-white rounded-xl font-bold text-sm transition-colors duration-150 motion-reduce:transition-none shadow-md shadow-lilac-500/25 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:ring-offset-1 focus-visible:outline-none dark:focus-visible:ring-offset-slate-900"
                   title="Registrar venta y emitir ticket térmico (Enter)"
                 >
-                  <Printer className="w-5 h-5 shrink-0" />
-                  <span>{isSubmitting ? 'Cobrando...' : 'Cobrar e Imprimir (Enter)'}</span>
+                  {isSubmitting ? (
+                    <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <Printer className="w-5 h-5 shrink-0" aria-hidden="true" />
+                  )}
+                  <span>{isSubmitting ? 'Cobrando…' : 'Cobrar e Imprimir (Enter)'}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => handleConfirmPayment(false)}
                   disabled={isSubmitting}
-                  className="py-3.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-50 cursor-pointer shadow-xs"
+                  className="py-3 px-4 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-650 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-600 rounded-xl font-bold text-sm transition-colors duration-150 motion-reduce:transition-none flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:ring-offset-1 focus-visible:outline-none dark:focus-visible:ring-offset-slate-900"
                   title="Registrar venta sin emitir ticket impreso (Shift+Enter o F11)"
                 >
-                  <CheckCircle className="w-5 h-5 shrink-0 text-emerald-600" />
-                  <span>{isSubmitting ? 'Cobrando...' : 'Cobrar sin Imprimir (F11)'}</span>
+                  {isSubmitting ? (
+                    <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <CheckCircle className="w-5 h-5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                  )}
+                  <span>{isSubmitting ? 'Cobrando…' : 'Cobrar sin Imprimir (F11)'}</span>
                 </button>
               </div>
             </div>

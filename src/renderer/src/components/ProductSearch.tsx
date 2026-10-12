@@ -17,6 +17,8 @@ import {
 import { ProductSearchResult } from '@shared/types'
 import { formatCLP } from '../utils/formatters'
 import { useCatalogStore } from '../store/catalogStore'
+import { useMemoryCatalogStore } from '../store/memoryCatalogStore'
+import { EmptyState } from './common/EmptyState'
 
 interface ProductSearchProps {
   onSelectProduct?: (product: ProductSearchResult) => void
@@ -72,11 +74,43 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
     config
   } = useCatalogStore()
 
-  const products = context === 'modal' ? modalProducts : catalogProducts
-  const searchQuery = context === 'modal' ? modalSearchQuery : catalogSearchQuery
-  const isLoading = context === 'modal' ? modalIsLoading : catalogIsLoading
-  const isLoadingMore = context === 'modal' ? modalIsLoadingMore : catalogIsLoadingMore
-  const hasMore = context === 'modal' ? modalHasMore : catalogHasMore
+  const {
+    isInitialized: isMemoryInitialized,
+    searchLocal: searchMemoryLocal
+  } = useMemoryCatalogStore()
+
+  const isModal = context === 'modal'
+
+  // Si estamos en modal o catálogo y el motor en memoria está listo, resolvemos en RAM (0 ms)
+  const memorySearchResults = React.useMemo(() => {
+    if (!isMemoryInitialized) return null
+    // En catálogo con paginación/filtros avanzados de tipo 'variable' o 'all', usamos SQLite
+    if (!isModal) return null
+
+    const query = modalSearchQuery
+    return searchMemoryLocal({
+      query,
+      categoryId: null,
+      supplierId: null,
+      orderBy,
+      orderDir,
+      limit: 200
+    })
+  }, [isMemoryInitialized, isModal, modalSearchQuery, orderBy, orderDir, searchMemoryLocal])
+
+  const products = memorySearchResults !== null
+    ? memorySearchResults
+    : (isModal ? modalProducts : catalogProducts)
+  const searchQuery = isModal ? modalSearchQuery : catalogSearchQuery
+  const isLoading = memorySearchResults !== null
+    ? false
+    : (isModal ? modalIsLoading : catalogIsLoading)
+  const isLoadingMore = memorySearchResults !== null
+    ? false
+    : (isModal ? modalIsLoadingMore : catalogIsLoadingMore)
+  const hasMore = memorySearchResults !== null
+    ? false
+    : (isModal ? modalHasMore : catalogHasMore)
 
   // Seleccionar conjunto de anchos según contexto (pestaña vs ventana emergente)
   const columnWidths = context === 'modal' ? modalColumnWidths : catalogColumnWidths
@@ -363,7 +397,6 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
     )
   }
 
-  const isModal = context === 'modal'
   const showTypeCol = context !== 'modal'
 
   const totalColumnsWidth =
@@ -377,9 +410,9 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
     (showActions ? columnWidths.actions : 0)
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-white rounded-2xl border border-black/60 shadow-sm overflow-hidden select-none">
+    <div className="flex-1 flex flex-col h-full bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden select-none">
       {/* Search Input Bar */}
-      <div className={`${isModal ? 'p-2' : 'p-2.5'} border-b border-black/60 bg-white flex items-center gap-2.5`}>
+      <div className={`${isModal ? 'p-2' : 'p-2.5'} border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-2.5`}>
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -390,12 +423,12 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
             placeholder={placeholder}
             autoFocus={autoFocus}
             onKeyDown={handleInputKeyDown}
-            className={`w-full pl-9 pr-4 ${isModal ? 'py-1.5 text-sm' : 'py-1.5 text-xs'} bg-slate-50 border border-slate-200 focus:border-lilac-500 focus:bg-white rounded-xl text-slate-800 placeholder:text-slate-400 focus:outline-none transition-all`}
+            className={`w-full pl-9 pr-4 ${isModal ? 'py-1.5 text-sm' : 'py-1.5 text-xs'} bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-lilac-500 focus:bg-white dark:focus:bg-slate-800 rounded-xl text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500 transition-all`}
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('', context)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 px-1.5 py-0.5 rounded bg-slate-200 hover:bg-slate-300"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 dark:text-slate-300 hover:text-slate-700 dark:hover:text-white px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors cursor-pointer"
             >
               Limpiar
             </button>
@@ -404,7 +437,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
 
         <div className="text-xs text-slate-400 whitespace-nowrap hidden sm:flex items-center gap-1.5 font-medium">
           <span>Mostrando:</span>
-          <span className="font-bold text-lilac-700 bg-lilac-50 border border-lilac-200 px-2 py-0.5 rounded-full">
+          <span className="font-bold font-mono tabular-nums text-lilac-700 dark:text-lilac-300 bg-lilac-50 dark:bg-slate-800 border border-lilac-200 dark:border-slate-700 px-2 py-0.5 rounded-full">
             {products.length}{hasMore ? '+' : ''}
           </span>
           {hasMore && (
@@ -440,14 +473,13 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
             <col style={{ width: `${columnWidths.price}px`, minWidth: `${columnWidths.price}px` }} />
             <col style={{ width: `${columnWidths.stock}px`, minWidth: `${columnWidths.stock}px` }} />
             {showActions && <col style={{ width: `${columnWidths.actions}px`, minWidth: `${columnWidths.actions}px` }} />}
-            <col style={{ width: 'auto' }} />
           </colgroup>
-          <thead className="bg-slate-100 dark:bg-slate-800 sticky top-0 z-10 border-b border-black/60 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 shadow-sm">
-            <tr>
+          <thead className="bg-slate-100 dark:bg-slate-800 sticky top-0 z-10 border-b border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 shadow-sm">
+            <tr className="h-9">
               {enableMultiSelect && (
                 <th
                   style={{ width: '40px', minWidth: '40px' }}
-                  className="py-1 px-1 text-center border-r border-black/60 dark:border-slate-700 cursor-pointer select-none hover:bg-slate-200/70 dark:hover:bg-slate-700/60 transition-colors"
+                  className="py-1 px-1 text-center border-r border-slate-200 dark:border-slate-700 cursor-pointer select-none hover:bg-slate-200/70 dark:hover:bg-slate-700/60 transition-colors"
                   onClick={(e) => {
                     if ((e.target as HTMLElement).tagName !== 'INPUT') {
                       onSelectAllVisible?.()
@@ -459,8 +491,9 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                     <input
                       type="checkbox"
                       checked={isAllVisibleSelected && products.length > 0}
-                      onChange={onSelectAllVisible}
-                      className="w-4 h-4 rounded text-lilac-600 focus:ring-lilac-500 cursor-pointer accent-lilac-600"
+                      onChange={onSelectAllVisible || (() => {})}
+                      aria-label="Seleccionar todos los productos visibles"
+                      className="w-4 h-4 rounded text-lilac-600 focus:ring-lilac-500 cursor-pointer accent-lilac-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
                       title="Seleccionar / deseleccionar todos los visibles"
                     />
                   </div>
@@ -470,7 +503,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
               {/* Código */}
               <th
                 style={{ width: `${columnWidths.code}px`, minWidth: `${columnWidths.code}px` }}
-                className="py-1 px-2.5 relative border-r border-black/60 dark:border-slate-700"
+                className="py-1 px-2.5 relative border-r border-slate-200 dark:border-slate-700"
               >
                 <span>Código</span>
                 {renderResizeHandle('code')}
@@ -479,7 +512,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
               {/* Nombre (Ordenable) */}
               <th
                 style={{ width: `${columnWidths.name}px`, minWidth: `${columnWidths.name}px` }}
-                className="py-1 px-2.5 relative border-r border-black/60 dark:border-slate-700 group cursor-pointer hover:bg-slate-200/60 dark:hover:bg-slate-700/60"
+                className="py-1 px-2.5 relative border-r border-slate-200 dark:border-slate-700 group cursor-pointer hover:bg-slate-200/60 dark:hover:bg-slate-700/60"
                 onClick={() => {
                   if (hasDraggedRef.current) return
                   toggleSort('name', context)
@@ -496,7 +529,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
               {showTypeCol && (
                 <th
                   style={{ width: `${columnWidths.type}px`, minWidth: `${columnWidths.type}px` }}
-                  className="py-1 px-2.5 relative border-r border-black/60 dark:border-slate-700"
+                  className="py-1 px-2.5 relative border-r border-slate-200 dark:border-slate-700"
                 >
                   <span>Tipo / Variación</span>
                   {renderResizeHandle('type')}
@@ -506,7 +539,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
               {/* Categoría */}
               <th
                 style={{ width: `${columnWidths.category}px`, minWidth: `${columnWidths.category}px` }}
-                className="py-1 px-2.5 relative border-r border-black/60 dark:border-slate-700"
+                className="py-1 px-2.5 relative border-r border-slate-200 dark:border-slate-700"
               >
                 <span>Categoría</span>
                 {renderResizeHandle('category')}
@@ -515,7 +548,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
               {/* Precio (Ordenable) */}
               <th
                 style={{ width: `${columnWidths.price}px`, minWidth: `${columnWidths.price}px` }}
-                className="py-1 px-2.5 relative border-r border-black/60 dark:border-slate-700 group cursor-pointer hover:bg-slate-200/60 dark:hover:bg-slate-700/60 text-right"
+                className="py-1 px-2.5 relative border-r border-slate-200 dark:border-slate-700 group cursor-pointer hover:bg-slate-200/60 dark:hover:bg-slate-700/60 text-right"
                 onClick={() => {
                   if (hasDraggedRef.current) return
                   toggleSort('sale_price', context)
@@ -531,7 +564,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
               {/* Existencia (Ordenable) */}
               <th
                 style={{ width: `${columnWidths.stock}px`, minWidth: `${columnWidths.stock}px` }}
-                className="py-1 px-2.5 relative border-r border-black/60 dark:border-slate-700 group cursor-pointer hover:bg-slate-200/60 dark:hover:bg-slate-700/60 text-right"
+                className="py-1 px-2.5 relative border-r border-slate-200 dark:border-slate-700 group cursor-pointer hover:bg-slate-200/60 dark:hover:bg-slate-700/60 text-right"
                 onClick={() => {
                   if (hasDraggedRef.current) return
                   toggleSort('stock', context)
@@ -548,53 +581,58 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
               {showActions && (
                 <th
                   style={{ width: `${columnWidths.actions}px`, minWidth: `${columnWidths.actions}px` }}
-                  className="py-1 px-2 text-center relative border-r border-black/60"
+                  className="py-1 px-2 text-center relative border-r border-slate-200 dark:border-slate-700"
                 >
                   <span>Acciones</span>
                   {renderResizeHandle('actions')}
                 </th>
               )}
-
-              {/* Columna de relleno elástica (absorbe el espacio sobrante en pantallas anchas sin alterar las demás) */}
-              <th className="p-0 border-0 pointer-events-none" />
             </tr>
           </thead>
 
-          <tbody className={`divide-y divide-black/60 ${isModal ? 'text-sm' : 'text-xs'}`}>
+          <tbody className={isModal ? 'text-sm' : 'text-xs'}>
             {isLoading ? (
               <tr>
-                <td colSpan={(showActions ? 6 : 5) + (showTypeCol ? 1 : 0) + (enableMultiSelect ? 1 : 0) + 1} className="py-8 text-center text-slate-400">
-                  <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-lilac-600" />
-                  Buscando en catálogo...
+                <td colSpan={(showActions ? 6 : 5) + (showTypeCol ? 1 : 0) + (enableMultiSelect ? 1 : 0) + 1} className="py-12 text-center text-slate-400 dark:text-slate-500">
+                  <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-lilac-600 dark:text-lilac-400" />
+                  <span>Buscando en catálogo...</span>
                 </td>
               </tr>
             ) : visibleProducts.length === 0 ? (
               <tr>
-                <td colSpan={(showActions ? 6 : 5) + (showTypeCol ? 1 : 0) + (enableMultiSelect ? 1 : 0) + 1} className="py-12 text-center text-slate-400">
+                <td colSpan={(showActions ? 6 : 5) + (showTypeCol ? 1 : 0) + (enableMultiSelect ? 1 : 0) + 1} className="py-12 px-4">
                   {searchQuery.trim() ? (
-                    <span>No se encontraron productos coincidentes para "{searchQuery}".</span>
+                    <EmptyState
+                      icon={Search}
+                      title="Sin resultados"
+                      description={`No se encontraron productos coincidentes para "${searchQuery}".`}
+                      action={{
+                        label: 'Limpiar búsqueda',
+                        onClick: () => setSearchQuery('', context)
+                      }}
+                    />
                   ) : context === 'modal' && !config.modalAutoLoad ? (
-                    <div className="flex flex-col items-center justify-center gap-1.5 py-4">
-                      <Search className="w-6 h-6 text-lilac-400" />
-                      <span className="text-slate-700 font-bold text-xs">Escribe en el buscador para ver productos</span>
-                      <span className="text-slate-400 text-[11px]">Carga automática desactivada para mayor velocidad en equipos de bajos recursos.</span>
-                    </div>
+                    <EmptyState
+                      icon={Search}
+                      title="Escribe para buscar productos"
+                      description="La carga automática está desactivada para acelerar equipos con recursos limitados."
+                    />
                   ) : context === 'catalog' && !config.catalogAutoLoad ? (
-                    <div className="flex flex-col items-center justify-center gap-2 py-4">
-                      <Boxes className="w-7 h-7 text-lilac-400" />
-                      <span className="text-slate-800 font-bold text-xs">Carga automática desactivada</span>
-                      <span className="text-slate-500 text-[11px] max-w-sm">Escribe un término en el buscador, filtra por categoría o presiona el botón para cargar los productos.</span>
-                      <button
-                        type="button"
-                        onClick={() => fetchProducts(undefined, 'catalog')}
-                        className="mt-1 px-4 py-1.5 bg-lilac-600 hover:bg-lilac-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <RefreshCw className="w-3.5 h-3.5" />
-                        <span>Cargar productos ahora</span>
-                      </button>
-                    </div>
+                    <EmptyState
+                      icon={Boxes}
+                      title="Carga automática desactivada"
+                      description="Escribe en el buscador o presiona el botón para cargar todos los productos."
+                      action={{
+                        label: 'Cargar productos ahora',
+                        onClick: () => fetchProducts(undefined, 'catalog')
+                      }}
+                    />
                   ) : (
-                    <span>No se encontraron productos coincidentes.</span>
+                    <EmptyState
+                      icon={Boxes}
+                      title="No hay productos disponibles"
+                      description="No se encontraron productos coincidentes en este filtro o categoría."
+                    />
                   )}
                 </td>
               </tr>
@@ -625,23 +663,25 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                         onEditProduct(p)
                       }
                     }}
-                    className={`transition-colors cursor-pointer border-b border-black/60 dark:border-slate-700 ${
+                    className={`${
+                      isModal ? 'h-10 min-h-[40px]' : 'h-7.5 min-h-[30px]'
+                    } text-xs transition-colors cursor-pointer border-b border-slate-100 dark:border-slate-800 leading-tight ${
                       isHighlighted
-                        ? 'product-row-highlighted bg-lilac-200/95 dark:bg-slate-700 text-lilac-950 dark:text-white font-bold'
+                        ? 'product-row-highlighted bg-lilac-200/95 dark:bg-lilac-950/70 text-lilac-950 dark:text-lilac-100 font-bold'
                         : isChecked
                         ? 'bg-lilac-100/70 dark:bg-slate-700/60 font-semibold text-slate-900 dark:text-slate-100'
                         : isSelected
                         ? 'bg-lilac-100 dark:bg-slate-700/60 font-semibold text-slate-900 dark:text-slate-100'
                         : isVariable
-                        ? 'bg-slate-100 hover:bg-slate-200/70 dark:bg-slate-800/80 dark:hover:bg-slate-700/50'
+                        ? 'bg-slate-50 hover:bg-slate-100 dark:bg-slate-850 dark:hover:bg-slate-800'
                         : isVariation
-                        ? 'bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700/40'
-                        : 'bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700/40'
+                        ? 'bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800/50'
+                        : 'bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800/50'
                     }`}
                   >
                     {enableMultiSelect && (
                       <td
-                        className="p-0 text-center border-r border-black/60 dark:border-slate-700 cursor-pointer select-none"
+                        className="p-0 text-center border-r border-slate-100 dark:border-slate-800 cursor-pointer select-none"
                         onClick={(e) => {
                           e.stopPropagation()
                           if ((e.target as HTMLElement).tagName !== 'INPUT') {
@@ -664,13 +704,14 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                                 onToggleSelect?.(p)
                               }
                             }}
-                            className="w-4 h-4 rounded text-lilac-600 focus:ring-lilac-500 cursor-pointer accent-lilac-600"
+                            aria-label={`Seleccionar producto ${p.name}`}
+                            className="w-4 h-4 rounded text-lilac-600 focus:ring-lilac-500 cursor-pointer accent-lilac-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
                           />
                         </div>
                       </td>
                     )}
                     {/* Código */}
-                    <td className={`${rowPadding} font-mono text-slate-700 dark:text-slate-300 truncate border-r border-black/60 dark:border-slate-700`}>
+                    <td className={`${rowPadding} font-mono tabular-nums text-slate-700 dark:text-slate-300 truncate border-r border-slate-100 dark:border-slate-800`}>
                       {p.code ? (
                         p.code
                       ) : (
@@ -679,13 +720,13 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                     </td>
 
                     {/* Nombre con sangría y botón expandir/colapsar */}
-                    <td className={`${rowPadding} text-slate-900 dark:text-slate-100 font-medium truncate border-r border-black/60 dark:border-slate-700`} title={p.name}>
+                    <td className={`${rowPadding} text-slate-900 dark:text-slate-100 font-medium truncate border-r border-slate-100 dark:border-slate-800`} title={p.name}>
                       <div className="flex items-center gap-1.5 truncate">
                         {isVariable && p.id && (
                           <button
                             type="button"
                             onClick={(e) => toggleParentCollapse(p.id!, e)}
-                            className="p-0.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors shrink-0"
+                            className="p-0.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
                             title={isCollapsed ? 'Desplegar variaciones' : 'Colapsar variaciones'}
                           >
                             {isCollapsed ? (
@@ -708,22 +749,22 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
 
                     {/* Tipo / Variación (solo si no es modal) */}
                     {showTypeCol && (
-                      <td className={`${rowPadding} text-slate-600 dark:text-slate-300 truncate border-r border-black/60 dark:border-slate-700`}>
+                      <td className={`${rowPadding} text-slate-600 dark:text-slate-300 truncate border-r border-slate-100 dark:border-slate-800`}>
                         {isVariable ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-lilac-700 dark:text-lilac-300 bg-lilac-50 dark:bg-slate-700/70 border border-lilac-200 dark:border-slate-600 px-2 py-0.5 rounded-md">
-                            <GitBranch className="w-3 h-3 text-lilac-500 dark:text-lilac-400" />
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-lilac-700 dark:text-lilac-300 bg-lilac-50 dark:bg-slate-800 border border-lilac-200 dark:border-slate-700 px-1.5 py-0 rounded leading-none">
+                            <GitBranch className="w-2.5 h-2.5 text-lilac-500 dark:text-lilac-400" />
                             <span>Variable ({p.variations_count || 0})</span>
                           </span>
                         ) : isVariation ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-slate-700/70 border border-blue-200 dark:border-slate-600 px-2 py-0.5 rounded-md">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-slate-800 border border-blue-200 dark:border-slate-700 px-1.5 py-0 rounded leading-none">
                             <span>
                               {p.attribute_name ? `${p.attribute_name}: ` : ''}
                               {p.attribute_value || 'Variación'}
                             </span>
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-slate-700/70 border border-emerald-200 dark:border-slate-600 px-2 py-0.5 rounded-md">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-500 dark:text-emerald-400" />
+                          <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-slate-800 border border-emerald-200 dark:border-slate-700 px-1.5 py-0 rounded leading-none">
+                            <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500 dark:text-emerald-400" />
                             <span>Simple</span>
                           </span>
                         )}
@@ -731,27 +772,27 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                     )}
 
                     {/* Categoría */}
-                    <td className={`${rowPadding} text-slate-600 dark:text-slate-300 truncate border-r border-black/60 dark:border-slate-700`} title={p.category_display || p.category_name || 'Sin categoría'}>
+                    <td className={`${rowPadding} text-slate-600 dark:text-slate-300 truncate border-r border-slate-100 dark:border-slate-800`} title={p.category_display || p.category_name || 'Sin categoría'}>
                       {p.category_display ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-700/70 border border-transparent dark:border-slate-600 px-2 py-0.5 rounded-md truncate max-w-full">
-                          <Layers className="w-3 h-3 text-slate-400 shrink-0" />
+                        <span className="inline-flex items-center gap-1 text-[10px] text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700 px-1.5 py-0 rounded leading-none truncate max-w-full">
+                          <Layers className="w-2.5 h-2.5 text-slate-400 shrink-0" />
                           <span className="truncate">{p.category_display}</span>
                         </span>
                       ) : p.category_name ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700/70 border border-transparent dark:border-slate-600 px-2 py-0.5 rounded-md truncate max-w-full">
-                          <Layers className="w-3 h-3 text-slate-400 shrink-0" />
+                        <span className="inline-flex items-center gap-1 text-[10px] text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700 px-1.5 py-0 rounded leading-none truncate max-w-full">
+                          <Layers className="w-2.5 h-2.5 text-slate-400 shrink-0" />
                           <span className="truncate">
                             {p.parent_category_name ? `${p.parent_category_name} / ` : ''}
                             {p.category_name}
                           </span>
                         </span>
                       ) : (
-                        <span className="text-slate-300 dark:text-slate-500 italic">Sin categoría</span>
+                        <span className="text-slate-300 dark:text-slate-500 italic text-[11px]">Sin categoría</span>
                       )}
                     </td>
 
                     {/* Precio */}
-                    <td className={`${rowPadding} text-right font-semibold text-slate-800 dark:text-slate-200 border-r border-black/60 dark:border-slate-700`}>
+                    <td className={`${rowPadding} text-right font-semibold tabular-nums text-slate-800 dark:text-slate-200 border-r border-slate-100 dark:border-slate-800`}>
                       {isVariable ? (
                         <span className="text-slate-400 dark:text-slate-500 font-normal italic">—</span>
                       ) : (
@@ -760,12 +801,12 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                     </td>
 
                     {/* Existencia / Stock */}
-                    <td className={`${rowPadding} text-right border-r border-black/60 dark:border-slate-700`}>
+                    <td className={`${rowPadding} text-right tabular-nums border-r border-slate-100 dark:border-slate-800`}>
                       {isVariable ? (
                         <span className="text-slate-400 dark:text-slate-500 italic">—</span>
                       ) : (
                         <span
-                          className={`inline-flex items-center gap-1 font-bold ${
+                          className={`inline-flex items-center gap-1 font-bold tabular-nums ${
                             p.stock <= 0
                               ? 'text-rose-600 dark:text-rose-400'
                               : isLowStock
@@ -773,20 +814,20 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                               : 'text-slate-800 dark:text-slate-200'
                           }`}
                         >
-                          {isLowStock && <AlertTriangle className="w-3 h-3 text-amber-500" />}
-                          <span>{p.stock}</span>
+                          {isLowStock && <AlertTriangle className="w-2.5 h-2.5 text-amber-500" />}
+                          <span className="tabular-nums">{p.stock}</span>
                         </span>
                       )}
                     </td>
 
                     {/* Acciones */}
                     {showActions && (
-                      <td className={`${rowPadding} text-center border-r border-black/60 dark:border-slate-700`} onClick={(e) => e.stopPropagation()}>
+                      <td className={`${rowPadding} text-center border-r border-slate-100 dark:border-slate-800`} onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-center gap-1">
                           {onEditProduct && (
                             <button
                               onClick={() => onEditProduct(p)}
-                              className="px-2 py-0.5 text-[11px] text-lilac-700 dark:text-lilac-300 bg-lilac-50 dark:bg-slate-700 hover:bg-lilac-100 dark:hover:bg-slate-600 border border-transparent dark:border-slate-600 rounded font-medium transition-colors cursor-pointer"
+                              className="px-2 py-0.5 text-[10px] text-lilac-700 dark:text-lilac-300 bg-lilac-50 dark:bg-slate-800 hover:bg-lilac-100 dark:hover:bg-slate-700 border border-lilac-200 dark:border-slate-700 rounded font-medium transition-colors cursor-pointer leading-tight focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-lilac-500"
                             >
                               Editar
                             </button>
@@ -794,9 +835,6 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                         </div>
                       </td>
                     )}
-
-                    {/* Celda de relleno elástica */}
-                    <td className="p-0 border-0 pointer-events-none" />
                   </tr>
                 )
               })
@@ -807,13 +845,13 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
         {/* Infinite scroll sentinel & status indicators */}
         <div ref={sentinelRef} className="py-4 text-center">
           {isLoadingMore && (
-            <div className="inline-flex items-center justify-center gap-2 py-2 px-4 bg-white/90 rounded-full border border-lilac-200 text-xs font-semibold text-lilac-700 shadow-sm animate-pulse">
-              <RefreshCw className="w-3.5 h-3.5 animate-spin text-lilac-600" />
+            <div className="inline-flex items-center justify-center gap-2 py-2 px-4 bg-white/90 dark:bg-slate-800 rounded-full border border-lilac-200 dark:border-slate-700 text-xs font-semibold text-lilac-700 dark:text-lilac-300 shadow-sm animate-pulse">
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-lilac-600 dark:text-lilac-400" />
               <span>Cargando más productos...</span>
             </div>
           )}
           {!hasMore && products.length > 0 && (
-            <div className="text-[11px] text-slate-400 font-medium py-1">
+            <div className="text-[11px] text-slate-400 dark:text-slate-500 font-medium py-1 tabular-nums">
               Has llegado al final del catálogo • {products.length} productos mostrados
             </div>
           )}
