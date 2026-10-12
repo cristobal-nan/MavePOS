@@ -81,6 +81,13 @@ describe('Fase 9: Impresión y Tickets Térmicos (ESC/POS y Periféricos)', () =
       expect(config.thermalTotalSize).toBe('normal')
       expect(config.thermalSystemFont).toBe('Consolas, monospace')
     })
+
+    it('obtiene la lista de fuentes del sistema instaladas en Windows', async () => {
+      const fonts = await printerService.getSystemFonts()
+      expect(Array.isArray(fonts)).toBe(true)
+      expect(fonts.length).toBeGreaterThan(0)
+      expect(fonts).toContain('Arial')
+    })
   })
 
   describe('Instanciación y Ancho de Columnas (createPrinterInstance)', () => {
@@ -501,18 +508,56 @@ describe('Fase 9: Impresión y Tickets Térmicos (ESC/POS y Periféricos)', () =
       expect(html).toContain('Fondo Inicial:')
       expect(html).toContain('$ 50.000')
       expect(html).toContain('Ventas Efectivo:')
-      expect(html).toContain('+$ 120.000')
+      expect(html).toContain('$ 120.000')
+      expect(html).not.toContain('+$ 120.000')
       expect(html).toContain('TOTAL VENTAS:')
       expect(html).toContain('$ 240.000')
       expect(html).toContain('EFECTIVO CONTADO:')
       expect(html).toContain('$ 145.000')
       expect(html).toContain('Efectivo Esperado:')
-      expect(html).toContain('Diferencia:')
+      expect(html).toContain('Diferencia Efectivo:')
+      expect(html).toContain('Diferencia Débito:')
+      expect(html).toContain('Diferencia Transferencia:')
       expect(html).toContain('$ 0')
       expect(html).toContain('Monto Retirado:')
       expect(html).toContain('$ 95.000')
       expect(html).toContain('Fondo Sig. Turno:')
       expect(html).toContain('background-color: #ffffff !important')
+    })
+
+    it('formatea diferencias con signo solo en diferencias y guion (-) si no hay ventas de ese tipo', async () => {
+      const { generateThermalCashCutHtml } = await import('../main/services/printing/ticketTemplates')
+      const html = generateThermalCashCutHtml({
+        data: {
+          sessionId: 9,
+          openingFund: 30000,
+          salesCash: 50000,
+          salesCard: 0, // Sin ventas debito
+          salesTransfer: 0, // Sin ventas transferencia
+          salesTotal: 50000,
+          closingCash: 82000,
+          expectedCash: 80000,
+          difference: 2000, // Sobrante efectivo
+          cardDifference: 0,
+          transferDifference: 0
+        },
+        business: printerService.getBusinessInfo(),
+        paperWidth: '80mm',
+        fontFamily: 'Segoe UI, sans-serif'
+      })
+
+      // Efectivo tuvo sobrante: debe mostrar +$ 2.000
+      expect(html).toContain('Diferencia Efectivo:')
+      expect(html).toContain('+$ 2.000')
+
+      // Débito y transferencia no tuvieron ventas: deben mostrar '-'
+      expect(html).toContain('Diferencia Débito:')
+      expect(html).toContain('Diferencia Transferencia:')
+      expect(html).toContain('<span>-</span>')
+
+      // Ventas no deben llevar signo +
+      expect(html).toContain('$ 50.000')
+      expect(html).not.toContain('+$ 50.000')
     })
   })
 
@@ -589,7 +634,7 @@ describe('Fase 9: Impresión y Tickets Térmicos (ESC/POS y Periféricos)', () =
 
         expect(res.success).toBe(true)
         expect(renderCalled).toBe(true)
-        expect(gdiSpy).toHaveBeenCalledWith('POS-58', expect.any(Buffer), 'Venta #100')
+        expect(gdiSpy).toHaveBeenCalledWith('POS-58', expect.any(Buffer), 'Venta #100', '58mm')
         expect(drawerCalled).toBe(true)
       } finally {
         gdiSpy.mockRestore()
