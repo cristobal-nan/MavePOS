@@ -444,6 +444,7 @@ export function generateThermalReceiptHtml(options: GenerateThermalReceiptHtmlOp
         }
         * {
           box-sizing: border-box;
+          word-break: break-word;
         }
         html, body {
           font-family: ${fontFamily};
@@ -454,6 +455,8 @@ export function generateThermalReceiptHtml(options: GenerateThermalReceiptHtmlOp
           margin: 0;
           padding: ${paddingMm}mm;
           width: ${widthMm}mm;
+          max-width: ${widthMm}mm;
+          overflow: hidden;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
         }
@@ -462,8 +465,8 @@ export function generateThermalReceiptHtml(options: GenerateThermalReceiptHtmlOp
         .text-left { text-align: left; }
         .font-bold { font-weight: bold; }
         .divider { border-top: 1px dashed #000; margin: 4px 0; }
-        .flex-between { display: flex; justify-content: space-between; }
-        table { width: 100%; border-collapse: collapse; font-size: inherit; }
+        .flex-between { display: flex; justify-content: space-between; gap: 4px; }
+        table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: inherit; }
       </style>
     </head>
     <body>
@@ -842,6 +845,7 @@ export function generateThermalCashCutHtml(options: GenerateThermalCashCutHtmlOp
         }
         * {
           box-sizing: border-box;
+          word-break: break-word;
         }
         html, body {
           font-family: ${fontFamily};
@@ -852,6 +856,8 @@ export function generateThermalCashCutHtml(options: GenerateThermalCashCutHtmlOp
           margin: 0;
           padding: ${paddingMm}mm;
           width: ${widthMm}mm;
+          max-width: ${widthMm}mm;
+          overflow: hidden;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
         }
@@ -860,7 +866,7 @@ export function generateThermalCashCutHtml(options: GenerateThermalCashCutHtmlOp
         .text-left { text-align: left; }
         .font-bold { font-weight: bold; }
         .divider { border-top: 1px dashed #000; margin: 4px 0; }
-        .flex-between { display: flex; justify-content: space-between; }
+        .flex-between { display: flex; justify-content: space-between; gap: 4px; }
       </style>
     </head>
     <body>
