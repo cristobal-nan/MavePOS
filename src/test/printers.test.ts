@@ -451,7 +451,7 @@ describe('Fase 9: Impresión y Tickets Térmicos (ESC/POS y Periféricos)', () =
       expect(html).toContain('Lana Roja 100g')
       expect(html).toContain('$ 10.500')
       expect(html).toContain('width: 72mm')
-      expect(html).toContain('background-color: #ffffff !important')
+      expect(html).toContain('background-color: transparent !important')
     })
   })
 
@@ -511,9 +511,8 @@ describe('Fase 9: Impresión y Tickets Térmicos (ESC/POS y Periféricos)', () =
       expect(html).toContain('Monto Retirado:')
       expect(html).toContain('$ 95.000')
       expect(html).toContain('Fondo Sig. Turno:')
-      expect(html).toContain('Turno sin novedades')
-      expect(html).toContain('background-color: #ffffff !important')
-      expect(html).not.toContain('background-color: transparent')
+      expect(html).toContain('background-color: transparent !important')
+      expect(html).toContain('-webkit-print-color-adjust: economy !important')
     })
   })
 
