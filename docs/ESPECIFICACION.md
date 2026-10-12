@@ -2,7 +2,7 @@
 
 > Documento de referencia del proyecto. Define el alcance, el modelo de datos y todas las
 > decisiones de producto tomadas. **Es la guía base para programar.**
-> Actualizado: 2026-10-06 · Estado: Software 100% implementado y probado (194 tests pasando).
+> Actualizado: 2026-10-12 · Estado: Software 100% implementado y probado (272 tests pasando en 23 suites).
 
 ## Índice
 
@@ -377,17 +377,17 @@ En **Catálogo**, con filtros y selección múltiple (incluye "seleccionar todo 
 - Mismo mecanismo para el respaldo/restauración manual en Configuración.
 
 ## 11. Periféricos
-
+ 
 | Periférico | Implementación |
 |---|---|
-| Escáner de códigos | Teclado HID (wedge): el input de código de Ventas debe permanecer enfocado y aceptar Enter como confirmación. |
-| Impresora térmica | node-thermal-printer ESC/POS (tcp, USB compartida, serie; 58/80mm) |
-| Cajón monetario | Pulso ESC/POS a través de la impresora térmica |
-| Impresora normal | Spooler de Windows |
+| Escáner de códigos | Teclado HID (wedge): el input de código de Ventas debe permanecer siempre enfocado con retorno de foco tras modales y atajos. |
+| Impresora térmica | Motor híbrido: ESC/POS directo (node-thermal-printer) y Windows Spooler RAW vía GDI nativo en C# (`wingdiprint.exe`), con soporte de fuentes del sistema, modo gráfico y texto, 58mm y 80mm. |
+| Cajón monetario | Pulso ESC/POS y pulso universal vía Spooler RAW de Windows (`0x1B, 0x70...`). |
+| Impresora convencional | Spooler de Windows estándar. |
 
 ## 12. Metodología de trabajo y tests
 
-- **Tests automatizados** (Vitest) de la lógica crítica (**194 pruebas automatizadas pasando al 100% en 17 suites**):
+- **Tests automatizados** (Vitest) de la lógica crítica (**272 pruebas automatizadas pasando al 100% en 23 suites**):
 
   | Fase | Estado | Qué se testea |
   |---|---|---|
