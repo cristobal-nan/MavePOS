@@ -30,6 +30,13 @@ Documento vinculante de reglas de negocio, integridad técnica y comportamiento 
     - `"permitir seleccionar y restaurar respaldos desde carpetas externas"`
     - `"unificar motivos rapidos de inventario y enlazar boton guardar del header"`
     - `"implementar spooler RAW de Windows y pulso universal para cajon de dinero"`
+- **Política de Versiones y Generación de Instaladores:**
+  - **Generación estrictamente bajo demanda:** Prohibido terminantemente ejecutar `npm run build:win` o empaquetar instaladores (`.exe`) de forma autónoma. Solo se compila el instalador cuando el usuario lo solicite de manera explícita.
+  - **Desarrollo en versión siguiente:** El entorno de trabajo siempre opera en la versión inmediatamente posterior a la última empaquetada. Tras generar el instalador de una versión (ej. 1.0.6), el código pasa de inmediato a la siguiente versión de desarrollo (1.0.7).
+  - **Sincronización de versión:** El valor de `version` en `package.json` y la etiqueta visible en el pie de página (`src/renderer/src/App.tsx`) deben coincidir en todo momento con la versión de desarrollo activa.
+  - **Ciclo al solicitar instalador:**
+    1. Compilar el instalador para la versión en curso que solicitó el usuario.
+    2. Preguntar o avanzar de inmediato el número de versión (en `package.json` y footer) al siguiente parche (ej. de 1.0.7 a 1.0.8) para continuar el desarrollo.
 
 ---
 
