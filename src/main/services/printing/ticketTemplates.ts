@@ -443,8 +443,6 @@ export function generateThermalReceiptHtml(options: GenerateThermalReceiptHtmlOp
           size: ${widthMm}mm auto;
         }
         * {
-          background-color: transparent !important;
-          -webkit-print-color-adjust: economy;
           box-sizing: border-box;
         }
         html, body {
@@ -452,10 +450,12 @@ export function generateThermalReceiptHtml(options: GenerateThermalReceiptHtmlOp
           font-size: ${fontSizeBase};
           line-height: ${lineHeight};
           color: #000000 !important;
-          background: #ffffff !important;
+          background-color: #ffffff !important;
           margin: 0;
           padding: ${paddingMm}mm;
           width: ${widthMm}mm;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
         }
         .text-center { text-align: center; }
         .text-right { text-align: right; }
@@ -841,8 +841,6 @@ export function generateThermalCashCutHtml(options: GenerateThermalCashCutHtmlOp
           size: ${widthMm}mm auto;
         }
         * {
-          background-color: transparent !important;
-          -webkit-print-color-adjust: economy;
           box-sizing: border-box;
         }
         html, body {
@@ -850,10 +848,12 @@ export function generateThermalCashCutHtml(options: GenerateThermalCashCutHtmlOp
           font-size: ${fontSizeBase};
           line-height: ${lineHeight};
           color: #000000 !important;
-          background: #ffffff !important;
+          background-color: #ffffff !important;
           margin: 0;
           padding: ${paddingMm}mm;
           width: ${widthMm}mm;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
         }
         .text-center { text-align: center; }
         .text-right { text-align: right; }
