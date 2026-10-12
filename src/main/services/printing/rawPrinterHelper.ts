@@ -73,6 +73,173 @@ export function getRawPrintPs1Path(): string | null {
 }
 
 /**
+ * Discovers the path to the wingdiprint.exe binary.
+ */
+export function getGdiPrintExePath(): string | null {
+  const possiblePaths: (string | null | undefined)[] = [
+    typeof process.resourcesPath === 'string'
+      ? path.join(process.resourcesPath, 'bin', 'wingdiprint.exe')
+      : null,
+    typeof app !== 'undefined' && app?.getAppPath
+      ? path.join(app.getAppPath(), 'resources', 'bin', 'wingdiprint.exe')
+      : null,
+    path.join(process.cwd(), 'resources', 'bin', 'wingdiprint.exe'),
+    path.join(__dirname, '..', '..', '..', '..', 'resources', 'bin', 'wingdiprint.exe'),
+    path.join(__dirname, '..', '..', 'resources', 'bin', 'wingdiprint.exe')
+  ]
+
+  for (const candidate of possiblePaths) {
+    if (candidate && fs.existsSync(candidate)) {
+      return candidate
+    }
+  }
+  return null
+}
+
+/**
+ * Discovers the path to the PowerShell GDI script (print_gdi.ps1).
+ */
+export function getGdiPrintPs1Path(): string | null {
+  const possiblePaths: (string | null | undefined)[] = [
+    typeof process.resourcesPath === 'string'
+      ? path.join(process.resourcesPath, 'bin', 'print_gdi.ps1')
+      : null,
+    typeof app !== 'undefined' && app?.getAppPath
+      ? path.join(app.getAppPath(), 'resources', 'bin', 'print_gdi.ps1')
+      : null,
+    path.join(process.cwd(), 'resources', 'bin', 'print_gdi.ps1'),
+    path.join(__dirname, '..', '..', '..', '..', 'resources', 'bin', 'print_gdi.ps1'),
+    path.join(__dirname, '..', '..', 'resources', 'bin', 'print_gdi.ps1')
+  ]
+
+  for (const candidate of possiblePaths) {
+    if (candidate && fs.existsSync(candidate)) {
+      return candidate
+    }
+  }
+  return null
+}
+
+/**
+ * Sends a graphical ticket image directly to Windows Spooler via GDI PrintDocument (wingdiprint / print_gdi.ps1).
+ * Completely bypasses Chromium print bugs with thermal printer drivers.
+ */
+export async function sendImageToPrinterViaGdi(
+  printerName: string,
+  imageBuffer: Buffer,
+  docTitle = 'POS Ticket'
+): Promise<{ success: boolean; error?: string }> {
+  if (!printerName || !printerName.trim()) {
+    return {
+      success: false,
+      error: 'Nombre de impresora no especificado.'
+    }
+  }
+
+  const cleanPrinterName = printerName.trim()
+  const tempFileName = `pos_ticket_${Date.now()}_${Math.random().toString(36).substring(2)}.png`
+  const tempFilePath = path.join(os.tmpdir(), tempFileName)
+
+  try {
+    await fs.promises.writeFile(tempFilePath, imageBuffer)
+
+    // Strategy 1: Fast native wingdiprint.exe (~15ms)
+    const exePath = getGdiPrintExePath()
+    if (exePath) {
+      try {
+        const { stdout, stderr } = await execFileAsync(
+          exePath,
+          [cleanPrinterName, tempFilePath, docTitle],
+          {
+            windowsHide: true,
+            timeout: 10000
+          }
+        )
+
+        if (stderr && stderr.trim().length > 0) {
+          console.warn('wingdiprint aviso:', stderr.trim())
+        }
+
+        if (stdout && stdout.includes('OK')) {
+          return { success: true }
+        }
+
+        return { success: true }
+      } catch (exeErr: any) {
+        console.warn(
+          `wingdiprint.exe falló con la impresora '${cleanPrinterName}'. Intentando fallback PowerShell:`,
+          exeErr?.message || exeErr
+        )
+      }
+    }
+
+    // Strategy 2: PowerShell GDI fallback
+    const ps1Path = getGdiPrintPs1Path()
+    if (ps1Path) {
+      try {
+        const { stdout, stderr } = await execFileAsync(
+          'powershell.exe',
+          [
+            '-NoProfile',
+            '-NonInteractive',
+            '-ExecutionPolicy',
+            'Bypass',
+            '-File',
+            ps1Path,
+            '-PrinterName',
+            cleanPrinterName,
+            '-ImagePath',
+            tempFilePath,
+            '-DocTitle',
+            docTitle
+          ],
+          {
+            windowsHide: true,
+            timeout: 15000
+          }
+        )
+
+        if (stderr && stderr.trim().length > 0) {
+          console.warn('print_gdi.ps1 aviso:', stderr.trim())
+        }
+
+        if (stdout && stdout.includes('OK')) {
+          return { success: true }
+        }
+
+        return { success: true }
+      } catch (psErr: any) {
+        console.error('Fallback PowerShell GDI falló:', psErr)
+        return {
+          success: false,
+          error: `No se pudo enviar la imagen a la impresora '${cleanPrinterName}': ${
+            psErr?.message || 'Error en el spooler GDI de Windows'
+          }`
+        }
+      }
+    }
+
+    return {
+      success: false,
+      error: 'No se encontró el ejecutable ni el script de impresión gráfica (wingdiprint / print_gdi.ps1).'
+    }
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Error al procesar el archivo temporal de imagen para impresión.'
+    }
+  } finally {
+    try {
+      if (fs.existsSync(tempFilePath)) {
+        await fs.promises.unlink(tempFilePath)
+      }
+    } catch {
+      // Ignore temporary file cleanup errors
+    }
+  }
+}
+
+/**
  * Sends a raw binary ESC/POS buffer directly to a Windows printer spooler using Win32 winspool.drv RAW.
  */
 export async function sendRawBufferToPrinter(
