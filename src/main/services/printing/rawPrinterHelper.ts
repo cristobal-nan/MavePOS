@@ -5,6 +5,7 @@ import os from 'os'
 import { execFile } from 'child_process'
 import net from 'net'
 import { promisify } from 'util'
+import { ThermalPaperWidth } from '../../../shared/types'
 
 const execFileAsync = promisify(execFile)
 
@@ -127,7 +128,8 @@ export function getGdiPrintPs1Path(): string | null {
 export async function sendImageToPrinterViaGdi(
   printerName: string,
   imageBuffer: Buffer,
-  docTitle = 'POS Ticket'
+  docTitle = 'POS Ticket',
+  paperWidth: ThermalPaperWidth = '58mm'
 ): Promise<{ success: boolean; error?: string }> {
   if (!printerName || !printerName.trim()) {
     return {
@@ -149,7 +151,7 @@ export async function sendImageToPrinterViaGdi(
       try {
         const { stdout, stderr } = await execFileAsync(
           exePath,
-          [cleanPrinterName, tempFilePath, docTitle],
+          [cleanPrinterName, tempFilePath, docTitle, paperWidth],
           {
             windowsHide: true,
             timeout: 10000
@@ -191,7 +193,9 @@ export async function sendImageToPrinterViaGdi(
             '-ImagePath',
             tempFilePath,
             '-DocTitle',
-            docTitle
+            docTitle,
+            '-PaperWidth',
+            paperWidth
           ],
           {
             windowsHide: true,
@@ -421,4 +425,96 @@ export async function sendRawBufferToTcp(
       })
     })
   })
+}
+
+const FALLBACK_SYSTEM_FONTS = [
+  'Arial',
+  'Bahnschrift',
+  'Calibri',
+  'Cambria',
+  'Candara',
+  'Comic Sans MS',
+  'Consolas',
+  'Constantia',
+  'Corbel',
+  'Courier New',
+  'Franklin Gothic Medium',
+  'Gabriola',
+  'Georgia',
+  'Impact',
+  'Lucida Console',
+  'Lucida Sans Unicode',
+  'Microsoft Sans Serif',
+  'Palatino Linotype',
+  'Segoe UI',
+  'Sitka',
+  'Tahoma',
+  'Times New Roman',
+  'Trebuchet MS',
+  'Verdana'
+]
+
+let cachedSystemFonts: string[] | null = null
+
+/**
+ * Returns the list of font family names installed on the host Windows machine.
+ * Uses wingdiprint.exe list-fonts (or print_gdi.ps1 -ListFonts) for fast native discovery.
+ */
+export async function getInstalledSystemFonts(): Promise<string[]> {
+  if (cachedSystemFonts && cachedSystemFonts.length > 0) {
+    return cachedSystemFonts
+  }
+
+  // Strategy 1: Fast wingdiprint.exe list-fonts (~10ms)
+  const exePath = getGdiPrintExePath()
+  if (exePath) {
+    try {
+      const { stdout } = await execFileAsync(exePath, ['list-fonts'], {
+        windowsHide: true,
+        timeout: 5000
+      })
+      const list = stdout
+        .split(/\r?\n/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+      if (list.length > 0) {
+        cachedSystemFonts = Array.from(new Set(list)).sort((a, b) =>
+          a.localeCompare(b, undefined, { sensitivity: 'base' })
+        )
+        return cachedSystemFonts
+      }
+    } catch (err) {
+      console.warn('[rawPrinterHelper] Error listando fuentes con wingdiprint.exe:', err)
+    }
+  }
+
+  // Strategy 2: PowerShell print_gdi.ps1 -ListFonts
+  const ps1Path = getGdiPrintPs1Path()
+  if (ps1Path) {
+    try {
+      const { stdout } = await execFileAsync(
+        'powershell.exe',
+        ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ps1Path, '-ListFonts'],
+        {
+          windowsHide: true,
+          timeout: 8000
+        }
+      )
+      const list = stdout
+        .split(/\r?\n/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+      if (list.length > 0) {
+        cachedSystemFonts = Array.from(new Set(list)).sort((a, b) =>
+          a.localeCompare(b, undefined, { sensitivity: 'base' })
+        )
+        return cachedSystemFonts
+      }
+    } catch (err) {
+      console.warn('[rawPrinterHelper] Error listando fuentes con print_gdi.ps1:', err)
+    }
+  }
+
+  cachedSystemFonts = [...FALLBACK_SYSTEM_FONTS]
+  return cachedSystemFonts
 }

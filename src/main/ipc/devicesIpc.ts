@@ -10,6 +10,10 @@ export function registerDevicesIpc(
     return printerService.getInstalledPrinters(mainWindow)
   })
 
+  ipcMain.handle('printers:getSystemFonts', () => {
+    return printerService.getSystemFonts()
+  })
+
   ipcMain.handle('printers:getConfig', () => {
     return printerService.getPrinterConfig()
   })

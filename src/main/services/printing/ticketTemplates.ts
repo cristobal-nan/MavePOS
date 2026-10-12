@@ -389,7 +389,7 @@ export function generateThermalReceiptHtml(options: GenerateThermalReceiptHtmlOp
 
       if (itemsLayout === '4_cols') {
         return `
-          <tr style="border-bottom: 1px dotted #000000;">
+          <tr style="border-bottom: 1px solid #000000;">
             <td style="padding: 2px 2px 2px 0; text-align: left; vertical-align: top; width: 18px;">${qty}</td>
             <td style="padding: 2px 3px; text-align: left; vertical-align: top; word-break: break-word;">${item.name}</td>
             <td style="padding: 2px 2px; text-align: right; vertical-align: top; white-space: nowrap; font-size: 0.9em;">${unitPriceStr}</td>
@@ -398,7 +398,7 @@ export function generateThermalReceiptHtml(options: GenerateThermalReceiptHtmlOp
         `
       } else if (itemsLayout === '3_cols') {
         return `
-          <tr style="border-bottom: 1px dotted #000000;">
+          <tr style="border-bottom: 1px solid #000000;">
             <td style="padding: 2px 2px 2px 0; text-align: left; vertical-align: top; width: 18px;">${qty}</td>
             <td style="padding: 2px 3px; text-align: left; vertical-align: top; word-break: break-word;">${item.name}</td>
             <td style="padding: 2px 0 2px 2px; text-align: right; vertical-align: top; font-weight: bold; white-space: nowrap;">${totalStr}</td>
@@ -407,7 +407,7 @@ export function generateThermalReceiptHtml(options: GenerateThermalReceiptHtmlOp
       } else {
         // 2 cols
         return `
-          <div style="margin-bottom: 5px; border-bottom: 1px dotted #000000; padding-bottom: 3px;">
+          <div style="margin-bottom: 5px; border-bottom: 1px solid #000000; padding-bottom: 3px;">
             <div style="display: flex; justify-content: space-between; gap: 4px; font-weight: 500;">
               <span style="word-break: break-word;">${qty}x ${item.name}</span>
               <span style="font-weight: bold; white-space: nowrap;">${totalStr}</span>
@@ -445,15 +445,26 @@ export function generateThermalReceiptHtml(options: GenerateThermalReceiptHtmlOp
         *, *::before, *::after {
           box-sizing: border-box;
           word-break: break-word;
+          color: #000000 !important;
+          -webkit-text-fill-color: #000000 !important;
         }
-        html, body {
+        html {
+          margin: 0;
+          padding: 0;
+          width: ${widthMm}mm;
+          background-color: #ffffff !important;
+        }
+        body {
           font-family: ${fontFamily};
           font-size: ${fontSizeBase};
           line-height: ${lineHeight};
           color: #000000 !important;
           background-color: #ffffff !important;
           margin: 0;
-          padding: ${paddingMm}mm;
+          padding-left: 0 !important;
+          padding-right: 0 !important;
+          padding-top: 1mm;
+          padding-bottom: 2mm;
           width: ${widthMm}mm;
           max-width: ${widthMm}mm;
           overflow: hidden;
@@ -462,7 +473,7 @@ export function generateThermalReceiptHtml(options: GenerateThermalReceiptHtmlOp
         .text-right { text-align: right; }
         .text-left { text-align: left; }
         .font-bold { font-weight: bold; }
-        .divider { border-top: 1px dashed #000; margin: 4px 0; }
+        .divider { border-top: 1px solid #000000; margin: 4px 0; }
         .flex-between { display: flex; justify-content: space-between; gap: 4px; }
         table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: inherit; }
       </style>
@@ -675,6 +686,19 @@ export interface BuildThermalCashCutOptions {
 }
 
 /**
+ * Formats a cash cut difference amount with explicit '+' / '-' signs only for differences.
+ * If there were no sales of that payment method and diff is 0, displays '-' instead of '$ 0'.
+ */
+export function formatCashCutDiff(diff: number | null | undefined, hasSales: boolean): string {
+  const num = diff ?? 0
+  if (num === 0) {
+    return hasSales ? '$ 0' : '-'
+  }
+  const formattedAbs = Math.abs(Math.round(num)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  return num > 0 ? `+$ ${formattedAbs}` : `-$ ${formattedAbs}`
+}
+
+/**
  * Builds ESC/POS thermal layout for cash cut / session closing receipt.
  */
 export function buildThermalCashCutReceipt(options: BuildThermalCashCutOptions): void {
@@ -743,12 +767,44 @@ export function buildThermalCashCutReceipt(options: BuildThermalCashCutOptions):
   printer.println(`Cierre: ${closedStr}`)
   printer.println('-'.repeat(widthChars))
 
+  const salesCash = data.salesCash ?? 0
+  const salesCard = data.salesCard ?? 0
+  const salesTransfer = data.salesTransfer ?? 0
+
+  const hasCashSales = salesCash > 0
+  const hasCardSales = salesCard > 0
+  const hasTransferSales = salesTransfer > 0
+
+  const diffCash =
+    data.difference !== null && data.difference !== undefined
+      ? data.difference
+      : data.closingCash !== null &&
+          data.closingCash !== undefined &&
+          data.expectedCash !== null &&
+          data.expectedCash !== undefined
+        ? data.closingCash - data.expectedCash
+        : 0
+
+  const diffCard =
+    data.cardDifference !== null && data.cardDifference !== undefined
+      ? data.cardDifference
+      : data.cardMachineAmount !== null && data.cardMachineAmount !== undefined
+        ? data.cardMachineAmount - salesCard
+        : 0
+
+  const diffTransfer =
+    data.transferDifference !== null && data.transferDifference !== undefined
+      ? data.transferDifference
+      : data.transferVerifiedAmount !== null && data.transferVerifiedAmount !== undefined
+        ? data.transferVerifiedAmount - salesTransfer
+        : 0
+
   // 2. Detalle financiero
   printer.alignLeft()
   printer.leftRight('Fondo Inicial:', formatCLP(data.openingFund ?? 0))
-  printer.leftRight('Ventas Efectivo:', `+${formatCLP(data.salesCash ?? 0)}`)
-  printer.leftRight('Ventas Tarjeta:', `+${formatCLP(data.salesCard ?? 0)}`)
-  printer.leftRight('Ventas Transferencia:', `+${formatCLP(data.salesTransfer ?? 0)}`)
+  printer.leftRight('Ventas Efectivo:', formatCLP(salesCash))
+  printer.leftRight('Ventas Tarjeta:', formatCLP(salesCard))
+  printer.leftRight('Ventas Transferencia:', formatCLP(salesTransfer))
   printer.println('-'.repeat(widthChars))
 
   printer.bold(true)
@@ -756,10 +812,10 @@ export function buildThermalCashCutReceipt(options: BuildThermalCashCutOptions):
   printer.bold(false)
 
   if (data.returnsTotal) {
-    printer.leftRight('Devoluciones:', `-${formatCLP(data.returnsTotal)}`)
+    printer.leftRight('Devoluciones:', formatCLP(Math.abs(data.returnsTotal)))
   }
   if (data.withdrawalsTotal) {
-    printer.leftRight('Salidas de Dinero:', `-${formatCLP(data.withdrawalsTotal)}`)
+    printer.leftRight('Salidas de Dinero:', formatCLP(Math.abs(data.withdrawalsTotal)))
   }
 
   printer.println('-'.repeat(widthChars))
@@ -768,12 +824,12 @@ export function buildThermalCashCutReceipt(options: BuildThermalCashCutOptions):
   printer.bold(false)
   printer.leftRight('Efectivo Esperado:', formatCLP(data.expectedCash ?? 0))
 
-  if (data.difference !== null && data.difference !== undefined) {
-    const diffSign = data.difference > 0 ? '+' : ''
-    printer.bold(true)
-    printer.leftRight('DIFERENCIA:', `${diffSign}${formatCLP(data.difference)}`)
-    printer.bold(false)
-  }
+  printer.println('-'.repeat(widthChars))
+  printer.bold(true)
+  printer.leftRight('Diferencia Efectivo:', formatCashCutDiff(diffCash, hasCashSales))
+  printer.leftRight('Diferencia Débito:', formatCashCutDiff(diffCard, hasCardSales))
+  printer.leftRight('Diferencia Transferencia:', formatCashCutDiff(diffTransfer, hasTransferSales))
+  printer.bold(false)
 
   if (data.withdrawalAmount !== null && data.withdrawalAmount !== undefined) {
     printer.println('-'.repeat(widthChars))
@@ -830,6 +886,38 @@ export function generateThermalCashCutHtml(options: GenerateThermalCashCutHtmlOp
   const fontSizeBase = paperWidth === '58mm' ? '10.5px' : '12px'
   const lineHeight = bodySize === 'compact' ? '1.2' : '1.35'
 
+  const salesCash = data.salesCash ?? 0
+  const salesCard = data.salesCard ?? 0
+  const salesTransfer = data.salesTransfer ?? 0
+
+  const hasCashSales = salesCash > 0
+  const hasCardSales = salesCard > 0
+  const hasTransferSales = salesTransfer > 0
+
+  const diffCash =
+    data.difference !== null && data.difference !== undefined
+      ? data.difference
+      : data.closingCash !== null &&
+          data.closingCash !== undefined &&
+          data.expectedCash !== null &&
+          data.expectedCash !== undefined
+        ? data.closingCash - data.expectedCash
+        : 0
+
+  const diffCard =
+    data.cardDifference !== null && data.cardDifference !== undefined
+      ? data.cardDifference
+      : data.cardMachineAmount !== null && data.cardMachineAmount !== undefined
+        ? data.cardMachineAmount - salesCard
+        : 0
+
+  const diffTransfer =
+    data.transferDifference !== null && data.transferDifference !== undefined
+      ? data.transferDifference
+      : data.transferVerifiedAmount !== null && data.transferVerifiedAmount !== undefined
+        ? data.transferVerifiedAmount - salesTransfer
+        : 0
+
   return `
     <!DOCTYPE html>
     <html>
@@ -844,15 +932,26 @@ export function generateThermalCashCutHtml(options: GenerateThermalCashCutHtmlOp
         *, *::before, *::after {
           box-sizing: border-box;
           word-break: break-word;
+          color: #000000 !important;
+          -webkit-text-fill-color: #000000 !important;
         }
-        html, body {
+        html {
+          margin: 0;
+          padding: 0;
+          width: ${widthMm}mm;
+          background-color: #ffffff !important;
+        }
+        body {
           font-family: ${fontFamily};
           font-size: ${fontSizeBase};
           line-height: ${lineHeight};
           color: #000000 !important;
           background-color: #ffffff !important;
           margin: 0;
-          padding: ${paddingMm}mm;
+          padding-left: 0 !important;
+          padding-right: 0 !important;
+          padding-top: 1mm;
+          padding-bottom: 2mm;
           width: ${widthMm}mm;
           max-width: ${widthMm}mm;
           overflow: hidden;
@@ -861,7 +960,7 @@ export function generateThermalCashCutHtml(options: GenerateThermalCashCutHtmlOp
         .text-right { text-align: right; }
         .text-left { text-align: left; }
         .font-bold { font-weight: bold; }
-        .divider { border-top: 1px dashed #000; margin: 4px 0; }
+        .divider { border-top: 1px solid #000000; margin: 4px 0; }
         .flex-between { display: flex; justify-content: space-between; gap: 4px; }
       </style>
     </head>
@@ -894,15 +993,15 @@ export function generateThermalCashCutHtml(options: GenerateThermalCashCutHtmlOp
       </div>
       <div class="flex-between">
         <span>Ventas Efectivo:</span>
-        <span class="font-bold">+${formatCLP(data.salesCash ?? 0)}</span>
+        <span class="font-bold">${formatCLP(salesCash)}</span>
       </div>
       <div class="flex-between">
         <span>Ventas Tarjeta:</span>
-        <span class="font-bold">+${formatCLP(data.salesCard ?? 0)}</span>
+        <span class="font-bold">${formatCLP(salesCard)}</span>
       </div>
       <div class="flex-between">
         <span>Ventas Transferencia:</span>
-        <span class="font-bold">+${formatCLP(data.salesTransfer ?? 0)}</span>
+        <span class="font-bold">${formatCLP(salesTransfer)}</span>
       </div>
 
       <div class="divider" style="border-top-style: solid;"></div>
@@ -916,7 +1015,7 @@ export function generateThermalCashCutHtml(options: GenerateThermalCashCutHtmlOp
         data.returnsTotal
           ? `<div class="flex-between">
               <span>Devoluciones:</span>
-              <span>-${formatCLP(data.returnsTotal)}</span>
+              <span>${formatCLP(Math.abs(data.returnsTotal))}</span>
             </div>`
           : ''
       }
@@ -924,7 +1023,7 @@ export function generateThermalCashCutHtml(options: GenerateThermalCashCutHtmlOp
         data.withdrawalsTotal
           ? `<div class="flex-between">
               <span>Salidas de Dinero:</span>
-              <span>-${formatCLP(data.withdrawalsTotal)}</span>
+              <span>${formatCLP(Math.abs(data.withdrawalsTotal))}</span>
             </div>`
           : ''
       }
@@ -940,14 +1039,20 @@ export function generateThermalCashCutHtml(options: GenerateThermalCashCutHtmlOp
         <span>${formatCLP(data.expectedCash ?? 0)}</span>
       </div>
 
-      ${
-        data.difference !== null && data.difference !== undefined
-          ? `<div class="flex-between font-bold" style="margin-top: 2px;">
-              <span>Diferencia:</span>
-              <span>${data.difference > 0 ? `+${formatCLP(data.difference)}` : formatCLP(data.difference)}</span>
-            </div>`
-          : ''
-      }
+      <div class="divider"></div>
+
+      <div class="flex-between font-bold">
+        <span>Diferencia Efectivo:</span>
+        <span>${formatCashCutDiff(diffCash, hasCashSales)}</span>
+      </div>
+      <div class="flex-between font-bold">
+        <span>Diferencia Débito:</span>
+        <span>${formatCashCutDiff(diffCard, hasCardSales)}</span>
+      </div>
+      <div class="flex-between font-bold">
+        <span>Diferencia Transferencia:</span>
+        <span>${formatCashCutDiff(diffTransfer, hasTransferSales)}</span>
+      </div>
 
       ${
         data.withdrawalAmount !== null && data.withdrawalAmount !== undefined

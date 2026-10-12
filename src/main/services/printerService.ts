@@ -1,4 +1,4 @@
-import { BrowserWindow, app, shell } from 'electron'
+import { BrowserWindow, app, shell, nativeImage } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import { printer as ThermalPrinter, types as PrinterTypes } from 'node-thermal-printer'
@@ -24,6 +24,7 @@ import {
   sendRawBufferToPrinter,
   sendRawBufferToTcp,
   sendImageToPrinterViaGdi,
+  getInstalledSystemFonts,
   CASH_DRAWER_PULSE_BUFFER
 } from './printing/rawPrinterHelper'
 
@@ -32,6 +33,13 @@ export class PrinterService {
     private db: Database.Database,
     private settingsService: SettingsService
   ) {}
+
+  /**
+   * Retrieves the list of font family names installed in the Windows system.
+   */
+  async getSystemFonts(): Promise<string[]> {
+    return getInstalledSystemFonts()
+  }
 
   /**
    * Retrieves business fiscal and header data from the settings table.
@@ -267,6 +275,7 @@ export class PrinterService {
 
     const win = new BrowserWindow({
       show: false,
+      useContentSize: true,
       width: targetWidthDots,
       height: 1200,
       backgroundColor: '#ffffff',
@@ -299,7 +308,36 @@ export class PrinterService {
         height: targetHeightDots
       })
 
-      const pngBuffer = image.toPNG()
+      // Binarización a 1-bit monocromo puro: elimina cualquier gris o anti-aliasing intermedio,
+      // garantizando que todas las fuentes y líneas se impriman en negro sólido al 100%.
+      const size = image.getSize()
+      const rawBuf = image.toBitmap()
+      const threshold = 210 // Cualquier píxel con luminancia < 210 pasa a negro sólido (0,0,0)
+
+      for (let i = 0; i < rawBuf.length; i += 4) {
+        const b = rawBuf[i]
+        const g = rawBuf[i + 1]
+        const r = rawBuf[i + 2]
+        const lum = (r * 77 + g * 150 + b * 29) >> 8
+        if (lum < threshold) {
+          rawBuf[i] = 0 // B
+          rawBuf[i + 1] = 0 // G
+          rawBuf[i + 2] = 0 // R
+          rawBuf[i + 3] = 255 // A
+        } else {
+          rawBuf[i] = 255 // B
+          rawBuf[i + 1] = 255 // G
+          rawBuf[i + 2] = 255 // R
+          rawBuf[i + 3] = 255 // A
+        }
+      }
+
+      const pureImage = nativeImage.createFromBuffer(rawBuf, {
+        width: size.width,
+        height: size.height
+      })
+
+      const pngBuffer = pureImage.toPNG()
       if (!pngBuffer || pngBuffer.length === 0) {
         throw new Error('No se pudo capturar la imagen gráfica del ticket.')
       }
@@ -463,7 +501,12 @@ export class PrinterService {
 
     try {
       const pngBuffer = await this.renderHtmlToTicketPngBuffer(html, config.paperWidth)
-      const gdiResult = await sendImageToPrinterViaGdi(rawInterface, pngBuffer, docTitle)
+      const gdiResult = await sendImageToPrinterViaGdi(
+        rawInterface,
+        pngBuffer,
+        docTitle,
+        config.paperWidth
+      )
 
       if (!gdiResult.success) {
         console.warn('Fallo despacho GDI directo, reintentando via Spooler Chromium:', gdiResult.error)

@@ -1,13 +1,30 @@
 param (
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory=$false)]
+    [switch]$ListFonts,
+
+    [Parameter(Mandatory=$false)]
     [string]$PrinterName,
 
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory=$false)]
     [string]$ImagePath,
 
     [Parameter(Mandatory=$false)]
-    [string]$DocTitle = "POS Ticket"
+    [string]$DocTitle = "POS Ticket",
+
+    [Parameter(Mandatory=$false)]
+    [string]$PaperWidth = "58mm"
 )
+
+if ($ListFonts) {
+    Add-Type -AssemblyName System.Drawing
+    [System.Drawing.FontFamily]::Families | ForEach-Object { $_.Name }
+    exit 0
+}
+
+if ([string]::IsNullOrWhiteSpace($PrinterName) -or [string]::IsNullOrWhiteSpace($ImagePath)) {
+    Write-Error "Faltan parametros requeridos: PrinterName e ImagePath."
+    exit 1
+}
 
 if (-not (Test-Path $ImagePath)) {
     Write-Error "El archivo de imagen no existe: $ImagePath"
@@ -16,8 +33,10 @@ if (-not (Test-Path $ImagePath)) {
 
 Add-Type -AssemblyName System.Drawing
 
+$is58mm = $PaperWidth -match "58"
+
 try {
-    $img = [System.Drawing.Image]::FromFile($ImagePath)
+    $bmp = New-Object System.Drawing.Bitmap($ImagePath)
     $pd = New-Object System.Drawing.Printing.PrintDocument
     $pd.PrinterSettings.PrinterName = $PrinterName
     $pd.DocumentName = $DocTitle
@@ -25,28 +44,48 @@ try {
     $pd.DefaultPageSettings.Margins = New-Object System.Drawing.Printing.Margins(0, 0, 0, 0)
     $pd.OriginAtMargins = $false
 
-    $dpiX = if ($img.HorizontalResolution -gt 0) { $img.HorizontalResolution } else { 96 }
-    $dpiY = if ($img.VerticalResolution -gt 0) { $img.VerticalResolution } else { 96 }
-    $widthH = [Math]::Ceiling(($img.Width / $dpiX) * 100)
-    $heightH = [Math]::Ceiling(($img.Height / $dpiY) * 100)
+    $targetWidthH = if ($is58mm) { 189 } else { 283 }
+    $ratio = [float]$bmp.Height / [float]$bmp.Width
+    $targetHeightH = [Math]::Max([Math]::Ceiling($targetWidthH * $ratio), 100)
 
     try {
-        $pd.DefaultPageSettings.PaperSize = New-Object System.Drawing.Printing.PaperSize("POS Receipt", $widthH, $heightH)
+        $pd.DefaultPageSettings.PaperSize = New-Object System.Drawing.Printing.PaperSize("POS Receipt", $targetWidthH, $targetHeightH)
     } catch {}
 
     $printAction = {
         param($sender, $ev)
-        $ev.Graphics.PageUnit = [System.Drawing.GraphicsUnit]::Pixel
-        $ev.Graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+        $dpiX = if ($ev.Graphics.DpiX -gt 0) { $ev.Graphics.DpiX } else { 203.0 }
+        $dpiY = if ($ev.Graphics.DpiY -gt 0) { $ev.Graphics.DpiY } else { 203.0 }
+
+        $bmp.SetResolution($dpiX, $dpiY)
+
+        $maxWidth = if ($is58mm) { 189.0 } else { 283.0 }
+        if ($ev.PageBounds.Width -gt 0 -and $ev.PageBounds.Width -lt $maxWidth) {
+            $maxWidth = [double]$ev.PageBounds.Width
+        }
+
+        $drawW = ($bmp.Width / $dpiX) * 100.0
+        $drawH = ($bmp.Height / $dpiY) * 100.0
+
+        if ($drawW -gt $maxWidth) {
+            $scale = $maxWidth / $drawW
+            $drawW = $maxWidth
+            $drawH = $drawH * $scale
+        }
+
+        $destRect = New-Object System.Drawing.RectangleF(0, 0, $drawW, $drawH)
+
+        $ev.Graphics.PageUnit = [System.Drawing.GraphicsUnit]::Display
+        $ev.Graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::NearestNeighbor
         $ev.Graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::None
         $ev.Graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::Half
-        $ev.Graphics.DrawImage($img, 0, 0, $img.Width, $img.Height)
+        $ev.Graphics.DrawImage($bmp, $destRect)
         $ev.HasMorePages = $false
     }
 
     $pd.add_PrintPage($printAction)
     $pd.Print()
-    $img.Dispose()
+    $bmp.Dispose()
     Write-Output "OK"
     exit 0
 } catch {

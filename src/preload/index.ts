@@ -116,6 +116,7 @@ export interface ReportsAPI {
 
 export interface DevicesAPI {
   getPrinters: () => Promise<PrinterInfo[]>
+  getSystemFonts: () => Promise<string[]>
   getConfig: () => Promise<PrinterConfig>
   saveConfig: (config: Partial<PrinterConfig>) => Promise<{ ok: boolean }>
   printThermal: (saleDetail: SaleDetail, change?: number, customConfig?: Partial<PrinterConfig>) => Promise<PrintResult>
@@ -247,6 +248,7 @@ export interface WindowAPI {
   exportReportToExcel: (filter: ReportFilter) => Promise<{ success: boolean; filePath?: string }>
 
   getInstalledPrinters: () => Promise<PrinterInfo[]>
+  getSystemFonts: () => Promise<string[]>
   getPrinterConfig: () => Promise<PrinterConfig>
   savePrinterConfig: (config: Partial<PrinterConfig>) => Promise<{ ok: boolean }>
   printThermalReceipt: (saleDetail: SaleDetail, change?: number, customConfig?: Partial<PrinterConfig>) => Promise<PrintResult>
@@ -343,6 +345,7 @@ const reports: ReportsAPI = {
 
 const devices: DevicesAPI = {
   getPrinters: () => ipcRenderer.invoke('printers:getList'),
+  getSystemFonts: () => ipcRenderer.invoke('printers:getSystemFonts'),
   getConfig: () => ipcRenderer.invoke('printers:getConfig'),
   saveConfig: (config) => ipcRenderer.invoke('printers:saveConfig', config),
   printThermal: (saleDetail, change, customConfig) =>
@@ -486,6 +489,7 @@ const api: WindowAPI = {
   exportReportToExcel: reports.exportExcel,
 
   getInstalledPrinters: devices.getPrinters,
+  getSystemFonts: devices.getSystemFonts,
   getPrinterConfig: devices.getConfig,
   savePrinterConfig: devices.saveConfig,
   printThermalReceipt: devices.printThermal,
