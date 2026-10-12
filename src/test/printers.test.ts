@@ -512,6 +512,61 @@ describe('Fase 9: Impresión y Tickets Térmicos (ESC/POS y Periféricos)', () =
       expect(html).toContain('$ 95.000')
       expect(html).toContain('Fondo Sig. Turno:')
       expect(html).toContain('Turno sin novedades')
+      expect(html).toContain('background-color: #ffffff !important')
+      expect(html).not.toContain('background-color: transparent')
+    })
+  })
+
+  describe('Enrutamiento y Renderizado de Modo Gráfico (printThermalGraphic)', () => {
+    it('enruta a renderizado raster ESC/POS para impresoras térmicas físicas', async () => {
+      let rasterCalled = false
+      let dispatchCalled = false
+
+      printerService.renderHtmlToThermalRasterBuffer = async () => {
+        rasterCalled = true
+        return Buffer.from([0x1d, 0x76, 0x30, 0x00])
+      }
+
+      printerService.dispatchThermalBuffer = async (_buf, _cfg, title) => {
+        dispatchCalled = true
+        expect(title).toBe('Venta #100')
+        return { success: true }
+      }
+
+      const res = await printerService.printThermalGraphic(
+        '<html><body>Test</body></html>',
+        {
+          thermalInterface: 'printer:POS-80',
+          paperWidth: '80mm'
+        } as any,
+        'Venta #100'
+      )
+
+      expect(res.success).toBe(true)
+      expect(rasterCalled).toBe(true)
+      expect(dispatchCalled).toBe(true)
+    })
+
+    it('enruta a Chromium Spooler para impresoras virtuales como Microsoft Print to PDF', async () => {
+      let spoolerCalled = false
+
+      printerService.printThermalGraphicViaChromiumSpooler = async (_html, name, _pw) => {
+        spoolerCalled = true
+        expect(name).toContain('PDF')
+        return { success: true }
+      }
+
+      const res = await printerService.printThermalGraphic(
+        '<html><body>Test</body></html>',
+        {
+          thermalInterface: 'printer:Microsoft Print to PDF',
+          paperWidth: '80mm'
+        } as any,
+        'Prueba Virtual'
+      )
+
+      expect(res.success).toBe(true)
+      expect(spoolerCalled).toBe(true)
     })
   })
 })
