@@ -191,7 +191,7 @@ export const App: React.FC = () => {
               Atajos: <span className="font-semibold text-slate-600 dark:text-slate-300">F1</span> Ventas &bull; <span className="font-semibold text-slate-600 dark:text-slate-300">F2</span> Productos &bull; <span className="font-semibold text-slate-600 dark:text-slate-300">F3</span> Inventario &bull; <span className="font-semibold text-slate-600 dark:text-slate-300">F5</span> Corte
             </span>
           )}
-          <span>v1.0.6</span>
+          <span>v1.0.7</span>
         </div>
       </footer>
     </div>
