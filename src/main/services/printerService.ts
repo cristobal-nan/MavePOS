@@ -1,4 +1,6 @@
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, app, shell } from 'electron'
+import path from 'path'
+import fs from 'fs'
 import { printer as ThermalPrinter, types as PrinterTypes } from 'node-thermal-printer'
 import Database from 'better-sqlite3'
 import {
@@ -265,8 +267,10 @@ export class PrinterService {
 
     const win = new BrowserWindow({
       show: false,
+      frame: false,
+      useContentSize: true,
       width: targetWidthDots,
-      height: 1200,
+      height: 3500,
       backgroundColor: '#ffffff',
       webPreferences: {
         nodeIntegration: false,
@@ -280,15 +284,13 @@ export class PrinterService {
       await Promise.all([loadPromise, readyPromise])
 
       // Esperar brevemente a que las fuentes de Windows y el layout terminen de dibujarse
-      await new Promise((resolve) => setTimeout(resolve, 120))
+      await new Promise((resolve) => setTimeout(resolve, 150))
 
       win.webContents.setZoomFactor(zoomFactor)
       const heightPx = await win.webContents.executeJavaScript(
         'Math.max(document.body.offsetHeight, document.documentElement.offsetHeight, 100)'
       )
-      const targetHeightDots = Math.ceil(heightPx * zoomFactor)
-
-      win.setContentSize(targetWidthDots, targetHeightDots)
+      const targetHeightDots = Math.max(100, Math.ceil(heightPx * zoomFactor))
 
       const image = await win.webContents.capturePage({
         x: 0,
@@ -331,11 +333,15 @@ export class PrinterService {
     printerName: string,
     paperWidth: ThermalPaperWidth = '80mm'
   ): Promise<PrintResult> {
+    const is58mm = paperWidth === '58mm'
+    const isPdfPrinter = /pdf/i.test(printerName)
+
     return new Promise((resolve) => {
-      const is58mm = paperWidth === '58mm'
       const widthPx = is58mm ? 219 : 302
       const printWin = new BrowserWindow({
         show: false,
+        frame: false,
+        useContentSize: true,
         width: widthPx,
         height: 1200,
         backgroundColor: '#ffffff',
@@ -347,13 +353,49 @@ export class PrinterService {
 
       Promise.all([loadPromise, readyPromise])
         .then(async () => {
-          await new Promise((r) => setTimeout(r, 100))
+          await new Promise((r) => setTimeout(r, 120))
 
           const heightPx = await printWin.webContents.executeJavaScript(
             'Math.max(document.body.offsetHeight, document.documentElement.offsetHeight, 100)'
           )
           const heightMicrons = Math.ceil(heightPx * 264.5833)
           const widthMicrons = is58mm ? 58000 : 80000
+
+          if (isPdfPrinter) {
+            try {
+              const pdfBuffer = await printWin.webContents.printToPDF({
+                printBackground: true,
+                margins: { marginType: 'none' },
+                pageSize: {
+                  width: widthMicrons,
+                  height: heightMicrons
+                }
+              })
+
+              const docsDir = app ? app.getPath('documents') : process.cwd()
+              const ticketsDir = path.join(docsDir, 'Tickets POS')
+              if (!fs.existsSync(ticketsDir)) {
+                fs.mkdirSync(ticketsDir, { recursive: true })
+              }
+              const filePath = path.join(ticketsDir, `Ticket_${Date.now()}.pdf`)
+              fs.writeFileSync(filePath, pdfBuffer)
+
+              if (shell && typeof shell.openPath === 'function') {
+                shell.openPath(filePath)
+              }
+
+              if (!printWin.isDestroyed()) printWin.close()
+              resolve({ success: true })
+              return
+            } catch (pdfErr: any) {
+              if (!printWin.isDestroyed()) printWin.close()
+              resolve({
+                success: false,
+                error: pdfErr.message || 'Error al generar PDF del ticket.'
+              })
+              return
+            }
+          }
 
           printWin.webContents.print(
             {
@@ -402,9 +444,9 @@ export class PrinterService {
 
   /**
    * Dispatches a thermal receipt in graphical mode (TrueType Windows fonts).
-   * - Si el destino es una impresora virtual (PDF/XPS), utiliza el spooler de Chromium.
+   * - Si el destino es una impresora virtual (PDF/XPS), utiliza el spooler de Chromium o exportación PDF continua.
    * - Si es una impresora térmica física, la convierte a raster ESC/POS dot-by-dot puro para evitar
-   *   que los drivers GDI quemen el papel en negro, garantizando fondo blanco y fuentes nítidas.
+   *   que los drivers GDI quemen el papel en negro o desborden el ancho, garantizando fondo blanco y fuentes nítidas.
    */
   async printThermalGraphic(
     html: string,
@@ -426,12 +468,11 @@ export class PrinterService {
       const rasterBuffer = await this.renderHtmlToThermalRasterBuffer(html, config)
       return await this.dispatchThermalBuffer(rasterBuffer, config, docTitle)
     } catch (rasterErr: any) {
-      console.warn('Fallo renderizado raster térmico, reintentando via Spooler Chromium:', rasterErr)
-      return await this.printThermalGraphicViaChromiumSpooler(
-        html,
-        rawInterface,
-        config.paperWidth
-      )
+      console.error('Error generando raster ESC/POS para impresora térmica física:', rasterErr)
+      return {
+        success: false,
+        error: rasterErr.message || 'Error al renderizar el ticket gráfico para la impresora térmica.'
+      }
     }
   }
 
