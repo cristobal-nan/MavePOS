@@ -2,7 +2,7 @@
 
 > Documento de referencia del proyecto. Define el alcance, el modelo de datos y todas las
 > decisiones de producto tomadas. **Es la guía base para programar.**
-> Actualizado: 2026-10-12 · Estado: Software 100% implementado y probado (272 tests pasando en 23 suites).
+> Actualizado: 2026-10-12 · Estado: Software 100% implementado y probado (277 tests pasando en 24 suites).
 
 ## Índice
 
@@ -17,8 +17,9 @@
 9. [Flujo de inicio](#9-flujo-de-inicio)
 10. [Flujo de cierre y respaldos](#10-flujo-de-cierre-y-respaldos)
 11. [Periféricos](#11-periféricos)
-12. [Metodología de trabajo](#12-metodología-de-trabajo-acordada)
-13. [Orden de implementación](#13-orden-de-implementación-12-fases)
+12. [Sistema de diseño, temas y experiencia de usuario (UX)](#12-sistema-de-diseño-temas-y-experiencia-de-usuario-ux)
+13. [Metodología de trabajo y tests](#13-metodología-de-trabajo-y-tests)
+14. [Módulos y fases implementadas](#14-módulos-y-fases-implementadas-del-sistema-100-completadas)
 
 ---
 
@@ -34,7 +35,7 @@ Requisitos transversales:
   auditado), pero **v1 es solo local**.
 - Compatible con periféricos: teclado, mouse, pistola de códigos de barras, impresora normal,
   impresora térmica de tickets, cajón de dinero.
-- Estética **blanco con lila**. Ventana **pantalla completa sin bordes** por defecto.
+- Estética **multi-tema dinámica** (base Mave Lila, con soporte para Esmeralda, Océano y Grafito) y **Modo Oscuro Slate Profundo**. Ventana **pantalla completa sin bordes** por defecto.
 
 ## 2. Stack tecnológico (decidido)
 
@@ -215,7 +216,18 @@ search_name LIKE '%' || :frag || '%'
 - Índice en `search_name`. Con ~10k filas el escaneo completo es de milisegundos: no hace falta FTS5.
 - La **búsqueda por código** es aparte y literal: input numérico matchea `products.code` exacto.
 
-### 5.4 Otros detalles del componente
+### 5.4 Motor de Catálogo en Memoria (In-Memory Cache) y Búsquedas a 0 ms
+
+Para garantizar velocidad instantánea (0 ms) en el escáner HID y el modal de búsqueda rápida (F10), el sistema implementa una **Capa de Catálogo en Memoria RAM**:
+1. **Precarga en Arranque:** Al iniciar el sistema o abrir sesión de caja, se indexan los productos vendibles activos en estructuras compactas en memoria RAM:
+   - `products`: Lista de productos para filtrado veloz en JavaScript.
+   - `codeIndex`: `Map<string, Product>` para resolución de código de barras en **0.01 ms** (con tolerancia a ceros a la izquierda).
+   - `idIndex`: `Map<number, Product>` para acceso atómico por ID.
+2. **Filtrado local:** Las búsquedas por fragmentos `%` y ordenamientos por producto padre se ejecutan en memoria en ~1 ms sin saturar SQLite ni el canal IPC.
+3. **Sincronización Inmediata (*Write-Through*):** Toda modificación a los datos (ventas cobradas, devoluciones, ajustes de stock, guardado de productos o importación Excel) actualiza **en el mismo milisegundo** tanto la base de datos SQLite como el Store en memoria, previniendo el riesgo de doble fuente de verdad (*Dual State*).
+4. **Pantalla de Carga Visual:** Durante la indexación inicial se despliega una tarjeta centrada con spinner animado (`Loader2`) y barra de progreso, mostrando el avance cuantitativo y tiempo de carga hasta habilitar la venta.
+
+### 5.5 Otros detalles del componente
 
 - Lista: código + nombre + atributos **precio y existencia**. En productos de tipo variación muestra el
   nombre compuesto `${parent.name} ${variation.name}` sin guiones artificiales y la etiqueta de su atributo ("Color: Azul").
@@ -224,7 +236,7 @@ search_name LIKE '%' || :frag || '%'
 - Sin stemming ni manejo de género: un producto llamado `Lana negra` (con "a" final) **no** aparece
   con `%negro`; sí aparece con `%negra`.
 
-### 5.5 Casos borde cerrados
+### 5.6 Casos borde cerrados
 
 | Caso | Resultado |
 |---|---|
@@ -354,9 +366,9 @@ En **Catálogo**, con filtros y selección múltiple (incluye "seleccionar todo 
   valores de atributo a cada variación.
 
 ## 9. Flujo de inicio
-
+ 
 - **No existe sesión de caja abierta** → pantalla única de **fondo de caja** que desbloquea la app.
-- **Sí existe sesión abierta** → entra directo a **Ventas** restaurando tickets pendientes.
+- **Sí existe sesión abierta** → precarga inicial de catálogo en memoria RAM con indicador visual (spinner + barra de progreso) y entrada directa a **Ventas** restaurando tickets pendientes.
 
 ## 10. Flujo de cierre y respaldos
 
@@ -383,11 +395,44 @@ En **Catálogo**, con filtros y selección múltiple (incluye "seleccionar todo 
 | Escáner de códigos | Teclado HID (wedge): el input de código de Ventas debe permanecer siempre enfocado con retorno de foco tras modales y atajos. |
 | Impresora térmica | Motor híbrido: ESC/POS directo (node-thermal-printer) y Windows Spooler RAW vía GDI nativo en C# (`wingdiprint.exe`), con soporte de fuentes del sistema, modo gráfico y texto, 58mm y 80mm. |
 | Cajón monetario | Pulso ESC/POS y pulso universal vía Spooler RAW de Windows (`0x1B, 0x70...`). |
-| Impresora convencional | Spooler de Windows estándar. |
+## 12. Sistema de diseño, temas y experiencia de usuario (UX)
 
-## 12. Metodología de trabajo y tests
+### 12.1 Arquitectura de temas y superficies
+- **Dos ejes independientes**:
+  - **Modo de Superficie (`surface_mode`)**: `'light' | 'dark' | 'system'`.
+  - **Acento Temático (`theme_accent`)**: `'lila' | 'esmeralda' | 'oceano' | 'grafito'`.
+- **Paleta Slate Profundo (Modo Oscuro)**:
+  - Bases y fondo de ventana: `#0F172A` (Slate 900).
+  - Tarjetas, paneles y modales: `#1E293B` (Slate 800).
+  - Bordes, líneas divisorias e inputs: `#334155` (Slate 700).
+  - Tipografía principal y secundaria: `#F8FAFC` (Slate 50) y `#94A3B8` (Slate 400).
+- **Tokens centralizados en `themes.ts`**: Toda la interfaz consume tokens dinámicos `lilac-*` (`bg-lilac-50`, `bg-lilac-600`, `text-lilac-700`, `border-lilac-200`, etc.) vinculados a variables CSS `--color-theme-*` en `tailwind.config.js`. No se queman clases estáticas de color ni valores HEX arbitrarios en componentes.
+- **Transiciones CSS de 0 ms**: Las transiciones suaves (`transition-colors duration-200`) se limitan estrictamente a la subpestaña *Configuración > Apariencia*. En el resto de la aplicación el cambio es instantáneo (0 ms) para asegurar rendimiento fluido en equipos de punto de venta.
+- **Inmutabilidad de tickets térmicos**: Los comprobantes físicos de venta, cambio y corte representan papel térmico: se visualizan e imprimen siempre con fondo blanco puro y tipografía negra monoespaciada (`thermal-ticket-paper`, `bg-white text-slate-900 font-mono`), incluso cuando la app o el modal operan en modo oscuro.
 
-- **Tests automatizados** (Vitest) de la lógica crítica (**272 pruebas automatizadas pasando al 100% en 23 suites**):
+### 12.2 Estabilidad dimensional (Cero Layout Shift)
+- **Geometría fija**: Ventanas modales, diálogos y tarjetas conservan dimensiones y alturas invariables durante la navegación, tipeo e interacción.
+- **Espacio reservado permanente**: Todo cálculo o conteo reactivo en tiempo real (totales acumulados, conteos de ítems, resúmenes) debe estar maquetado con espacio asignado de antemano (mostrando valores base `$0`, `0 un.` o placeholder `—`). Queda prohibido el renderizado condicional (`{cond && <p>...}`) que expanda o contraiga contenedores al escribir.
+
+### 12.3 Validaciones en formularios y tablas
+- **Avisos en la misma línea de la etiqueta (`label`)**: Si un campo falla una validación (ej. código duplicado o formato incorrecto), el aviso se ubica a la derecha en la misma fila del título del campo (`flex items-center justify-between mb-1 gap-2`), con texto conciso truncado (`truncate`) y detalle completo en el atributo nativo `title` (tooltip).
+- **Borde teñido en input**: El campo resalta el error mediante `border-rose-500` (`focus:border-rose-600`), sin insertar líneas, párrafos ni spans debajo del input que expandan tarjetas o desalineen columnas.
+- **Filas densas y tablas**: En tablas de variaciones o listas densas, los errores se marcan exclusivamente con borde coloreado en el input, tooltip `title` y/o punto indicador flotante absoluto (`absolute`), preservando siempre fija la altura de la fila.
+
+### 12.4 Feedback visual y notificaciones
+- **En el propio botón accionado**: Spinner animado (`Loader2`) mientras procesa la operación, y confirmación temporal en verde (`CheckCircle2`, `bg-emerald-600`, texto tipo *"¡Guardado!"* o *"¡Respaldo Realizado!"* durante 2 a 3 segundos).
+- **Toast flotante con posición fija**: Notificaciones globales renderizadas fuera del flujo del documento (`fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-3 duration-200 select-none`), con temporizador de auto-cierre de 3 a 4 segundos.
+- **Sin banners intercalados**: Queda prohibido insertar banners de estado entre tarjetas o tablas que empujen el contenido hacia abajo al aparecer o desaparecer.
+
+### 12.5 Inputs numéricos y edición fluida
+- Escritura y borrado libre en `onChange` sin aplicar clamps, redondeos restrictivos ni forzar mínimos mientras el input está enfocado.
+- Las validaciones, restricciones y normalizaciones se evalúan y aplican exclusivamente en `onBlur` o al presionar guardar.
+
+---
+
+## 13. Metodología de trabajo y tests
+
+- **Tests automatizados** (Vitest) de la lógica crítica (**277 pruebas automatizadas pasando al 100% en 24 suites**):
 
   | Fase | Estado | Qué se testea |
   |---|---|---|
@@ -403,18 +448,19 @@ En **Catálogo**, con filtros y selección múltiple (incluye "seleccionar todo 
   | 11 | Completada | Métricas clave (ventas netas, ticket promedio, unidades, márgenes), gráficos Recharts, filtros temporales y exportación Excel (.xlsx) |
   | 12 | Completada | Datos del negocio, gestión y restauración atómica de respaldos, atajos de teclado y mantenimiento |
   | 9 | Completada | Impresión térmica ESC/POS (node-thermal-printer, PC850), impresora normal Windows (spooler HTML), cajón monetario (pulso RJ11), auto-print, test de conexión |
+  | Extra | Completada | Catálogo vendible en memoria RAM (`memoryCatalogStore`), precarga visual a 0 ms y sincronización atómica write-through |
 
-## 13. Módulos y fases implementadas del sistema (100% completadas)
+## 14. Módulos y fases implementadas del sistema (100% completadas)
 
-1. [x] **Base**: scaffold electron-vite, ventana fullscreen sin bordes + titlebar propia, tema blanco/lila, layout de pestañas.
+1. [x] **Base**: scaffold electron-vite, ventana fullscreen sin bordes + titlebar propia, sistema multi-tema dinámico y modo oscuro Slate Profundo.
 2. [x] **Datos**: esquema SQLite completo + migraciones, IPC tipado, hook de cierre y `backupService`.
 3. [x] **Arranque de caja**: pantalla de fondo de caja / entrada directa con sesión activa.
-4. [x] **Productos**: CRUD simples y variables con variaciones, categorías y proveedores N:M, `ProductSearch` con `%`, catálogo ordenado por padre.
+4. [x] **Productos**: CRUD simples y variables con variaciones, categorías y proveedores N:M, `ProductSearch` con `%`, catálogo ordenado por padre y motor de catálogo en memoria RAM a 0 ms.
 5. [x] **Ventas**: carrito reactivo, tickets simultáneos/pendientes en BD, modal de cobro (efectivo, tarjeta, transferencia, mixto).
 6. [x] **Inventario**: ajustes de existencia (relativo/reemplazo) con motivo obligatorio, alertas de stock bajo, movimientos por día y kardex de producto.
 7. [x] **Historial y dinero**: cancelaciones, devoluciones parciales con reposición de inventario, registro de salidas de dinero.
 8. [x] **Corte**: resumen de caja por método de pago y cierre de sesión.
+9. [x] **Impresión**: ticket térmico ESC/POS (node-thermal-printer) y Windows Spooler RAW vía C# GDI (`wingdiprint.exe`), impresora normal Windows, cajón monetario (pulso RJ11), previsualizador en papel físico térmico.
 10. [x] **Importación Excel** + herramientas de organización masiva en catálogo (Reorganización en lote y Modelo de Proveedores N:M).
 11. [x] **Reportes**: métricas clave, gráficos Recharts, intervalos temporales y exportación Excel (.xlsx).
-12. [x] **Configuración y pulido**: datos negocio, respaldos, atajos de teclado y focos de escáner.
-9. [x] **Impresión**: ticket térmico ESC/POS (node-thermal-printer), impresora normal Windows (spooler HTML), cajón monetario (pulso RJ11), auto-print al cobrar, test de conexión, UI en Configuración y botones en CheckoutModal e HistoryView.
+12. [x] **Configuración y pulido**: datos negocio, respaldos automáticos y manuales con retención de 7 archivos, atajos de teclado globales y UX de geometría fija con cero layout shift.

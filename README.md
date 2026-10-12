@@ -13,8 +13,8 @@ Punto de venta de escritorio para Windows, 100% offline. Electron + React + Type
   1. Base (scaffold electron-vite, ventana fullscreen sin bordes, titlebar propia, temas dinámicos y soporte de modo oscuro).
   2. Datos (esquema SQLite en WAL, migraciones, IPC tipado, respaldos automáticos con retención de 7 archivos).
   3. Arranque de caja (pantalla única de apertura con fondo de caja, sesiones de caja).
-  4. Catálogo y Productos (CRUD, productos simples y variables con variaciones, categorías y proveedores N:M, ordenamiento alfabético por padre, buscador con `%`).
-  5. Ventas (carrito, tickets en standby persistentes en BD, modal de cobro con efectivo, tarjeta, transferencia y pago mixto).
+  4. Catálogo y Productos (CRUD, productos simples y variables con variaciones, categorías y proveedores N:M, ordenamiento alfabético por padre, motor de catálogo en memoria RAM con precarga visual y búsqueda instantánea a 0 ms).
+  5. Ventas (carrito reactivo, tickets en standby persistentes en BD, modal de cobro con efectivo, tarjeta, transferencia y pago mixto).
   6. Control de Inventario (ajustes relativos y por reemplazo con motivo obligatorio, alertas de stock bajo, movimientos del día y kardex cronológico).
   7. Historial y Dinero (historial de ventas con filtros de fecha y folio, anulación total de ventas con restitución de inventario, devoluciones parciales por producto y salidas de dinero de caja con motivos auditados).
   8. Corte de Caja (resumen en vivo de ventas por método, devoluciones y salidas, cálculo de efectivo esperado en gaveta, arqueo físico con calculadora de billetes/monedas, cuadre con sobrante/faltante, cierre de sesión y comprobante).
