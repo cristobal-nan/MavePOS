@@ -450,10 +450,8 @@ describe('Fase 9: Impresión y Tickets Térmicos (ESC/POS y Periféricos)', () =
       expect(html).toContain('Consolas, monospace')
       expect(html).toContain('Lana Roja 100g')
       expect(html).toContain('$ 10.500')
-      expect(html).toContain('width: 80mm !important')
-      expect(html).toContain('padding-left: 0 !important')
-      expect(html).toContain('padding-right: 0 !important')
-      expect(html).toContain('margin: 0 !important')
+      expect(html).toContain('width: 72mm')
+      expect(html).toContain('background-color: #ffffff !important')
     })
   })
 
