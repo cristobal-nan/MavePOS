@@ -19,6 +19,8 @@ export interface MemoryCatalogState {
     query?: string
     categoryId?: number | null
     supplierId?: number | null
+    productType?: 'all' | 'sellable' | 'simple' | 'variable' | 'variation'
+    onlySellable?: boolean
     orderBy?: 'name' | 'stock' | 'sale_price'
     orderDir?: 'ASC' | 'DESC'
     limit?: number
@@ -29,6 +31,25 @@ export interface MemoryCatalogState {
   adjustStockLocal: (code: string, newStock: number) => void
   decrementStockLocal: (items: { product_code: string; quantity: number }[]) => void
   incrementStockLocal: (items: { product_code: string; quantity: number }[]) => void
+}
+
+/**
+ * Orden canónico del catálogo, equivalente al ORDER BY de SQLite en getAllForMemoryIndex:
+ * COALESCE(parent.search_name, p.search_name) ASC, CASE WHEN p.product_type = 'variable' THEN 0 ELSE 1 END ASC, p.search_name ASC, p.id ASC.
+ * Comparación binaria (igual que la colación BINARY de SQLite), sin localeCompare.
+ * `products` se mantiene SIEMPRE en este orden: searchLocal depende de ello para cortar al límite.
+ */
+function compareCanonical(a: ProductSearchResult, b: ProductSearchResult): number {
+  const ka = a.parent_search_name || a.search_name || ''
+  const kb = b.parent_search_name || b.search_name || ''
+  if (ka !== kb) return ka < kb ? -1 : 1
+  const typeA = a.product_type === 'variable' ? 0 : 1
+  const typeB = b.product_type === 'variable' ? 0 : 1
+  if (typeA !== typeB) return typeA - typeB
+  const na = a.search_name || ''
+  const nb = b.search_name || ''
+  if (na !== nb) return na < nb ? -1 : 1
+  return (a.id || 0) - (b.id || 0)
 }
 
 function buildIndexes(items: ProductSearchResult[]): {
@@ -134,92 +155,90 @@ export const useMemoryCatalogStore = create<MemoryCatalogState>((set, get) => ({
       query = '',
       categoryId = null,
       supplierId = null,
+      productType = 'all',
+      onlySellable = false,
       orderBy = 'name',
       orderDir = 'ASC',
       limit = 200
     } = options
 
     const rawInput = query.trim()
-    let filtered = products
+    const isDesc = orderDir.toUpperCase() === 'DESC'
+    const maxResults = limit && limit > 0 ? limit : Infinity
 
-    // 1. Filtro por categoría (directa o subcategoría)
-    if (categoryId !== null && categoryId !== undefined) {
-      filtered = filtered.filter(
-        (p) => p.category_id === categoryId
-      )
-    }
-
-    // 2. Filtro por proveedor
-    if (supplierId !== null && supplierId !== undefined) {
-      filtered = filtered.filter((p) =>
-        p.suppliers && p.suppliers.some((s) => s.id === supplierId)
-      )
-    }
-
-    // 3. Filtro de búsqueda por texto (% comodín) y por código
+    // Preparar fragmentos de texto (% comodín) UNA sola vez por búsqueda
+    const fragments: { text: string; isInitial: boolean }[] = []
+    let codeMatch: ProductSearchResult | null = null
     if (rawInput) {
       const startsWithPercent = rawInput.startsWith('%')
-      const rawFragments = rawInput.split('%')
-      const fragments: { text: string; isInitial: boolean }[] = []
-
-      rawFragments.forEach((frag, idx) => {
+      rawInput.split('%').forEach((frag, idx) => {
         const normalized = normalizeSearchName(frag)
         if (normalized.length > 0) {
-          const isInitial = idx === 0 && !startsWithPercent
-          fragments.push({ text: normalized, isInitial })
+          fragments.push({ text: normalized, isInitial: idx === 0 && !startsWithPercent })
         }
       })
-
-      const trimmedInput = rawInput.toUpperCase()
-      const strippedInput = trimmedInput.replace(/^0+/, '')
-
-      filtered = filtered.filter((p) => {
-        // Coincidencia exacta de código
-        if (!rawInput.includes('%')) {
-          if (p.code) {
-            const pCode = p.code.toUpperCase()
-            if (pCode === trimmedInput || pCode === strippedInput) return true
-          }
-        }
-
-        // Si hay fragmentos de texto, deben coincidir todos (AND)
-        if (fragments.length === 0) return true
-
-        const prodName = p.search_name || ''
-        const parentName = (p as any).parent_search_name || ''
-
-        return fragments.every((f) => {
-          if (f.isInitial) {
-            return prodName.startsWith(f.text) || parentName.startsWith(f.text)
-          } else {
-            return prodName.includes(f.text) || parentName.includes(f.text)
-          }
-        })
-      })
-    }
-
-    // 4. Ordenamiento
-    const isDesc = orderDir.toUpperCase() === 'DESC'
-    filtered = [...filtered].sort((a, b) => {
-      if (orderBy === 'stock') {
-        const diff = (a.stock || 0) - (b.stock || 0)
-        if (diff !== 0) return isDesc ? -diff : diff
-      } else if (orderBy === 'sale_price') {
-        const diff = (a.sale_price || 0) - (b.sale_price || 0)
-        if (diff !== 0) return isDesc ? -diff : diff
+      // Coincidencia exacta de código: una sola consulta al índice (O(1))
+      if (!rawInput.includes('%')) {
+        codeMatch = get().getByCodeFast(rawInput)
       }
-
-      // Alfabético por nombre del producto / padre
-      const nameA = (a.search_name || a.name || '').toUpperCase()
-      const nameB = (b.search_name || b.name || '').toUpperCase()
-      const cmp = nameA.localeCompare(nameB)
-      return isDesc ? -cmp : cmp
-    })
-
-    if (limit && limit > 0) {
-      return filtered.slice(0, limit)
     }
-    return filtered
+
+    const matches = (p: ProductSearchResult): boolean => {
+      if (onlySellable && p.product_type === 'variable') {
+        return false
+      }
+      if (productType && productType !== 'all') {
+        if (productType === 'sellable') {
+          if (p.product_type === 'variable') return false
+        } else if (p.product_type !== productType) {
+          return false
+        }
+      }
+      if (categoryId !== null && categoryId !== undefined && p.category_id !== categoryId) {
+        return false
+      }
+      if (supplierId !== null && supplierId !== undefined) {
+        if (!p.suppliers || !p.suppliers.some((s) => s.id === supplierId)) return false
+      }
+      if (!rawInput) return true
+      if (p === codeMatch) return true
+      if (fragments.length === 0) return true
+
+      const prodName = p.search_name || ''
+      const parentName = p.parent_search_name || ''
+      for (const f of fragments) {
+        const ok = f.isInitial
+          ? prodName.startsWith(f.text) || parentName.startsWith(f.text)
+          : prodName.includes(f.text) || parentName.includes(f.text)
+        if (!ok) return false
+      }
+      return true
+    }
+
+    // Orden por nombre: `products` ya está en orden canónico, se recorre y se corta al
+    // llegar al límite (sin ordenar ni recorrer el catálogo completo en cada tecla).
+    if (orderBy === 'name') {
+      const result: ProductSearchResult[] = []
+      if (isDesc) {
+        for (let i = products.length - 1; i >= 0 && result.length < maxResults; i--) {
+          if (matches(products[i])) result.push(products[i])
+        }
+      } else {
+        for (let i = 0; i < products.length && result.length < maxResults; i++) {
+          if (matches(products[i])) result.push(products[i])
+        }
+      }
+      return result
+    }
+
+    // Orden numérico (stock / precio): sort estable, el desempate conserva el orden por nombre
+    const filtered = products.filter(matches)
+    const key = orderBy === 'stock' ? 'stock' : 'sale_price'
+    filtered.sort((a, b) => {
+      const diff = (a[key] || 0) - (b[key] || 0)
+      return isDesc ? -diff : diff
+    })
+    return maxResults === Infinity ? filtered : filtered.slice(0, maxResults)
   },
 
   updateProductLocal: (product: ProductSearchResult) => {
@@ -232,6 +251,8 @@ export const useMemoryCatalogStore = create<MemoryCatalogState>((set, get) => ({
       } else {
         nextProducts = [product, ...state.products]
       }
+      // Mantener el orden canónico (invariante de la que depende searchLocal)
+      nextProducts.sort(compareCanonical)
       const { codeIndex, idIndex } = buildIndexes(nextProducts)
       return {
         products: nextProducts,

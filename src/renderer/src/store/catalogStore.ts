@@ -10,6 +10,7 @@ import {
   CatalogConfig,
   DEFAULT_CATALOG_CONFIG
 } from '@shared/types'
+import { useMemoryCatalogStore } from './memoryCatalogStore'
 
 interface CatalogState {
   products: ProductSearchResult[]
@@ -176,6 +177,13 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
 
   fetchProducts: async (customQuery?: string, context: 'catalog' | 'modal' = 'catalog') => {
     const isModal = context === 'modal'
+    // Cuando el catálogo en memoria RAM está listo, ProductSearch resuelve directamente en 0 ms
+    // tanto en modal como en la pestaña de catálogo, evitando consultas redundantes a SQLite y parpadeos.
+    if (useMemoryCatalogStore.getState?.().isInitialized) {
+      if (isModal && get().modalIsLoading) set({ modalIsLoading: false })
+      if (!isModal && get().isLoading) set({ isLoading: false })
+      return
+    }
     if (isModal) {
       set({ modalIsLoading: true, error: null })
     } else {
