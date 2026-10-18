@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useMemoryCatalogStore } from '../renderer/src/store/memoryCatalogStore'
 import { ProductSearchResult } from '../shared/types'
 
@@ -61,22 +61,23 @@ describe('MemoryCatalogStore - Catálogo en Memoria y Búsqueda Instantánea (0 
   ]
 
   beforeEach(() => {
-    // Configurar estado en memoria con productos de prueba
+    // Configurar estado en memoria con copias frescas (los tests de stock mutan los objetos en sitio)
+    const items = sampleProducts.map((p) => ({ ...p }))
     useMemoryCatalogStore.setState({
       isInitialized: true,
       isLoading: false,
-      products: [...sampleProducts],
-      totalCount: sampleProducts.length,
+      products: items,
+      totalCount: items.length,
       codeIndex: new Map([
-        ['00123', sampleProducts[0]],
-        ['123', sampleProducts[0]],
-        ['124', sampleProducts[1]],
-        ['8899', sampleProducts[2]]
+        ['00123', items[0]],
+        ['123', items[0]],
+        ['124', items[1]],
+        ['8899', items[2]]
       ]),
       idIndex: new Map([
-        [1, sampleProducts[0]],
-        [2, sampleProducts[1]],
-        [3, sampleProducts[2]]
+        [1, items[0]],
+        [2, items[1]],
+        [3, items[2]]
       ])
     })
   })
@@ -143,5 +144,120 @@ describe('MemoryCatalogStore - Catálogo en Memoria y Búsqueda Instantánea (0 
     const found = store.getByCodeFast('00123')
     expect(found?.sale_price).toBe(2990)
     expect(found?.name).toBe('Algodón Rústico Natural Premium')
+  })
+
+  it('respeta el límite cortando en orden canónico (ASC y DESC) sin ordenar en cada tecla', () => {
+    const store = useMemoryCatalogStore.getState()
+
+    const asc = store.searchLocal({ query: '', limit: 2 })
+    expect(asc.map((p) => p.id)).toEqual([1, 2])
+
+    const desc = store.searchLocal({ query: '', orderDir: 'DESC', limit: 2 })
+    expect(desc.map((p) => p.id)).toEqual([3, 2])
+  })
+
+  it('ordena por precio/stock con desempate estable por nombre', () => {
+    const store = useMemoryCatalogStore.getState()
+
+    const byPrice = store.searchLocal({ query: '', orderBy: 'sale_price', orderDir: 'DESC' })
+    expect(byPrice.map((p) => p.id)).toEqual([3, 1, 2])
+
+    const byStock = store.searchLocal({ query: '', orderBy: 'stock' })
+    expect(byStock.map((p) => p.id)).toEqual([3, 2, 1])
+  })
+
+  it('encuentra por código exacto (con tolerancia a ceros) aunque el nombre no coincida', () => {
+    const store = useMemoryCatalogStore.getState()
+
+    expect(store.searchLocal({ query: '8899' }).map((p) => p.id)).toEqual([3])
+    expect(store.searchLocal({ query: '0124' }).map((p) => p.id)).toEqual([2])
+  })
+
+  it('mantiene el orden canónico al insertar un producto nuevo (updateProductLocal)', () => {
+    const store = useMemoryCatalogStore.getState()
+    store.updateProductLocal({
+      ...sampleProducts[0],
+      id: 4,
+      code: '5000',
+      name: 'Hilo Crochet',
+      search_name: 'HILO CROCHET'
+    })
+
+    const names = useMemoryCatalogStore.getState().products.map((p) => p.search_name)
+    expect(names).toEqual([
+      'ALGODON RUSTICO NATURAL',
+      'ALGODON RUSTICO NEGRO',
+      'HILO CROCHET',
+      'LANA MERINO EXTRA FINA'
+    ])
+  })
+
+  it('agrupa variaciones bajo el nombre del padre en el orden canónico', () => {
+    const store = useMemoryCatalogStore.getState()
+    store.updateProductLocal({
+      ...sampleProducts[0],
+      id: 5,
+      code: '7001',
+      name: 'Azul',
+      search_name: 'AZUL',
+      product_type: 'variation',
+      parent_id: 99,
+      parent_search_name: 'BAMBU'
+    })
+
+    const ids = useMemoryCatalogStore.getState().products.map((p) => p.id)
+    // "BAMBU AZUL" va entre ALGODON y LANA (ordena por el padre, no por "AZUL")
+    expect(ids).toEqual([1, 2, 5, 3])
+    expect(store.searchLocal({ query: 'bambu' }).map((p) => p.id)).toEqual([5])
+  })
+
+  it('searchLocal filtra correctamente por productType y onlySellable', () => {
+    const store = useMemoryCatalogStore.getState()
+    store.updateProductLocal({
+      ...sampleProducts[0],
+      id: 99,
+      code: '',
+      name: 'Padre Algodón',
+      search_name: 'PADRE ALGODON',
+      product_type: 'variable'
+    })
+
+    // all: incluye simples, variaciones y el padre variable
+    const all = store.searchLocal({ productType: 'all' })
+    expect(all.some((p) => p.id === 99)).toBe(true)
+
+    // sellable: excluye variables
+    const sellable = store.searchLocal({ productType: 'sellable' })
+    expect(sellable.some((p) => p.id === 99)).toBe(false)
+
+    // variable: únicamente padres variables
+    const variables = store.searchLocal({ productType: 'variable' })
+    expect(variables.every((p) => p.product_type === 'variable')).toBe(true)
+    expect(variables.some((p) => p.id === 99)).toBe(true)
+
+    // simple: únicamente simples
+    const simples = store.searchLocal({ productType: 'simple' })
+    expect(simples.every((p) => p.product_type === 'simple')).toBe(true)
+  })
+})
+
+describe('CatalogStore - resolución a 0 ms sin consultar SQLite cuando el catálogo en RAM está listo', () => {
+  it('fetchProducts(modal) y fetchProducts(catalog) no invocan IPC ni activan isLoading con la memoria inicializada', async () => {
+    const searchSpy = vi.fn().mockResolvedValue([])
+    ;(globalThis as any).window = { api: { catalog: { search: searchSpy } } }
+    const { useCatalogStore } = await import('../renderer/src/store/catalogStore')
+
+    useMemoryCatalogStore.setState({ isInitialized: true })
+    await useCatalogStore.getState().fetchProducts('algod', 'modal')
+    expect(searchSpy).not.toHaveBeenCalled()
+    expect(useCatalogStore.getState().modalIsLoading).toBe(false)
+
+    await useCatalogStore.getState().fetchProducts(undefined, 'catalog')
+    expect(searchSpy).not.toHaveBeenCalled()
+    expect(useCatalogStore.getState().isLoading).toBe(false)
+
+    useMemoryCatalogStore.setState({ isInitialized: false })
+    await useCatalogStore.getState().fetchProducts('algod', 'modal')
+    expect(searchSpy).toHaveBeenCalledTimes(1)
   })
 })

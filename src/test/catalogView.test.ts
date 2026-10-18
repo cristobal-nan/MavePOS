@@ -10,7 +10,8 @@ import { ProductSearchResult } from '@shared/types'
 // Mock stores
 vi.mock('../renderer/src/store/catalogStore', () => ({
   useCatalogStore: Object.assign(
-    () => ({
+    (selector?: any) => {
+      const state = {
       products: [
         {
           id: 1,
@@ -25,7 +26,20 @@ vi.mock('../renderer/src/store/catalogStore', () => ({
           category_name: 'Lanas'
         }
       ],
-      modalProducts: [],
+      modalProducts: [
+        {
+          id: 1,
+          code: 'PROD-001',
+          name: 'Algodón Rústico Negro',
+          sale_price: 3500,
+          cost_price: 2000,
+          stock: 12,
+          min_stock: 5,
+          product_type: 'simple',
+          category_id: 1,
+          category_name: 'Lanas'
+        }
+      ],
       categories: [{ id: 1, name: 'Lanas' }],
       suppliers: [{ id: 1, name: 'Textil Chile' }],
       selectedCategory: null,
@@ -59,7 +73,9 @@ vi.mock('../renderer/src/store/catalogStore', () => ({
       getVariations: vi.fn().mockResolvedValue([]),
       deleteProduct: vi.fn(),
       config: { catalogAutoLoad: true, modalAutoLoad: true }
-    }),
+    }
+    return typeof selector === 'function' ? selector(state) : state
+  },
     {
       getState: () => ({
         config: { catalogAutoLoad: true, modalAutoLoad: true },
@@ -136,12 +152,13 @@ describe('Auditoría UI Pantalla 2: Catálogo y Productos (CatalogView y modales
     expect(html).toContain('Cerrar (Esc)')
   })
 
-  it('ProductSearch renderiza filas de tabla ultra compactas (h-7.5) con tabular-nums en código, precios y stock', () => {
+  it('ProductSearch renderiza filas de tabla ultra compactas (h-7.5) con tabular-nums y tarjetas homogéneas en Tipo, Categoría y Acciones', () => {
     const html = renderToStaticMarkup(
       React.createElement(ProductSearch, {
         context: 'catalog',
         showActions: true,
-        enableMultiSelect: true
+        enableMultiSelect: true,
+        onEditProduct: vi.fn()
       })
     )
 
@@ -151,6 +168,21 @@ describe('Auditoría UI Pantalla 2: Catálogo y Productos (CatalogView y modales
     expect(html).toContain('PROD-001')
     expect(html).toContain('$ 3.500')
     expect(html).toContain('aria-label="Seleccionar todos los productos visibles"')
+    // Homogeneidad dimensional y tipográfica en catálogo entre Tipo, Categoría y Acciones
+    expect(html).toContain('text-[10px] font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-slate-800 border border-emerald-200 dark:border-slate-700 px-2 py-0.5 rounded leading-tight')
+    expect(html).toContain('inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded leading-tight truncate max-w-full text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700')
+    expect(html).toContain('px-2 py-0.5 text-[10px] text-lilac-700 dark:text-lilac-300 bg-lilac-50 dark:bg-slate-800 hover:bg-lilac-100 dark:hover:bg-slate-700 border border-lilac-200 dark:border-slate-700 rounded font-medium')
+  })
+
+  it('ProductSearch en modal adapta la tarjeta de Categoría a la altura de fila h-10 con text-xs y px-2.5 py-1 rounded-md', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(ProductSearch, {
+        context: 'modal'
+      })
+    )
+
+    // En modal la tarjeta de categoría debe usar text-xs, px-2.5 py-1 y rounded-md acorde a la altura de fila
+    expect(html).toContain('inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md leading-tight truncate max-w-full text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700')
   })
 
   it('ProductFormModal renderiza con role="dialog" y bloquea la edición directa de stock para productos existentes', () => {
@@ -180,5 +212,17 @@ describe('Auditoría UI Pantalla 2: Catálogo y Productos (CatalogView y modales
     // El campo de stock debe estar bloqueado y contener el botón "Ajustar" en lugar de un input editable
     expect(html).toContain('La existencia no se puede editar directamente')
     expect(html).toContain('Ajustar')
+  })
+
+  it('ProductSearch renderiza el input desacoplado con placeholder nativo y soporte de autofocus', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(ProductSearch, {
+        context: 'catalog',
+        placeholder: 'Buscar productos al instante...'
+      })
+    )
+
+    expect(html).toContain('placeholder="Buscar productos al instante..."')
+    expect(html).toContain('type="text"')
   })
 })
