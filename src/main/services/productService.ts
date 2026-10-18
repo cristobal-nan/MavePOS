@@ -714,6 +714,7 @@ export class ProductService {
         pc.name AS parent_category_name,
         parent.name AS parent_name,
         parent.search_name AS parent_search_name,
+        (SELECT COUNT(*) FROM products v WHERE v.parent_id = p.id AND v.active = 1) AS variations_count,
         (
           SELECT GROUP_CONCAT(s.id || ':' || s.name, ';;')
           FROM product_suppliers ps
@@ -724,8 +725,8 @@ export class ProductService {
       LEFT JOIN categories c ON p.category_id = c.id
       LEFT JOIN categories pc ON c.parent_id = pc.id
       LEFT JOIN products parent ON p.parent_id = parent.id
-      WHERE p.active = 1 AND p.product_type IN ('simple', 'variation')
-      ORDER BY COALESCE(parent.search_name, p.search_name) ASC, p.search_name ASC, p.id ASC
+      WHERE p.active = 1
+      ORDER BY COALESCE(parent.search_name, p.search_name) ASC, CASE WHEN p.product_type = 'variable' THEN 0 ELSE 1 END ASC, p.search_name ASC, p.id ASC
     `
     const rows = this.db.prepare(sql).all() as any[]
     return rows.map((row) => {

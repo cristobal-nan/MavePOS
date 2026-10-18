@@ -65,6 +65,7 @@ export interface ProductSearchResult extends Product {
   category_name?: string | null
   parent_category_name?: string | null
   parent_name?: string | null
+  parent_search_name?: string | null
   variations_count?: number
   suppliers?: ProductSupplierInfo[]
   category_display?: string
