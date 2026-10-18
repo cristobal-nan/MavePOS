@@ -22,6 +22,7 @@ import { useCatalogStore } from '../store/catalogStore'
 import { useUIStore } from '../store/uiStore'
 import { useInventoryStore } from '../store/inventoryStore'
 import { ProductSearch } from '../components/ProductSearch'
+import { useShallow } from 'zustand/react/shallow'
 import { ProductFormModal } from '../components/ProductFormModal'
 import { CategoryModal } from '../components/CategoryModal'
 import { SupplierModal } from '../components/SupplierModal'
@@ -46,7 +47,23 @@ export const CatalogView: React.FC = () => {
     fetchProducts,
     bulkDeleteProducts,
     seedSampleData
-  } = useCatalogStore()
+  } = useCatalogStore(
+    useShallow((s) => ({
+      products: s.products,
+      categories: s.categories,
+      suppliers: s.suppliers,
+      selectedCategory: s.selectedCategory,
+      setSelectedCategory: s.setSelectedCategory,
+      selectedSupplier: s.selectedSupplier,
+      setSelectedSupplier: s.setSelectedSupplier,
+      selectedProductType: s.selectedProductType,
+      setSelectedProductType: s.setSelectedProductType,
+      loadMetadata: s.loadMetadata,
+      fetchProducts: s.fetchProducts,
+      bulkDeleteProducts: s.bulkDeleteProducts,
+      seedSampleData: s.seedSampleData
+    }))
+  )
 
   const [selectedProductForEdit, setSelectedProductForEdit] = useState<ProductSearchResult | null>(null)
   const [isProductModalOpen, setIsProductModalOpen] = useState(false)
@@ -378,7 +395,11 @@ export const CatalogView: React.FC = () => {
           )}
 
           <button
-            onClick={() => fetchProducts(undefined, 'catalog')}
+            onClick={async () => {
+              const { useMemoryCatalogStore } = await import('../store/memoryCatalogStore')
+              await useMemoryCatalogStore.getState().refreshCatalog()
+              fetchProducts(undefined, 'catalog')
+            }}
             title="Recargar catálogo"
             aria-label="Recargar catálogo"
             className="p-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition-colors border border-slate-200/60 dark:border-slate-700 flex items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"

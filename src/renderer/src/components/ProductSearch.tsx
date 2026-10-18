@@ -17,6 +17,7 @@ import {
 import { ProductSearchResult } from '@shared/types'
 import { formatCLP } from '../utils/formatters'
 import { useCatalogStore } from '../store/catalogStore'
+import { useShallow } from 'zustand/react/shallow'
 import { useMemoryCatalogStore } from '../store/memoryCatalogStore'
 import { EmptyState } from './common/EmptyState'
 
@@ -71,8 +72,37 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
     modalHasMore,
     loadMoreProducts,
     fetchProducts,
+    selectedCategory,
+    selectedSupplier,
+    selectedProductType,
     config
-  } = useCatalogStore()
+  } = useCatalogStore(
+    useShallow((s) => ({
+      products: s.products,
+      modalProducts: s.modalProducts,
+      searchQuery: s.searchQuery,
+      modalSearchQuery: s.modalSearchQuery,
+      setSearchQuery: s.setSearchQuery,
+      orderBy: s.orderBy,
+      orderDir: s.orderDir,
+      toggleSort: s.toggleSort,
+      columnWidths: s.columnWidths,
+      modalColumnWidths: s.modalColumnWidths,
+      setColumnWidth: s.setColumnWidth,
+      isLoading: s.isLoading,
+      modalIsLoading: s.modalIsLoading,
+      isLoadingMore: s.isLoadingMore,
+      modalIsLoadingMore: s.modalIsLoadingMore,
+      hasMore: s.hasMore,
+      modalHasMore: s.modalHasMore,
+      loadMoreProducts: s.loadMoreProducts,
+      fetchProducts: s.fetchProducts,
+      selectedCategory: s.selectedCategory,
+      selectedSupplier: s.selectedSupplier,
+      selectedProductType: s.selectedProductType,
+      config: s.config
+    }))
+  )
 
   const {
     isInitialized: isMemoryInitialized,
@@ -81,27 +111,90 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
 
   const isModal = context === 'modal'
 
-  // Si estamos en modal o catálogo y el motor en memoria está listo, resolvemos en RAM (0 ms)
+  // Consulta diferida: el input refleja cada tecla al instante y la tabla se recalcula/pinta con
+  // prioridad baja (interrumpible), evitando que el tipeo se trabe en equipos de bajos recursos.
+  const deferredModalQuery = React.useDeferredValue(modalSearchQuery)
+  const deferredCatalogQuery = React.useDeferredValue(catalogSearchQuery)
+
+  // Paginación progresiva en memoria RAM para catálogo
+  const [catalogDisplayLimit, setCatalogDisplayLimit] = useState(config.catalogInitialLimit || 150)
+
+  useEffect(() => {
+    setCatalogDisplayLimit(config.catalogInitialLimit || 150)
+  }, [catalogSearchQuery, selectedCategory, selectedSupplier, selectedProductType, orderBy, orderDir, config.catalogInitialLimit])
+
+  // Si el motor en memoria está listo, resolvemos en RAM tanto para modal como para catálogo (0 ms)
   const memorySearchResults = React.useMemo(() => {
     if (!isMemoryInitialized) return null
-    // En catálogo con paginación/filtros avanzados de tipo 'variable' o 'all', usamos SQLite
-    if (!isModal) return null
 
-    const query = modalSearchQuery
+    if (isModal) {
+      // Carga automática desactivada: con la búsqueda vacía no se lista nada
+      if (!deferredModalQuery.trim() && !config.modalAutoLoad) return []
+
+      return searchMemoryLocal({
+        query: deferredModalQuery,
+        onlySellable: true,
+        orderBy,
+        orderDir,
+        limit: 100
+      })
+    }
+
+    // Contexto catálogo (pestaña productos): resolución reactiva a 0 ms
+    if (!deferredCatalogQuery.trim() && !config.catalogAutoLoad) return []
+
     return searchMemoryLocal({
-      query,
-      categoryId: null,
-      supplierId: null,
+      query: deferredCatalogQuery,
+      categoryId: selectedCategory,
+      supplierId: selectedSupplier,
+      productType: selectedProductType,
       orderBy,
       orderDir,
-      limit: 200
+      limit: catalogDisplayLimit
     })
-  }, [isMemoryInitialized, isModal, modalSearchQuery, orderBy, orderDir, searchMemoryLocal])
+  }, [
+    isMemoryInitialized,
+    isModal,
+    deferredModalQuery,
+    deferredCatalogQuery,
+    config.modalAutoLoad,
+    config.catalogAutoLoad,
+    selectedCategory,
+    selectedSupplier,
+    selectedProductType,
+    orderBy,
+    orderDir,
+    catalogDisplayLimit,
+    searchMemoryLocal
+  ])
 
   const products = memorySearchResults !== null
     ? memorySearchResults
     : (isModal ? modalProducts : catalogProducts)
   const searchQuery = isModal ? modalSearchQuery : catalogSearchQuery
+
+  // Estado local desacoplado: el input se actualiza sincrónicamente a velocidad nativa (0 ms).
+  // La consulta hacia el store se despacha con React.startTransition, evitando que el tecleo
+  // o borrado rápido se trabe al no bloquear el hilo principal con el renderizado de la tabla.
+  const [localInputValue, setLocalInputValue] = useState(searchQuery)
+
+  useEffect(() => {
+    setLocalInputValue(searchQuery)
+  }, [searchQuery])
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const val = e.target.value
+    setLocalInputValue(val)
+    React.startTransition(() => {
+      setSearchQuery(val, context)
+    })
+  }
+
+  const handleClearSearch = (): void => {
+    setLocalInputValue('')
+    setSearchQuery('', context)
+  }
+
   const isLoading = memorySearchResults !== null
     ? false
     : (isModal ? modalIsLoading : catalogIsLoading)
@@ -109,7 +202,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
     ? false
     : (isModal ? modalIsLoadingMore : catalogIsLoadingMore)
   const hasMore = memorySearchResults !== null
-    ? false
+    ? (isModal ? false : memorySearchResults.length === catalogDisplayLimit)
     : (isModal ? modalHasMore : catalogHasMore)
 
   // Seleccionar conjunto de anchos según contexto (pestaña vs ventana emergente)
@@ -155,12 +248,40 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   // Filter visible products according to collapsed parent variable products in catalog
-  const visibleProducts = products.filter((p) => {
-    if (context === 'catalog' && p.parent_id && collapsedParentIds.has(p.parent_id)) {
-      return false
+  const visibleProducts = React.useMemo(
+    () =>
+      products.filter((p) => {
+        if (context === 'catalog' && p.parent_id && collapsedParentIds.has(p.parent_id)) {
+          return false
+        }
+        return true
+      }),
+    [products, context, collapsedParentIds]
+  )
+
+  // Enter en el modal o catálogo: si la consulta diferida aún no refleja lo último tecleado,
+  // resolver sincrónicamente a 0 ms contra el catálogo en memoria RAM con la consulta exacta
+  // que el usuario acaba de escribir en el input.
+  const getEnterTarget = (): ProductSearchResult | undefined => {
+    const raw = localInputValue.trim()
+    if (isMemoryInitialized && raw) {
+      if (isModal && !config.modalAutoLoad && !raw) return undefined
+      const currentQuery = isModal ? deferredModalQuery : deferredCatalogQuery
+      if (raw.toUpperCase() !== currentQuery.trim().toUpperCase()) {
+        const matches = searchMemoryLocal({
+          query: raw,
+          onlySellable: isModal ? true : undefined,
+          orderBy,
+          orderDir,
+          limit: 1
+        })
+        if (matches.length > 0) return matches[0]
+      }
     }
-    return true
-  })
+    return visibleProducts[highlightedIndex]
+  }
+  const getEnterTargetRef = useRef(getEnterTarget)
+  getEnterTargetRef.current = getEnterTarget
 
   // Reset highlighted row to 0 on new query or product list change
   useEffect(() => {
@@ -212,7 +333,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
     } else if (e.key === 'Enter') {
       e.preventDefault()
       e.stopPropagation()
-      const target = visibleProducts[highlightedIndex]
+      const target = getEnterTarget()
       if (target) {
         if (context === 'modal') {
           onSelectProduct?.(target)
@@ -262,7 +383,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
         if (context === 'modal') {
           e.preventDefault()
           e.stopPropagation()
-          const target = visibleProducts[highlightedIndex]
+          const target = getEnterTargetRef.current()
           if (target) {
             onSelectProduct?.(target)
           }
@@ -359,11 +480,21 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
     const sentinel = sentinelRef.current
     if (!container || !sentinel) return
 
+    const triggerLoadMore = (): void => {
+      if (memorySearchResults !== null) {
+        if (!isModal) {
+          setCatalogDisplayLimit((prev) => prev + (config.catalogScrollBatch || 150))
+        }
+      } else {
+        loadMoreProducts(context)
+      }
+    }
+
     const observer = new IntersectionObserver(
       (entries) => {
         const [entry] = entries
         if (entry.isIntersecting && hasMore && !isLoading && !isLoadingMore) {
-          loadMoreProducts(context)
+          triggerLoadMore()
         }
       },
       {
@@ -375,18 +506,24 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
 
     observer.observe(sentinel)
     return () => observer.disconnect()
-  }, [hasMore, isLoading, isLoadingMore, loadMoreProducts, context])
+  }, [hasMore, isLoading, isLoadingMore, loadMoreProducts, context, memorySearchResults, isModal, config.catalogScrollBatch])
 
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>): void => {
+  const handleScroll = React.useCallback((e: React.UIEvent<HTMLDivElement>): void => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget
     if (scrollHeight - scrollTop - clientHeight < 300) {
       if (hasMore && !isLoading && !isLoadingMore) {
-        loadMoreProducts(context)
+        if (memorySearchResults !== null) {
+          if (!isModal) {
+            setCatalogDisplayLimit((prev) => prev + (config.catalogScrollBatch || 150))
+          }
+        } else {
+          loadMoreProducts(context)
+        }
       }
     }
-  }
+  }, [hasMore, isLoading, isLoadingMore, memorySearchResults, isModal, config.catalogScrollBatch, loadMoreProducts, context])
 
-  const renderSortIcon = (column: 'name' | 'stock' | 'sale_price'): React.ReactNode => {
+  const renderSortIcon = React.useCallback((column: 'name' | 'stock' | 'sale_price'): React.ReactNode => {
     if (orderBy !== column) {
       return <ArrowUpDown className="w-3.5 h-3.5 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
     }
@@ -395,7 +532,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
     ) : (
       <ArrowDown className="w-3.5 h-3.5 text-lilac-600" />
     )
-  }
+  }, [orderBy, orderDir])
 
   const showTypeCol = context !== 'modal'
 
@@ -409,44 +546,8 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
     columnWidths.stock +
     (showActions ? columnWidths.actions : 0)
 
-  return (
-    <div className="flex-1 flex flex-col h-full bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden select-none">
-      {/* Search Input Bar */}
-      <div className={`${isModal ? 'p-2' : 'p-2.5'} border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-2.5`}>
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            ref={searchInputRef}
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value, context)}
-            placeholder={placeholder}
-            autoFocus={autoFocus}
-            onKeyDown={handleInputKeyDown}
-            className={`w-full pl-9 pr-4 ${isModal ? 'py-1.5 text-sm' : 'py-1.5 text-xs'} bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-lilac-500 focus:bg-white dark:focus:bg-slate-800 rounded-xl text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500 transition-all`}
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('', context)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 dark:text-slate-300 hover:text-slate-700 dark:hover:text-white px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors cursor-pointer"
-            >
-              Limpiar
-            </button>
-          )}
-        </div>
-
-        <div className="text-xs text-slate-400 whitespace-nowrap hidden sm:flex items-center gap-1.5 font-medium">
-          <span>Mostrando:</span>
-          <span className="font-bold font-mono tabular-nums text-lilac-700 dark:text-lilac-300 bg-lilac-50 dark:bg-slate-800 border border-lilac-200 dark:border-slate-700 px-2 py-0.5 rounded-full">
-            {products.length}{hasMore ? '+' : ''}
-          </span>
-          {hasMore && (
-            <span className="text-[11px] text-slate-400 italic">(baja para ver más)</span>
-          )}
-        </div>
-      </div>
-
-      {/* Table Container with persistent resizable headers */}
+  const memoizedTable = React.useMemo(
+    () => (
       <div
         ref={containerRef}
         onScroll={handleScroll}
@@ -608,7 +709,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                       description={`No se encontraron productos coincidentes para "${searchQuery}".`}
                       action={{
                         label: 'Limpiar búsqueda',
-                        onClick: () => setSearchQuery('', context)
+                        onClick: handleClearSearch
                       }}
                     />
                   ) : context === 'modal' && !config.modalAutoLoad ? (
@@ -646,6 +747,10 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                 const isCollapsed = isVariable && p.id ? collapsedParentIds.has(p.id) : false
                 const isHighlighted = highlightedIndex === idx
                 const rowPadding = isModal ? 'py-1 px-2.5' : 'py-0.5 px-2'
+                const categoryBadgeClasses = isModal
+                  ? 'inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md leading-tight truncate max-w-full'
+                  : 'inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded leading-tight truncate max-w-full'
+                const categoryIconClasses = `${isModal ? 'w-3.5 h-3.5' : 'w-2.5 h-2.5'} text-slate-400 shrink-0`
 
                 return (
                   <tr
@@ -751,19 +856,19 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                     {showTypeCol && (
                       <td className={`${rowPadding} text-slate-600 dark:text-slate-300 truncate border-r border-slate-100 dark:border-slate-800`}>
                         {isVariable ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-lilac-700 dark:text-lilac-300 bg-lilac-50 dark:bg-slate-800 border border-lilac-200 dark:border-slate-700 px-1.5 py-0 rounded leading-none">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-lilac-700 dark:text-lilac-300 bg-lilac-50 dark:bg-slate-800 border border-lilac-200 dark:border-slate-700 px-2 py-0.5 rounded leading-tight">
                             <GitBranch className="w-2.5 h-2.5 text-lilac-500 dark:text-lilac-400" />
                             <span>Variable ({p.variations_count || 0})</span>
                           </span>
                         ) : isVariation ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-slate-800 border border-blue-200 dark:border-slate-700 px-1.5 py-0 rounded leading-none">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-slate-800 border border-blue-200 dark:border-slate-700 px-2 py-0.5 rounded leading-tight">
                             <span>
                               {p.attribute_name ? `${p.attribute_name}: ` : ''}
                               {p.attribute_value || 'Variación'}
                             </span>
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-slate-800 border border-emerald-200 dark:border-slate-700 px-1.5 py-0 rounded leading-none">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-slate-800 border border-emerald-200 dark:border-slate-700 px-2 py-0.5 rounded leading-tight">
                             <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500 dark:text-emerald-400" />
                             <span>Simple</span>
                           </span>
@@ -774,20 +879,23 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                     {/* Categoría */}
                     <td className={`${rowPadding} text-slate-600 dark:text-slate-300 truncate border-r border-slate-100 dark:border-slate-800`} title={p.category_display || p.category_name || 'Sin categoría'}>
                       {p.category_display ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700 px-1.5 py-0 rounded leading-none truncate max-w-full">
-                          <Layers className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                        <span className={`${categoryBadgeClasses} text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700`}>
+                          <Layers className={categoryIconClasses} />
                           <span className="truncate">{p.category_display}</span>
                         </span>
                       ) : p.category_name ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-transparent dark:border-slate-700 px-1.5 py-0 rounded leading-none truncate max-w-full">
-                          <Layers className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                        <span className={`${categoryBadgeClasses} text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700`}>
+                          <Layers className={categoryIconClasses} />
                           <span className="truncate">
                             {p.parent_category_name ? `${p.parent_category_name} / ` : ''}
                             {p.category_name}
                           </span>
                         </span>
                       ) : (
-                        <span className="text-slate-300 dark:text-slate-500 italic text-[11px]">Sin categoría</span>
+                        <span className={`${categoryBadgeClasses} italic text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700`}>
+                          <Layers className={categoryIconClasses} />
+                          <span className="truncate">Sin categoría</span>
+                        </span>
                       )}
                     </td>
 
@@ -857,6 +965,82 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
           )}
         </div>
       </div>
+    ),
+    [
+      totalColumnsWidth,
+      enableMultiSelect,
+      isAllVisibleSelected,
+      products.length,
+      onSelectAllVisible,
+      columnWidths,
+      renderResizeHandle,
+      renderSortIcon,
+      toggleSort,
+      context,
+      showTypeCol,
+      showActions,
+      isLoading,
+      visibleProducts,
+      searchQuery,
+      config.modalAutoLoad,
+      config.catalogAutoLoad,
+      fetchProducts,
+      selectedProductCode,
+      selectedIds,
+      collapsedParentIds,
+      highlightedIndex,
+      isModal,
+      onSelectProduct,
+      onEditProduct,
+      handleToggleParentCheckbox,
+      onToggleSelect,
+      toggleParentCollapse,
+      isLoadingMore,
+      hasMore,
+      handleClearSearch,
+      handleScroll
+    ]
+  )
+
+  return (
+    <div className="flex-1 flex flex-col h-full bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden select-none">
+      {/* Search Input Bar */}
+      <div className={`${isModal ? 'p-2' : 'p-2.5'} border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-2.5`}>
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            ref={searchInputRef}
+            type="text"
+            value={localInputValue}
+            onChange={handleInputChange}
+            placeholder={placeholder}
+            autoFocus={autoFocus}
+            onKeyDown={handleInputKeyDown}
+            className={`w-full pl-9 pr-4 ${isModal ? 'py-1.5 text-sm' : 'py-1.5 text-xs'} bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-lilac-500 focus:bg-white dark:focus:bg-slate-800 rounded-xl text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500 transition-all`}
+          />
+          {localInputValue && (
+            <button
+              type="button"
+              onClick={handleClearSearch}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 dark:text-slate-300 hover:text-slate-700 dark:hover:text-white px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors cursor-pointer"
+            >
+              Limpiar
+            </button>
+          )}
+        </div>
+
+        <div className="text-xs text-slate-400 whitespace-nowrap hidden sm:flex items-center gap-1.5 font-medium">
+          <span>Mostrando:</span>
+          <span className="font-bold font-mono tabular-nums text-lilac-700 dark:text-lilac-300 bg-lilac-50 dark:bg-slate-800 border border-lilac-200 dark:border-slate-700 px-2 py-0.5 rounded-full">
+            {products.length}{hasMore ? '+' : ''}
+          </span>
+          {hasMore && (
+            <span className="text-[11px] text-slate-400 italic">(baja para ver más)</span>
+          )}
+        </div>
+      </div>
+
+      {memoizedTable}
     </div>
   )
 }
