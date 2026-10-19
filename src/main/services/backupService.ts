@@ -3,6 +3,7 @@ import { app, shell, dialog, BrowserWindow } from 'electron'
 import { join, basename } from 'path'
 import { existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'fs'
 import { SettingsService } from './settingsService'
+import { ExcelService } from './excelService'
 import { BackupInfo } from '../../shared/types'
 
 export const MAX_BACKUPS_RETENTION = 7
@@ -10,7 +11,8 @@ export const MAX_BACKUPS_RETENTION = 7
 export class BackupService {
   constructor(
     private db: Database.Database,
-    private settingsService?: SettingsService
+    private settingsService?: SettingsService,
+    private excelService?: ExcelService
   ) {}
 
   getBackupDirectory(): string {
@@ -25,6 +27,20 @@ export class BackupService {
       ? app.getPath('documents')
       : join(process.env.USERPROFILE || process.cwd(), 'Documents')
     return join(documentsPath, 'Respaldos POS')
+  }
+
+  getExcelExportDirectory(): string {
+    if (this.settingsService) {
+      const configured = this.settingsService.get('excel_auto_export_directory')
+      if (configured && configured.trim()) {
+        return configured.trim()
+      }
+    }
+
+    const documentsPath = app
+      ? app.getPath('documents')
+      : join(process.env.USERPROFILE || process.cwd(), 'Documents')
+    return join(documentsPath, 'Inventarios POS')
   }
 
   ensureBackupDirectory(dir: string): void {
@@ -163,6 +179,64 @@ export class BackupService {
       this.settingsService.set('backup_directory', chosen)
     }
     return chosen
+  }
+
+  async openExcelExportDirectory(): Promise<boolean> {
+    const dir = this.getExcelExportDirectory()
+    this.ensureBackupDirectory(dir)
+    if (shell && shell.openPath) {
+      await shell.openPath(dir)
+      return true
+    }
+    return false
+  }
+
+  async selectExcelExportDirectory(window?: BrowserWindow): Promise<string | null> {
+    if (!dialog || !dialog.showOpenDialog) return null
+
+    const res = await dialog.showOpenDialog(window as any, {
+      title: 'Seleccionar Carpeta para Exportación de Inventarios Excel',
+      properties: ['openDirectory', 'createDirectory']
+    })
+    if (res.canceled || res.filePaths.length === 0) return null
+    const chosen = res.filePaths[0]
+    if (this.settingsService) {
+      this.settingsService.set('excel_auto_export_directory', chosen)
+    }
+    return chosen
+  }
+
+  async exportAutoCloseInventory(): Promise<string | null> {
+    if (!this.excelService) return null
+    try {
+      const dir = this.getExcelExportDirectory()
+      this.ensureBackupDirectory(dir)
+
+      const prefix = (this.settingsService?.get('excel_export_prefix') || 'Productos').trim() || 'Productos'
+      const now = new Date()
+      const pad = (n: number, z = 2) => String(n).padStart(z, '0')
+      const dateStr = `${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}`
+      const timeStr = `${pad(now.getHours())}-${pad(now.getMinutes())}`
+      const filename = `${prefix}_${dateStr}_${timeStr}.xlsx`
+      const destPath = join(dir, filename)
+
+      this.excelService.exportProducts(destPath)
+      return destPath
+    } catch (err) {
+      console.error('Error al exportar inventario en Excel durante el cierre:', err)
+      return null
+    }
+  }
+
+  async createAutoCloseBackup(): Promise<{ backupPath: string; excelPath: string | null }> {
+    const backupPath = await this.createBackup()
+    let excelPath: string | null = null
+    try {
+      excelPath = await this.exportAutoCloseInventory()
+    } catch (err) {
+      console.error('Error en exportación automática de inventario Excel al cerrar:', err)
+    }
+    return { backupPath, excelPath }
   }
 
   validateBackupFile(filePath: string): BackupInfo {

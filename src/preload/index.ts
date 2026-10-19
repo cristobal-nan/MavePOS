@@ -145,6 +145,10 @@ export interface SystemAPI {
   getBackupDirectory: () => Promise<string>
   openBackupDirectory: () => Promise<boolean>
   selectBackupDirectory: () => Promise<string | null>
+  getExcelExportDirectory: () => Promise<string>
+  openExcelExportDirectory: () => Promise<boolean>
+  selectExcelExportDirectory: () => Promise<string | null>
+  createAutoCloseBackup: () => Promise<{ backupPath: string; excelPath: string | null }>
   selectExternalBackup: () => Promise<BackupInfo | null>
   restoreBackup: (backupFilePath: string) => Promise<{ ok: boolean }>
 }
@@ -210,6 +214,10 @@ export interface WindowAPI {
   getBackupDirectory: () => Promise<string>
   openBackupDirectory: () => Promise<boolean>
   selectBackupDirectory: () => Promise<string | null>
+  getExcelExportDirectory: () => Promise<string>
+  openExcelExportDirectory: () => Promise<boolean>
+  selectExcelExportDirectory: () => Promise<string | null>
+  createAutoCloseBackup: () => Promise<{ backupPath: string; excelPath: string | null }>
   selectExternalBackup: () => Promise<BackupInfo | null>
   restoreBackup: (backupFilePath: string) => Promise<{ ok: boolean }>
 
@@ -390,6 +398,10 @@ const system: SystemAPI = {
   getBackupDirectory: () => ipcRenderer.invoke('backup:getDirectory'),
   openBackupDirectory: () => ipcRenderer.invoke('backup:openDirectory'),
   selectBackupDirectory: () => ipcRenderer.invoke('backup:selectDirectory'),
+  getExcelExportDirectory: () => ipcRenderer.invoke('backup:getExcelDirectory'),
+  openExcelExportDirectory: () => ipcRenderer.invoke('backup:openExcelDirectory'),
+  selectExcelExportDirectory: () => ipcRenderer.invoke('backup:selectExcelDirectory'),
+  createAutoCloseBackup: () => ipcRenderer.invoke('backup:createAutoClose'),
   selectExternalBackup: () => ipcRenderer.invoke('backup:selectExternal'),
   restoreBackup: (backupFilePath) => ipcRenderer.invoke('backup:restore', backupFilePath)
 }
@@ -455,6 +467,10 @@ const api: WindowAPI = {
   getBackupDirectory: system.getBackupDirectory,
   openBackupDirectory: system.openBackupDirectory,
   selectBackupDirectory: system.selectBackupDirectory,
+  getExcelExportDirectory: system.getExcelExportDirectory,
+  openExcelExportDirectory: system.openExcelExportDirectory,
+  selectExcelExportDirectory: system.selectExcelExportDirectory,
+  createAutoCloseBackup: system.createAutoCloseBackup,
   selectExternalBackup: system.selectExternalBackup,
   restoreBackup: system.restoreBackup,
 

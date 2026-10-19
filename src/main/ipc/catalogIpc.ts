@@ -126,7 +126,9 @@ export function registerCatalogIpc(
   )
 
   ipcMain.handle('excel:exportProducts', async (_event, defaultPrefix?: string, productIds?: number[]) => {
-    const today = new Date().toISOString().slice(0, 10)
+    const now = new Date()
+    const pad = (n: number, z = 2) => String(n).padStart(z, '0')
+    const today = `${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}`
     const prefix = (defaultPrefix || 'Productos').trim() || 'Productos'
     const isSubset = productIds && productIds.length > 0
     const defaultFilename = isSubset ? `${prefix}_Seleccionados_${today}.xlsx` : `${prefix}_${today}.xlsx`

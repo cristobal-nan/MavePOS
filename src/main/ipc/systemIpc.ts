@@ -53,6 +53,22 @@ export function registerSystemIpc(
     return backupService.selectBackupDirectory(mainWindow)
   })
 
+  ipcMain.handle('backup:getExcelDirectory', () => {
+    return backupService.getExcelExportDirectory()
+  })
+
+  ipcMain.handle('backup:openExcelDirectory', () => {
+    return backupService.openExcelExportDirectory()
+  })
+
+  ipcMain.handle('backup:selectExcelDirectory', () => {
+    return backupService.selectExcelExportDirectory(mainWindow)
+  })
+
+  ipcMain.handle('backup:createAutoClose', async () => {
+    return await backupService.createAutoCloseBackup()
+  })
+
   ipcMain.handle('backup:selectExternal', async () => {
     return await backupService.selectExternalBackup(mainWindow)
   })
@@ -72,7 +88,7 @@ export function registerSystemIpc(
     isQuittingFromRenderer = true
     if (shouldBackup) {
       try {
-        await backupService.createBackup()
+        await backupService.createAutoCloseBackup()
       } catch (err) {
         console.error('Error al realizar respaldo antes de salir:', err)
       }
