@@ -16,6 +16,8 @@ export interface DenominationsCalculatorProps {
   emptyMessage?: string
   hideFooter?: boolean
   footerLabel?: string
+  onLastEnter?: () => void
+  lastInputRef?: React.RefObject<HTMLInputElement | null> | React.MutableRefObject<HTMLInputElement | null>
 }
 
 export const DenominationsCalculator: React.FC<DenominationsCalculatorProps> = ({
@@ -29,10 +31,32 @@ export const DenominationsCalculator: React.FC<DenominationsCalculatorProps> = (
   readOnly = false,
   emptyMessage,
   hideFooter = false,
-  footerLabel = 'Total Efectivo Físico'
+  footerLabel = 'Total Efectivo Físico',
+  onLastEnter,
+  lastInputRef
 }) => {
+  const inputRefs = React.useRef<(HTMLInputElement | null)[]>([])
   const total = countedCash !== undefined ? countedCash : calculateCountedCash(denominationCounts)
   const isAllZero = Object.values(denominationCounts || {}).every((v) => !v || v === 0)
+
+  const handleKeyDown = (idx: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      if (e.shiftKey) {
+        if (idx > 0) {
+          inputRefs.current[idx - 1]?.focus()
+          inputRefs.current[idx - 1]?.select()
+        }
+      } else {
+        if (idx < CHILEAN_DENOMINATIONS.length - 1) {
+          inputRefs.current[idx + 1]?.focus()
+          inputRefs.current[idx + 1]?.select()
+        } else if (onLastEnter) {
+          onLastEnter()
+        }
+      }
+    }
+  }
 
   const badgeStyles = {
     slate: 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-600',
@@ -77,7 +101,7 @@ export const DenominationsCalculator: React.FC<DenominationsCalculatorProps> = (
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-150 dark:divide-slate-800 bg-white dark:bg-slate-850">
-              {CHILEAN_DENOMINATIONS.map((d) => {
+              {CHILEAN_DENOMINATIONS.map((d, idx) => {
                 const count = denominationCounts?.[d.value] || 0
                 const subtotal = d.value * count
                 return (
@@ -107,6 +131,12 @@ export const DenominationsCalculator: React.FC<DenominationsCalculatorProps> = (
                       ) : (
                         <div className="h-7 inline-flex items-center gap-1 justify-center">
                           <input
+                            ref={(el) => {
+                              inputRefs.current[idx] = el
+                              if (idx === CHILEAN_DENOMINATIONS.length - 1 && lastInputRef) {
+                                (lastInputRef as React.MutableRefObject<HTMLInputElement | null>).current = el
+                              }
+                            }}
                             type="number"
                             min="0"
                             placeholder="0"
@@ -115,6 +145,8 @@ export const DenominationsCalculator: React.FC<DenominationsCalculatorProps> = (
                               const val = e.target.value === '' ? 0 : parseInt(e.target.value, 10)
                               onDenominationChange?.(d.value, isNaN(val) ? 0 : Math.max(0, val))
                             }}
+                            onKeyDown={(e) => handleKeyDown(idx, e)}
+                            onFocus={(e) => e.target.select()}
                             aria-label={`Cantidad de ${d.label}`}
                             className="w-16 h-7 px-2 text-xs font-mono tabular-nums font-bold text-slate-900 dark:text-white border border-slate-300 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-900 text-center focus:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500 focus-visible:border-lilac-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none transition-colors"
                           />

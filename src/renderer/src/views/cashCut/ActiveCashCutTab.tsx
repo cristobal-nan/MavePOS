@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import {
   Banknote,
   CreditCard,
@@ -51,6 +51,12 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
   // Modales
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false)
   const [isClosing, setIsClosing] = useState(false)
+
+  // Referencias para navegación secuencial con Enter
+  const lastDenominationRef = useRef<HTMLInputElement | null>(null)
+  const cardMachineInputRef = useRef<HTMLInputElement | null>(null)
+  const transferVerifiedInputRef = useRef<HTMLInputElement | null>(null)
+  const notesRef = useRef<HTMLTextAreaElement | null>(null)
 
   // Cargar reglas de retiro configuradas en settings
   const loadRules = (): void => {
@@ -409,6 +415,11 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
               countedCash={countedCash}
               readOnly={false}
               footerLabel="Total Físico Contado"
+              lastInputRef={lastDenominationRef}
+              onLastEnter={() => {
+                cardMachineInputRef.current?.focus()
+                cardMachineInputRef.current?.select()
+              }}
             />
           </div>
         </div>
@@ -580,12 +591,30 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
                   )}
                 </div>
                 <input
+                  ref={cardMachineInputRef}
                   id="card-machine-input"
                   type="number"
                   min={0}
                   placeholder={cardSales > 0 ? cardSales.toString() : '0'}
                   value={cardMachineInput}
                   onChange={(e) => setCardMachineInput(e.target.value)}
+                  onFocus={(e) => e.target.select()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      if (e.shiftKey) {
+                        lastDenominationRef.current?.focus()
+                        lastDenominationRef.current?.select()
+                      } else {
+                        if (hasTransferSales) {
+                          transferVerifiedInputRef.current?.focus()
+                          transferVerifiedInputRef.current?.select()
+                        } else {
+                          notesRef.current?.focus()
+                        }
+                      }
+                    }
+                  }}
                   className="w-full mt-1 px-3 py-1.5 bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 rounded-lg text-sm font-black text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-center"
                 />
                 <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 text-center">
@@ -695,12 +724,25 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
                     )}
                   </div>
                   <input
+                    ref={transferVerifiedInputRef}
                     id="transfer-verified-input"
                     type="number"
                     min={0}
                     placeholder={transferSales.toString()}
                     value={transferVerifiedInput}
                     onChange={(e) => setTransferVerifiedInput(e.target.value)}
+                    onFocus={(e) => e.target.select()}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        if (e.shiftKey) {
+                          cardMachineInputRef.current?.focus()
+                          cardMachineInputRef.current?.select()
+                        } else {
+                          notesRef.current?.focus()
+                        }
+                      }
+                    }}
                     className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-700 rounded-lg text-xs font-black text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-center"
                   />
                 </div>
@@ -736,6 +778,7 @@ export const ActiveCashCutTab: React.FC<ActiveCashCutTabProps> = ({ onSwitchToHi
           </h5>
         </div>
         <textarea
+          ref={notesRef}
           rows={2}
           placeholder="Detalles sobre diferencias, incidencias o comentarios del turno (opcional)..."
           value={notes}
