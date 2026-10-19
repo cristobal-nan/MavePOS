@@ -3,12 +3,14 @@
 Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo que ya no aporte.
 
 ## Estado actual
-- Versión 1.0.8 activa en desarrollo (instalador 1.0.7-a generado en `dist/`, 324 tests pasando al 100% en 32 suites, 0 errores de TypeScript).
+- Versión 1.0.9 activa en desarrollo (instalador 1.0.8 generado en `dist/`, 326 tests pasando al 100% en 32 suites, 0 errores de TypeScript).
 - Auditoría UI completada al 100% (Fase 0 a Fase 8 de `AUDITORIA_UI.md`) en todas las pantallas (`F1` a `F6`).
 - Arquitectura canónica consolidada: `ViewHeader`, `SubTabs`, `EmptyState` en todas las vistas principales y secundarias.
 - Paleta dual estricta: Modo Claro y Slate Profundo (`#0F172A`, `#1E293B`, `#334155`), tickets térmicos blancos inmutables.
 - Motor de catálogo vendible en memoria RAM (`memoryCatalogStore`) con respuesta a 0 ms y write-through en SQLite tanto para Ventas (F1), Catálogo (F2) y Modal (F10).
 - Desacople total de input en `ProductSearch`: estado local síncrono para el texto y `startTransition` + tabla memoizada para renderizar sin tildar el cuadro en PCs de bajos recursos.
+- Flujo de arqueo y corte de caja ultra ágil: navegación secuencial de arriba a abajo con la tecla `Enter` y auto-selección de texto (`.select()`).
+- Respaldo dual al salir: SQLite `.db` e inventario Excel `.xlsx` (`${prefix}_${DD-MM-YYYY}_${HH-mm}.xlsx`) en `Documentos\Inventarios POS` (personalizable en Respaldos). Fecha estándar chilena `DD-MM-YYYY` en exportaciones Excel.
 
 ## Decisiones (y por qué)
 - **Componentes canónicos (`ViewHeader`, `SubTabs`, `EmptyState`):** Unificación dimensional, accesibilidad ARIA completa (`tablist`, `tab`, `dialog`), soporte de teclado (flechas, Home, End, Escape) y cero layout shift.
