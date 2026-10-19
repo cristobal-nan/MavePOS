@@ -754,7 +754,11 @@ export const InventorySettingsTab: React.FC = () => {
         <div className="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 flex items-center gap-2">
           <span className="font-semibold text-slate-700 dark:text-slate-300">Nombre sugerido en Windows:</span>
           <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300 bg-white dark:bg-slate-900 px-2 py-0.5 rounded border border-emerald-200 dark:border-emerald-800/80">
-            {exportPrefix.trim() || 'Productos'}_{new Date().toISOString().slice(0, 10)}.xlsx
+            {exportPrefix.trim() || 'Productos'}_{(() => {
+              const now = new Date()
+              const pad = (n: number, z = 2) => String(n).padStart(z, '0')
+              return `${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}`
+            })()}.xlsx
           </span>
         </div>
       </div>

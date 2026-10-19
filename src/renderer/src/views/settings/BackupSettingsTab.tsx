@@ -10,7 +10,8 @@ import {
   X,
   RefreshCw,
   Loader2,
-  FileUp
+  FileUp,
+  FileSpreadsheet
 } from 'lucide-react'
 import { BackupInfo } from '@shared/types'
 import { formatDateTime } from '../../utils/formatters'
@@ -22,6 +23,7 @@ export const BackupSettingsTab: React.FC = () => {
   const { checkCurrentSession } = useCashStore()
 
   const [backupDir, setBackupDir] = useState<string>('')
+  const [excelDir, setExcelDir] = useState<string>('')
   const [backupsList, setBackupsList] = useState<BackupInfo[]>([])
   const [isCreatingBackup, setIsCreatingBackup] = useState(false)
   const [backupButtonState, setBackupButtonState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
@@ -35,6 +37,8 @@ export const BackupSettingsTab: React.FC = () => {
     try {
       const dir = await window.api.getBackupDirectory()
       setBackupDir(dir)
+      const eDir = await window.api.getExcelExportDirectory()
+      setExcelDir(eDir)
       const list = await window.api.listBackups()
       setBackupsList(list)
     } catch (err) {
@@ -109,6 +113,26 @@ export const BackupSettingsTab: React.FC = () => {
       await window.api.openBackupDirectory()
     } catch (err) {
       console.error('Error abriendo carpeta de respaldos:', err)
+    }
+  }
+
+  const handleSelectExcelDir = async (): Promise<void> => {
+    try {
+      const chosen = await window.api.selectExcelExportDirectory()
+      if (chosen) {
+        setExcelDir(chosen)
+        showToast('success', `Carpeta de inventarios Excel actualizada a: ${chosen}`)
+      }
+    } catch (err: any) {
+      console.error('Error seleccionando carpeta de inventarios Excel:', err)
+    }
+  }
+
+  const handleOpenExcelDir = async (): Promise<void> => {
+    try {
+      await window.api.openExcelExportDirectory()
+    } catch (err) {
+      console.error('Error abriendo carpeta de inventarios Excel:', err)
     }
   }
 
@@ -229,6 +253,51 @@ export const BackupSettingsTab: React.FC = () => {
               </>
             )}
           </button>
+        </div>
+      </div>
+
+      {/* Excel Auto Export Directory Card */}
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-lilac-100 dark:border-slate-700 p-6 shadow-sm space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/80 pb-3">
+          <div className="flex items-center gap-2">
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            <h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">Exportación Automática de Inventario (Excel)</h2>
+          </div>
+          <span className="text-xs text-slate-400 dark:text-slate-400">Generada al cerrar turno o la aplicación</span>
+        </div>
+
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200/70 dark:border-slate-700/80">
+          <div className="space-y-1 overflow-hidden">
+            <span className="text-[11px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider block">
+              Carpeta de Planillas de Inventario
+            </span>
+            <p className="text-xs font-mono font-bold text-slate-700 dark:text-slate-200 truncate" title={excelDir}>
+              {excelDir || 'Cargando directorio...'}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={handleSelectExcelDir}
+              className="px-3.5 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-700 transition-colors shadow-sm"
+            >
+              Cambiar Carpeta...
+            </button>
+            <button
+              onClick={handleOpenExcelDir}
+              className="px-3.5 py-2 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-700 transition-colors shadow-sm flex items-center gap-1.5"
+            >
+              <FolderOpen className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <span>Abrir Carpeta</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 pt-1">
+          <Info className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <span>
+            En cada cierre automático se guardará una planilla .xlsx con fecha y hora (ej. <span className="font-mono font-bold text-emerald-700 dark:text-emerald-300">Productos_19-10-2026_20-45.xlsx</span>) conservando todas las planillas como histórico.
+          </span>
         </div>
       </div>
 

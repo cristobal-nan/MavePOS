@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { AlertCircle, Archive, CheckCircle2, Loader2, ShieldCheck, X } from 'lucide-react'
+import { AlertCircle, Archive, CheckCircle2, Loader2, ShieldCheck, X, FileSpreadsheet } from 'lucide-react'
 import { CashSession } from '@shared/types'
 import { useUIStore } from '../store/uiStore'
 import { useModalStack } from '../utils/modalStack'
@@ -93,8 +93,8 @@ export const CloseConfirmModal: React.FC = () => {
     setIsProcessing(true)
     setErrorMessage(null)
     try {
-      const createdPath = await window.api.createBackup()
-      setBackupFilePath(createdPath)
+      const result = await window.api.createAutoCloseBackup()
+      setBackupFilePath(result?.backupPath || null)
       setBackupStatus('completed')
       setTimeout(async () => {
         try {
@@ -245,11 +245,12 @@ export const CloseConfirmModal: React.FC = () => {
               <div className="p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-11 h-11 rounded-xl bg-lilac-100 dark:bg-lilac-950/60 text-lilac-600 dark:text-lilac-400 flex items-center justify-center">
-                      <Archive className="w-6 h-6" />
+                    <div className="w-11 h-11 rounded-xl bg-lilac-100 dark:bg-lilac-950/60 text-lilac-600 dark:text-lilac-400 flex items-center justify-center relative">
+                      <Archive className="w-5 h-5 -translate-x-1" />
+                      <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400 absolute -bottom-1 -right-1 bg-white dark:bg-slate-800 rounded-md p-0.5 shadow-2xs border border-slate-200 dark:border-slate-700" />
                     </div>
                     <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-lilac-100 dark:bg-lilac-950/80 text-lilac-700 dark:text-lilac-300">
-                      Respaldo de Seguridad
+                      Respaldo e Inventario Excel
                     </span>
                   </div>
                   <button
@@ -262,14 +263,14 @@ export const CloseConfirmModal: React.FC = () => {
                 </div>
 
                 <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-2">
-                  Cierre y Respaldo Automático
+                  Cierre, Respaldo y Exportación Excel
                 </h3>
                 <p className="text-sm text-slate-600 dark:text-slate-300 mb-4 leading-relaxed">
-                  Se generará una copia consistente de la base de datos en tus documentos antes de salir.
+                  Se generará una copia de seguridad de la base de datos y se exportará el inventario en Excel (.xlsx) en tus documentos antes de salir.
                 </p>
 
                 <div className="bg-lilac-50 dark:bg-slate-900/60 border border-lilac-200 dark:border-slate-700 rounded-xl p-4 text-center mb-6">
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Cerrando y respaldando automáticamente en:</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Cerrando, respaldando y exportando en:</p>
                   <div className="text-3xl font-extrabold text-lilac-700 dark:text-lilac-300 tracking-wider">
                     {countdown} <span className="text-sm font-medium text-lilac-500 dark:text-lilac-400">segundos</span>
                   </div>
@@ -282,7 +283,7 @@ export const CloseConfirmModal: React.FC = () => {
                     className="w-full py-2.5 px-4 bg-lilac-600 hover:bg-lilac-700 text-white rounded-xl font-medium text-sm transition-colors shadow-sm flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <ShieldCheck className="w-4 h-4" />
-                    <span>Realizar respaldo ya</span>
+                    <span>Respaldar y exportar ya</span>
                   </button>
 
                   <button
@@ -290,7 +291,7 @@ export const CloseConfirmModal: React.FC = () => {
                     disabled={isProcessing}
                     className="w-full py-2.5 px-4 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl font-medium text-sm transition-colors cursor-pointer"
                   >
-                    No respaldar y salir
+                    Salir sin respaldar ni exportar
                   </button>
 
                   <button
@@ -312,10 +313,10 @@ export const CloseConfirmModal: React.FC = () => {
                 </div>
 
                 <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1.5">
-                  Generando Respaldo de Seguridad...
+                  Generando Respaldo e Inventario...
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 max-w-xs leading-relaxed">
-                  Creando una copia consistente de la base de datos antes de salir. Por favor espera y no apagues el equipo.
+                  Creando copia de seguridad y exportando inventario Excel antes de salir. Por favor espera y no apagues el equipo.
                 </p>
 
                 <div className="w-full bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-700 rounded-2xl p-4 flex flex-col gap-2.5">
@@ -330,7 +331,7 @@ export const CloseConfirmModal: React.FC = () => {
                     <div className="bg-gradient-to-r from-lilac-500 via-purple-500 to-lilac-600 h-full rounded-full w-full animate-pulse" />
                   </div>
                   <p className="text-[11px] text-slate-400 dark:text-slate-500 text-center">
-                    Destino: Documentos / Respaldos POS
+                    Destino: Documentos / Respaldos POS e Inventarios POS
                   </p>
                 </div>
               </div>
@@ -344,10 +345,10 @@ export const CloseConfirmModal: React.FC = () => {
                 </div>
 
                 <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1.5">
-                  ¡Respaldo Realizado con Éxito!
+                  ¡Respaldo e Inventario Realizados con Éxito!
                 </h3>
                 <p className="text-xs text-slate-600 dark:text-slate-300 mb-6 max-w-xs leading-relaxed">
-                  La copia de seguridad ha finalizado correctamente. Cerrando la aplicación...
+                  Copia de seguridad e inventario Excel generados con éxito. Cerrando la aplicación...
                 </p>
 
                 <div className="w-full bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800 rounded-2xl p-4 flex flex-col gap-2.5">
