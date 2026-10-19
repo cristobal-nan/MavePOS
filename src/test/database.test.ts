@@ -5,6 +5,7 @@ import { ProductService } from '../main/services/productService'
 import { CashService } from '../main/services/cashService'
 import { SettingsService } from '../main/services/settingsService'
 import { BackupService, MAX_BACKUPS_RETENTION } from '../main/services/backupService'
+import { ExcelService } from '../main/services/excelService'
 import { normalizeSearchName } from '../main/db/utils'
 import { mkdtempSync, rmSync, existsSync, readdirSync, mkdirSync } from 'fs'
 import { join } from 'path'
@@ -381,6 +382,50 @@ describe('Fase 2: Datos, Esquema, Servicios y Backup', () => {
       } finally {
         if (existsSync(tempDir)) {
           rmSync(tempDir, { recursive: true, force: true })
+        }
+      }
+    })
+
+    it('genera respaldo .db y exporta inventario Excel automáticamente con createAutoCloseBackup', async () => {
+      const tempBackupDir = mkdtempSync(join(tmpdir(), 'pos-backup-auto-'))
+      const tempExcelDir = mkdtempSync(join(tmpdir(), 'pos-excel-auto-'))
+      const excelService = new ExcelService(db)
+      const backupService = new BackupService(db, settingsService, excelService)
+
+      settingsService.set('backup_directory', tempBackupDir)
+      settingsService.set('excel_auto_export_directory', tempExcelDir)
+      settingsService.set('excel_export_prefix', 'InventarioTest')
+
+      // Insertar un producto para exportar
+      productService.upsertProduct({
+        code: 'TEST-AUTO-1',
+        name: 'Lana Merino Test',
+        sale_price: 4990,
+        stock: 12
+      })
+
+      try {
+        expect(backupService.getExcelExportDirectory()).toBe(tempExcelDir)
+
+        const result = await backupService.createAutoCloseBackup()
+
+        expect(result.backupPath).toBeDefined()
+        expect(existsSync(result.backupPath)).toBe(true)
+        expect(result.backupPath).toContain('pos_backup_')
+
+        expect(result.excelPath).toBeDefined()
+        expect(result.excelPath).not.toBeNull()
+        expect(existsSync(result.excelPath!)).toBe(true)
+
+        // El nombre debe contener el prefijo y la extensión .xlsx
+        expect(result.excelPath).toContain('InventarioTest_')
+        expect(result.excelPath).toMatch(/InventarioTest_\d{2}-\d{2}-\d{4}_\d{2}-\d{2}\.xlsx$/)
+      } finally {
+        if (existsSync(tempBackupDir)) {
+          rmSync(tempBackupDir, { recursive: true, force: true })
+        }
+        if (existsSync(tempExcelDir)) {
+          rmSync(tempExcelDir, { recursive: true, force: true })
         }
       }
     })
