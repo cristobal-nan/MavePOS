@@ -150,4 +150,30 @@ describe('Auditoría UI Pantalla 4: Corte de Caja y Arqueo (CashCutView y compon
     expect(html).toContain('Total Ventas:')
     expect(html).toContain('Imprimir Comprobante')
   })
+
+  it('DenominationsCalculator y ActiveCashCutTab exponen inputs con IDs y referencias para navegación secuencial con Enter', () => {
+    const lastRef = React.createRef<HTMLInputElement>()
+    const onLastEnter = vi.fn()
+
+    const calcHtml = renderToStaticMarkup(
+      React.createElement(DenominationsCalculator, {
+        title: 'Cierre de turno',
+        denominationCounts: { 20000: 1 },
+        readOnly: false,
+        onLastEnter,
+        lastInputRef: lastRef
+      })
+    )
+
+    // Los 9 inputs de denominaciones existen
+    expect(calcHtml).toContain('aria-label="Cantidad de $20.000"')
+    expect(calcHtml).toContain('aria-label="Cantidad de $10"')
+
+    // La vista completa de corte incluye card-machine-input y el textarea de observaciones
+    const cutHtml = renderToStaticMarkup(React.createElement(CashCutView))
+    expect(cutHtml).toContain('id="card-machine-input"')
+    expect(cutHtml).toContain('id="transfer-verified-input"')
+    expect(cutHtml).toContain('placeholder="Detalles sobre diferencias, incidencias o comentarios del turno (opcional)..."')
+  })
 })
+
