@@ -283,6 +283,8 @@ describe('Fase 7: Historial y Dinero (Devoluciones, Cancelaciones y Salidas de C
       expect(updated.payments.length).toBe(1)
       expect(updated.payments[0].method).toBe('card')
       expect(updated.payments[0].amount).toBe(6000)
+      expect(updated.cash_paid).toBeNull()
+      expect(updated.change_amount).toBe(0)
 
       // Verificar que el corte de caja se recalculó al instante
       const summaryAfter = cashService.getSessionSummary(cashSessionId)

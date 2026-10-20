@@ -191,7 +191,10 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
     setIsPrintingThermal(true)
     setPrintFeedback(null)
     try {
-      const res = await window.api.printThermalReceipt(selectedSaleDetail, 0)
+      const res = await window.api.printThermalReceipt(
+        selectedSaleDetail,
+        selectedSaleDetail.change_amount || 0
+      )
       if (res.success) {
         setPrintFeedback({ type: 'success', text: '¡Ticket térmico enviado a la impresora!' })
       } else {
@@ -346,7 +349,7 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
           )}
 
           {/* Desglose de Pagos y Resumen */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             <div className="bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl p-3">
               <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">Total de la Venta</span>
               <span className="text-xl font-black text-slate-900 dark:text-white">
@@ -354,7 +357,7 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
               </span>
             </div>
 
-            <div className="bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl p-3">
+            <div className="col-span-2 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl p-3">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 block">
                   Formas de Pago Registradas
@@ -407,6 +410,34 @@ export const SaleDetailModal: React.FC<SaleDetailModalProps> = ({
                         </span>
                       )
                     })
+                  }
+
+                  if (selectedSaleDetail.cash_paid != null && selectedSaleDetail.cash_paid > 0) {
+                    badges.push(
+                      <span
+                        key="cash_paid"
+                        className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300"
+                      >
+                        Pagó con: {formatCLP(selectedSaleDetail.cash_paid)}
+                      </span>
+                    )
+                    badges.push(
+                      <span
+                        key="change_amount"
+                        className="px-2 py-0.5 rounded text-[11px] font-bold bg-lilac-50 dark:bg-lilac-950/40 border border-lilac-300 dark:border-lilac-800 text-lilac-800 dark:text-lilac-300"
+                      >
+                        Vuelto: {formatCLP(selectedSaleDetail.change_amount ?? 0)}
+                      </span>
+                    )
+                  } else if (selectedSaleDetail.change_amount != null && selectedSaleDetail.change_amount > 0) {
+                    badges.push(
+                      <span
+                        key="change_amount"
+                        className="px-2 py-0.5 rounded text-[11px] font-bold bg-lilac-50 dark:bg-lilac-950/40 border border-lilac-300 dark:border-lilac-800 text-lilac-800 dark:text-lilac-300"
+                      >
+                        Vuelto: {formatCLP(selectedSaleDetail.change_amount)}
+                      </span>
+                    )
                   }
 
                   if (badges.length === 0) {

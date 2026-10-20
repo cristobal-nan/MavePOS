@@ -29,6 +29,8 @@ import {
 } from './printing/rawPrinterHelper'
 
 export class PrinterService {
+  private lastDrawerOpenTimestamp = 0
+
   constructor(
     private db: Database.Database,
     private settingsService: SettingsService
@@ -545,6 +547,7 @@ export class PrinterService {
     customConfig?: Partial<PrinterConfig>
   ): Promise<PrintResult> {
     const config = { ...this.getPrinterConfig(), ...customConfig }
+    const effectiveChange = (change !== undefined && change > 0) ? change : (saleDetail.change_amount || 0)
 
     if (!config.thermalInterface) {
       return {
@@ -557,7 +560,7 @@ export class PrinterService {
 
     if (isGraphicMode) {
       try {
-        const html = this.generateThermalGraphicHtml(saleDetail, change, config)
+        const html = this.generateThermalGraphicHtml(saleDetail, effectiveChange, config)
         return await this.printThermalGraphic(
           html,
           config,
@@ -575,7 +578,7 @@ export class PrinterService {
     // Fallback: Impresión nativa ESC/POS RAW
     const printerObj = this.createPrinterInstance(customConfig)
     try {
-      this.buildReceiptCommands(printerObj, saleDetail, change)
+      this.buildReceiptCommands(printerObj, saleDetail, effectiveChange)
       const buffer = printerObj.printer.getBuffer()
       return await this.dispatchThermalBuffer(
         buffer,
@@ -603,6 +606,13 @@ export class PrinterService {
         error: 'No se ha configurado la interfaz de la impresora para el pulso de cajón.'
       }
     }
+
+    const now = Date.now()
+    if (now - this.lastDrawerOpenTimestamp < 800) {
+      // Ignorar ráfagas duplicadas menores a 800ms para evitar doble disparo en el solenoide
+      return { success: true }
+    }
+    this.lastDrawerOpenTimestamp = now
 
     try {
       return await this.dispatchThermalBuffer(

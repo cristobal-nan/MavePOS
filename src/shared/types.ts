@@ -105,6 +105,8 @@ export interface Sale {
   ticket_number?: number
   status: SaleStatus
   total: number
+  cash_paid?: number | null
+  change_amount?: number
   cash_session_id: number | null
   exchange_parent_id?: number | null
   exchange_parent_folio?: number | null

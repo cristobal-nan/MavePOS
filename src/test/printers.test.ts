@@ -360,15 +360,11 @@ describe('Fase 9: Impresión y Tickets Térmicos (ESC/POS y Periféricos)', () =
   })
 
   describe('Control de Spooler RAW y Pulso Universal de Cajón (rawPrinterHelper)', () => {
-    it('el buffer universal de pulso contiene las secuencias estándar ESC/POS y Star', () => {
+    it('el buffer de pulso emite un único pulso estándar limpio ESC/POS (Pin 2) evitando doble disparo', () => {
       expect(CASH_DRAWER_PULSE_BUFFER).toBeDefined()
       const hex = CASH_DRAWER_PULSE_BUFFER.toString('hex')
-      // Pin 2 (1b 70 00 19 fa)
-      expect(hex).toContain('1b700019fa')
-      // Pin 5 (1b 70 01 19 fa)
-      expect(hex).toContain('1b700119fa')
-      // Star BEL (07)
-      expect(hex).toContain('07')
+      // Pin 2 estándar (1b 70 00 19 fa): pulso único de 50ms sin repetición en Pin 5 ni BEL
+      expect(hex).toBe('1b700019fa')
     })
 
     it('localiza el binario nativo winrawprint.exe en la estructura del proyecto', () => {
@@ -418,6 +414,8 @@ describe('Fase 9: Impresión y Tickets Térmicos (ESC/POS y Periféricos)', () =
         ticket_number: 5,
         status: 'completed',
         total: 10500,
+        cash_paid: 15000,
+        change_amount: 4500,
         cash_session_id: 1,
         created_at: new Date().toISOString(),
         completed_at: new Date().toISOString(),
@@ -458,6 +456,10 @@ describe('Fase 9: Impresión y Tickets Térmicos (ESC/POS y Periféricos)', () =
       expect(html).toContain('Consolas, monospace')
       expect(html).toContain('Lana Roja 100g')
       expect(html).toContain('$ 10.500')
+      expect(html).toContain('Pagó con:')
+      expect(html).toContain('$ 15.000')
+      expect(html).toContain('Vuelto:')
+      expect(html).toContain('$ 4.500')
       expect(html).toContain('width: 72mm')
       expect(html).toContain('background-color: #ffffff !important')
     })

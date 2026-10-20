@@ -241,9 +241,15 @@ export const SalesHistoryTab: React.FC<SalesHistoryTabProps> = () => {
                                     ? 'bg-blue-50 text-blue-700 border-blue-200'
                                     : 'bg-purple-50 text-purple-700 border-purple-200'
 
+                                const tooltip =
+                                  p.method === 'cash' && s.cash_paid && s.cash_paid > p.amount
+                                    ? `Pagó con ${formatCLP(s.cash_paid)} (Vuelto: ${formatCLP(s.change_amount || 0)})`
+                                    : undefined
+
                                 badges.push(
                                   <span
                                     key={p.id}
+                                    title={tooltip}
                                     className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${color}`}
                                   >
                                     {label} {formatCLP(p.amount)}

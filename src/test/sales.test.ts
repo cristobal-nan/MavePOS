@@ -86,8 +86,14 @@ describe('Fase 5: Módulo de Ventas (Importes, Totales, Pagos, Vuelto, Stock e I
 
       expect(result.sale.total).toBe(7000)
       expect(result.change).toBe(3000) // Vuelto $3.000
+      expect(result.sale.cash_paid).toBe(10000)
+      expect(result.sale.change_amount).toBe(3000)
       expect(result.payments[0].method).toBe('cash')
       expect(result.payments[0].amount).toBe(7000)
+
+      const savedDetail = salesService.getSaleDetail(result.sale.id)
+      expect(savedDetail?.cash_paid).toBe(10000)
+      expect(savedDetail?.change_amount).toBe(3000)
     })
 
     it('si paga exacto, el vuelto es 0', () => {

@@ -297,6 +297,20 @@ const MIGRATIONS: Migration[] = [
         updateSaleStmt.run(newCode, prod.code)
       }
     }
+  },
+  {
+    version: 13,
+    up: (db) => {
+      const cols = db.pragma('table_info(sales)') as { name: string }[]
+      const colNames = new Set(cols.map((c) => c.name))
+
+      if (!colNames.has('cash_paid')) {
+        db.exec('ALTER TABLE sales ADD COLUMN cash_paid INTEGER NULL DEFAULT NULL;')
+      }
+      if (!colNames.has('change_amount')) {
+        db.exec('ALTER TABLE sales ADD COLUMN change_amount INTEGER NOT NULL DEFAULT 0;')
+      }
+    }
   }
 ]
 

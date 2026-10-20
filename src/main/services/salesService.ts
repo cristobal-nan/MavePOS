@@ -246,6 +246,21 @@ export class SalesService {
 
       const exchangeParentId = input.exchangeInfo ? input.exchangeInfo.originalSaleId : null
 
+      // Calculate change for cash & cashPaid
+      const cashPayment = input.payments.find((p) => p.method === 'cash')
+      let change = 0
+      let cashPaid: number | null = null
+      if (cashPayment) {
+        if (input.cashPaid !== undefined && input.cashPaid !== null && input.cashPaid >= cashPayment.amount) {
+          cashPaid = input.cashPaid
+          change = input.cashPaid - cashPayment.amount
+        } else if (input.cashPaid !== undefined && input.cashPaid !== null) {
+          cashPaid = input.cashPaid
+        } else {
+          cashPaid = cashPayment.amount
+        }
+      }
+
       if (input.saleId) {
         saleId = input.saleId
         this.db.prepare(`
@@ -254,19 +269,24 @@ export class SalesService {
             ticket_number = ?,
             status = 'completed',
             total = ?,
+            cash_paid = ?,
+            change_amount = ?,
             cash_session_id = ?,
             exchange_parent_id = ?,
             completed_at = ?
           WHERE id = ?
-        `).run(folio, ticketNumber, total, input.cashSessionId, exchangeParentId, now, saleId)
+        `).run(folio, ticketNumber, total, cashPaid, change, input.cashSessionId, exchangeParentId, now, saleId)
 
         // Clear any temporary pending items
         this.db.prepare('DELETE FROM sale_items WHERE sale_id = ?').run(saleId)
       } else {
         const res = this.db.prepare(`
-          INSERT INTO sales (folio, ticket_number, status, total, cash_session_id, exchange_parent_id, created_at, completed_at)
-          VALUES (?, ?, 'completed', ?, ?, ?, ?, ?)
-        `).run(folio, ticketNumber, total, input.cashSessionId, exchangeParentId, now, now)
+          INSERT INTO sales (
+            folio, ticket_number, status, total, cash_paid, change_amount,
+            cash_session_id, exchange_parent_id, created_at, completed_at
+          )
+          VALUES (?, ?, 'completed', ?, ?, ?, ?, ?, ?, ?)
+        `).run(folio, ticketNumber, total, cashPaid, change, input.cashSessionId, exchangeParentId, now, now)
         saleId = Number(res.lastInsertRowid)
       }
 
@@ -344,19 +364,14 @@ export class SalesService {
         })
       }
 
-      // 3. Calculate change for cash
-      const cashPayment = input.payments.find((p) => p.method === 'cash')
-      let change = 0
-      if (cashPayment && input.cashPaid && input.cashPaid > cashPayment.amount) {
-        change = input.cashPaid - cashPayment.amount
-      }
-
       const completedSale: Sale = {
         id: saleId,
         folio,
         ticket_number: ticketNumber,
         status: 'completed',
         total,
+        cash_paid: cashPaid,
+        change_amount: change,
         cash_session_id: input.cashSessionId,
         exchange_parent_id: exchangeParentId,
         exchange_parent_folio: input.exchangeInfo ? input.exchangeInfo.originalFolio : null,
@@ -644,6 +659,12 @@ export class SalesService {
       this.db
         .prepare('INSERT INTO sale_payments (sale_id, method, amount) VALUES (?, ?, ?)')
         .run(saleId, newMethod, totalPaid)
+
+      if (newMethod !== 'cash') {
+        this.db.prepare('UPDATE sales SET cash_paid = NULL, change_amount = 0 WHERE id = ?').run(saleId)
+      } else {
+        this.db.prepare('UPDATE sales SET cash_paid = ?, change_amount = 0 WHERE id = ?').run(totalPaid, saleId)
+      }
 
       return this.getSaleDetail(saleId)!
     })

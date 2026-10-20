@@ -223,6 +223,8 @@ export function buildThermalReceipt(options: BuildThermalReceiptOptions): void {
   const isExchangeSale = Boolean(saleDetail.exchange_parent_id)
   const paymentsSum = saleDetail.payments?.reduce((acc, p) => acc + p.amount, 0) ?? 0
   const devolutionAmount = isExchangeSale ? saleDetail.total - paymentsSum : 0
+  const actualChange = (change !== undefined && change > 0) ? change : (saleDetail.change_amount || 0)
+  const cashPaid = saleDetail.cash_paid && saleDetail.cash_paid > 0 ? saleDetail.cash_paid : null
 
   if ((saleDetail.payments && saleDetail.payments.length > 0) || devolutionAmount > 0) {
     printer.println('FORMAS DE PAGO:')
@@ -240,10 +242,13 @@ export function buildThermalReceipt(options: BuildThermalReceiptOptions): void {
         printer.leftRight(`  ${mLabel}:`, formatCLP(p.amount))
       }
     }
+    if (cashPaid) {
+      printer.leftRight('  Pago con:', formatCLP(cashPaid))
+    }
   }
 
-  if (change > 0) {
-    printer.leftRight('  Vuelto:', formatCLP(change))
+  if (actualChange > 0) {
+    printer.leftRight('  Vuelto:', formatCLP(actualChange))
   }
 
   // 5. Footer & Courtesy Message
@@ -255,8 +260,8 @@ export function buildThermalReceipt(options: BuildThermalReceiptOptions): void {
   // 6. Cash drawer pulse (if enabled)
   if (openDrawerOnPrint) {
     if (typeof printer.append === 'function') {
-      // Pin 2 + Pin 5 with 50ms ON / 500ms OFF + Star BEL
-      printer.append(Buffer.from([0x1b, 0x70, 0x00, 0x19, 0xfa, 0x1b, 0x70, 0x01, 0x19, 0xfa, 0x07]))
+      // Standard ESC/POS Pin 2 pulse (50ms ON / 500ms OFF)
+      printer.append(Buffer.from([0x1b, 0x70, 0x00, 0x19, 0xfa]))
     } else if (typeof printer.openCashDrawer === 'function') {
       printer.openCashDrawer()
     }
@@ -424,6 +429,8 @@ export function generateThermalReceiptHtml(options: GenerateThermalReceiptHtmlOp
   const isExchangeSale = Boolean(saleDetail.exchange_parent_id)
   const paymentsSum = saleDetail.payments?.reduce((acc, p) => acc + p.amount, 0) ?? 0
   const devolutionAmount = isExchangeSale ? saleDetail.total - paymentsSum : 0
+  const actualChange = (change !== undefined && change > 0) ? change : (saleDetail.change_amount || 0)
+  const cashPaid = saleDetail.cash_paid && saleDetail.cash_paid > 0 ? saleDetail.cash_paid : null
 
   const methodLabels: Record<string, string> = {
     cash: 'Efectivo',
@@ -562,10 +569,18 @@ export function generateThermalReceiptHtml(options: GenerateThermalReceiptHtmlOp
                 )
                 .join('')}
               ${
-                change > 0
+                cashPaid
+                  ? `<div class="flex-between" style="padding-left: 6px; margin-top: 2px;">
+                      <span>Pagó con:</span>
+                      <span>${formatCLP(cashPaid)}</span>
+                    </div>`
+                  : ''
+              }
+              ${
+                actualChange > 0
                   ? `<div class="flex-between font-bold" style="padding-left: 6px; margin-top: 2px;">
                       <span>Vuelto:</span>
-                      <span>${formatCLP(change)}</span>
+                      <span>${formatCLP(actualChange)}</span>
                     </div>`
                   : ''
               }
@@ -666,6 +681,16 @@ export function generateNormalReceiptHtml(saleDetail: SaleDetail, business: Busi
       </table>
       <div class="totals">
         <p>Total a Pagar: <span class="total-amount">${formatCLP(saleDetail.total)}</span></p>
+        ${
+          saleDetail.cash_paid != null && saleDetail.cash_paid > 0
+            ? `<p style="font-size: 0.9em; margin-top: 4px;">Pagó con: <strong>${formatCLP(saleDetail.cash_paid)}</strong></p>`
+            : ''
+        }
+        ${
+          saleDetail.change_amount != null && saleDetail.change_amount > 0
+            ? `<p style="font-size: 0.9em; margin-top: 2px;">Vuelto: <strong>${formatCLP(saleDetail.change_amount)}</strong></p>`
+            : ''
+        }
       </div>
       <div class="footer">
         <p>${footerMsg}</p>

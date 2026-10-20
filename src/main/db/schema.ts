@@ -86,6 +86,8 @@ export const INITIAL_SCHEMA = `
     ticket_number INTEGER NOT NULL DEFAULT 0,
     status TEXT NOT NULL CHECK(status IN ('pending', 'completed', 'cancelled')),
     total INTEGER NOT NULL DEFAULT 0,
+    cash_paid INTEGER NULL DEFAULT NULL,
+    change_amount INTEGER NOT NULL DEFAULT 0,
     cash_session_id INTEGER NULL REFERENCES cash_sessions(id) ON DELETE SET NULL,
     exchange_parent_id INTEGER NULL REFERENCES sales(id) ON DELETE SET NULL,
     created_at TEXT NOT NULL,
