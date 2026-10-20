@@ -12,6 +12,7 @@ beforeEach(() => {
   // @ts-ignore
   global.window.api = {
     getAllSettings: vi.fn().mockResolvedValue({}),
+    openCashDrawer: vi.fn().mockResolvedValue({ success: true }),
     devices: {
       printCashCut: vi.fn().mockResolvedValue({ success: true })
     }
@@ -79,6 +80,8 @@ describe('Auditoría UI Pantalla 4: Corte de Caja y Arqueo (CashCutView y compon
     expect(html).toContain('role="tab"')
     expect(html).toContain('Corte de Turno Actual')
     expect(html).toContain('Registros Diarios')
+    expect(html).toContain('Abrir Cajón')
+    expect(html).toContain('Limpiar Campos')
   })
 
   it('DenominationsCalculator renderiza en formato 3 columnas con tabular-nums y sin border-black', () => {

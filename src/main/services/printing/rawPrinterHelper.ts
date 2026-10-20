@@ -10,15 +10,13 @@ import { ThermalPaperWidth } from '../../../shared/types'
 const execFileAsync = promisify(execFile)
 
 /**
- * Standard ESC/POS and Star Micronics drawer kick pulse.
- * - ESC p 0 25 250: Pin 2 (50ms ON, 500ms OFF)
- * - ESC p 1 25 250: Pin 5 (50ms ON, 500ms OFF)
- * - 0x07 (BEL): Star Micronics kick
+ * Standard ESC/POS drawer kick pulse (Pin 2).
+ * - ESC p 0 25 250: Pin 2 (50ms ON, 500ms OFF).
+ * Emite un único pulso limpio al pin estándar RJ11 (Pin 2) evitando
+ * el doble disparo generado al concatenar Pin 2 y Pin 5 en la misma ráfaga.
  */
 export const CASH_DRAWER_PULSE_BUFFER = Buffer.from([
-  0x1b, 0x70, 0x00, 0x19, 0xfa,
-  0x1b, 0x70, 0x01, 0x19, 0xfa,
-  0x07
+  0x1b, 0x70, 0x00, 0x19, 0xfa
 ])
 
 /**
