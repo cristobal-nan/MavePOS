@@ -3,8 +3,9 @@
 Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo que ya no aporte.
 
 ## Estado actual
-- Versión 1.0.9 activa en desarrollo (instalador 1.0.8 generado en `dist/`, 326 tests pasando al 100% en 32 suites, 0 errores de TypeScript).
+- Versión 1.0.10 activa en desarrollo (instalador 1.0.9 generado en `dist/`, 327 tests pasando al 100% en 32 suites, 0 errores de TypeScript).
 - Auditoría UI completada al 100% (Fase 0 a Fase 8 de `AUDITORIA_UI.md`) en todas las pantallas (`F1` a `F6`).
+- Persistencia de monto entregado (`cash_paid`) y vuelto (`change_amount`) en tabla `sales` (migración v13), visualización en modal de detalle de historial y reflejo en boletas térmicas (impresión inmediata y reimpresión histórica).
 - Arquitectura canónica consolidada: `ViewHeader`, `SubTabs`, `EmptyState` en todas las vistas principales y secundarias.
 - Paleta dual estricta: Modo Claro y Slate Profundo (`#0F172A`, `#1E293B`, `#334155`), tickets térmicos blancos inmutables.
 - Motor de catálogo vendible en memoria RAM (`memoryCatalogStore`) con respuesta a 0 ms y write-through en SQLite tanto para Ventas (F1), Catálogo (F2) y Modal (F10).
@@ -23,8 +24,10 @@ Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo qu
 - **Búsqueda RAM sin ordenar por tecla:** `memoryCatalogStore.products` se mantiene siempre en orden canónico (`compareCanonical` = ORDER BY de SQLite); `searchLocal` recorre y corta al límite con soporte de filtros (categoría, proveedor, tipo). Con RAM lista, tanto modal como catálogo NO consultan SQLite (`fetchProducts` retorna sin activar `isLoading`), eliminando cualquier parpadeo de carga.
 
 ## Aprendizajes y errores a evitar
-- **Rendimiento en PCs lentos:** Nunca vincular el valor de un `<input>` de búsqueda masiva directamente al ciclo de re-renderizado de una tabla grande; el input debe poseer estado local síncrono para no tildarse. No usar debounces artificiales innecesarios cuando `startTransition` permite concurrencia real sin demoras. Nunca `localeCompare`/sort del catálogo completo por tecla, ni IPC redundante en paralelo a la búsqueda en RAM.
+- **Rendimiento en PCs lentos:** Aislar el `<input>` en un subcomponente independiente (`IsolatedSearchInput`) con micro-debounce de 100ms y flush inmediato en Enter/Clear. Esto evita que el ciclo de re-renderizado de la tabla y búsqueda en RAM sature el hilo principal de JS durante el tecleo o borrado rápido con Backspace.
 - **Tests unitarios `.ts` sin JSX:** En archivos `.ts`, usar exclusivamente `React.createElement` (sin JSX) para evitar fallos de esbuild en node al correr Vitest.
+- **Selección masiva y Catálogo en RAM:** En operaciones masivas de catálogo (categoría, agrupar como variable, borrado o exportar), `selectedProductsList` debe resolver IDs desde `memoryCatalogStore.idIndex` (O(1)) para no truncarse a los precargados (`catalog_initial_limit`). "Seleccionar todos" debe alternar la lista visible real de `ProductSearch`.
+- **Pulso de cajón monodisparo (Pin 2):** Prohibido concatenar en un mismo buffer Pin 2 (`ESC p 0`) y Pin 5 (`ESC p 1`); la pausa intermedia de 500ms provoca que el solenoide físico vuelva a sonar (doble golpe). Se utiliza exclusivamente el pulso estándar único Pin 2 (`1b 70 00 19 fa`) y debounce de 800ms.
 - **Validaciones en inputs:** Avisos en la misma línea del label o borde teñido, jamás añadir líneas abajo que expandan tarjetas o modales.
 - **Tokens temáticos:** Usar exclusivamente `lilac-*` de `themes.ts`; prohibido quemar clases fijas (`purple-*`, HEX) para no romper temas ni modo oscuro.
 - **No compilar `.exe` autónomamente:** `npm run build:win` se ejecuta estrictamente bajo demanda del usuario, avanzando la versión al siguiente parche tras empaquetar.
