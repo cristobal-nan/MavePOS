@@ -32,10 +32,128 @@ interface ProductSearchProps {
   selectedIds?: Set<number>
   onToggleSelect?: (product: ProductSearchResult) => void
   onToggleParentWithVariations?: (parent: ProductSearchResult, variations: ProductSearchResult[]) => void
-  onSelectAllVisible?: () => void
+  onSelectAllVisible?: (visibleItems?: ProductSearchResult[]) => void
   isAllVisibleSelected?: boolean
   context?: 'catalog' | 'modal'
 }
+
+interface IsolatedSearchInputProps {
+  value: string
+  onChangeQuery: (val: string) => void
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void
+  placeholder?: string
+  autoFocus?: boolean
+  isModal?: boolean
+  inputRef?: React.Ref<HTMLInputElement>
+}
+
+/**
+ * Componente de entrada de búsqueda 100% desacoplado del árbol de la tabla.
+ * Su estado interno corre a velocidad nativa (0 ms) sin re-renderizar la tabla ni el catálogo
+ * en cada letra o borrado rápido, garantizando 60 FPS y cero congelamientos en PCs lentos.
+ */
+const IsolatedSearchInput: React.FC<IsolatedSearchInputProps> = React.memo(({
+  value: externalValue,
+  onChangeQuery,
+  onKeyDown,
+  placeholder,
+  autoFocus,
+  isModal,
+  inputRef
+}) => {
+  const [localText, setLocalText] = useState(externalValue)
+  const localInputRef = useRef<HTMLInputElement | null>(null)
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const latestChangeQueryRef = useRef(onChangeQuery)
+  latestChangeQueryRef.current = onChangeQuery
+
+  // Sincronizar si cambia desde afuera (ej. modal abierto o cerrado)
+  useEffect(() => {
+    setLocalText(externalValue)
+  }, [externalValue])
+
+  const flushQuery = (query: string): void => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+      debounceTimerRef.current = null
+    }
+    latestChangeQueryRef.current(query)
+  }
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const val = e.target.value
+    // 1. El input visual se actualiza sincrónicamente a velocidad nativa (0 ms)
+    setLocalText(val)
+
+    // 2. Micro-debounce de 100ms para desacoplar el tecleo/borrado rápido del cálculo pesado de tabla
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      debounceTimerRef.current = null
+      latestChangeQueryRef.current(val)
+    }, 100)
+  }
+
+  const handleClear = (): void => {
+    setLocalText('')
+    flushQuery('')
+    localInputRef.current?.focus()
+  }
+
+  const handleKeyDownInternal = (e: React.KeyboardEvent<HTMLInputElement>): void => {
+    if (e.key === 'Enter') {
+      // Inmediatamente despachar la búsqueda sin esperar el debounce
+      flushQuery(localText)
+    } else if (e.key === 'Escape' && localText) {
+      e.preventDefault()
+      e.stopPropagation()
+      handleClear()
+      return
+    }
+    onKeyDown?.(e)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+      }
+    }
+  }, [])
+
+  return (
+    <div className="relative flex-1">
+      <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+      <input
+        ref={(node) => {
+          localInputRef.current = node
+          if (typeof inputRef === 'function') {
+            inputRef(node)
+          } else if (inputRef) {
+            ;(inputRef as React.MutableRefObject<HTMLInputElement | null>).current = node
+          }
+        }}
+        type="text"
+        value={localText}
+        onChange={handleChange}
+        placeholder={placeholder}
+        autoFocus={autoFocus}
+        onKeyDown={handleKeyDownInternal}
+        className={`w-full pl-9 pr-4 ${isModal ? 'py-1.5 text-sm' : 'py-1.5 text-xs'} bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-lilac-500 focus:bg-white dark:focus:bg-slate-800 rounded-xl text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500 transition-all`}
+      />
+      {localText && (
+        <button
+          type="button"
+          onClick={handleClear}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 dark:text-slate-300 hover:text-slate-700 dark:hover:text-white px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors cursor-pointer"
+        >
+          Limpiar
+        </button>
+      )}
+    </div>
+  )
+})
 
 export const ProductSearch: React.FC<ProductSearchProps> = ({
   onSelectProduct,
@@ -168,40 +286,24 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
     searchMemoryLocal
   ])
 
-  const products = memorySearchResults !== null
+  const products = (memorySearchResults !== null && memorySearchResults !== undefined)
     ? memorySearchResults
     : (isModal ? modalProducts : catalogProducts)
   const searchQuery = isModal ? modalSearchQuery : catalogSearchQuery
 
-  // Estado local desacoplado: el input se actualiza sincrónicamente a velocidad nativa (0 ms).
-  // La consulta hacia el store se despacha con React.startTransition, evitando que el tecleo
-  // o borrado rápido se trabe al no bloquear el hilo principal con el renderizado de la tabla.
-  const [localInputValue, setLocalInputValue] = useState(searchQuery)
-
-  useEffect(() => {
-    setLocalInputValue(searchQuery)
-  }, [searchQuery])
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    const val = e.target.value
-    setLocalInputValue(val)
+  const handleQueryChange = React.useCallback((val: string): void => {
     React.startTransition(() => {
       setSearchQuery(val, context)
     })
-  }
+  }, [setSearchQuery, context])
 
-  const handleClearSearch = (): void => {
-    setLocalInputValue('')
-    setSearchQuery('', context)
-  }
-
-  const isLoading = memorySearchResults !== null
+  const isLoading = (memorySearchResults !== null && memorySearchResults !== undefined)
     ? false
     : (isModal ? modalIsLoading : catalogIsLoading)
-  const isLoadingMore = memorySearchResults !== null
+  const isLoadingMore = (memorySearchResults !== null && memorySearchResults !== undefined)
     ? false
     : (isModal ? modalIsLoadingMore : catalogIsLoadingMore)
-  const hasMore = memorySearchResults !== null
+  const hasMore = (memorySearchResults !== null && memorySearchResults !== undefined)
     ? (isModal ? false : memorySearchResults.length === catalogDisplayLimit)
     : (isModal ? modalHasMore : catalogHasMore)
 
@@ -263,7 +365,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
   // resolver sincrónicamente a 0 ms contra el catálogo en memoria RAM con la consulta exacta
   // que el usuario acaba de escribir en el input.
   const getEnterTarget = (): ProductSearchResult | undefined => {
-    const raw = localInputValue.trim()
+    const raw = (searchInputRef.current?.value || searchQuery).trim()
     if (isMemoryInitialized && raw) {
       if (isModal && !config.modalAutoLoad && !raw) return undefined
       const currentQuery = isModal ? deferredModalQuery : deferredCatalogQuery
@@ -312,7 +414,8 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
   const handleToggleParentCheckbox = (parent: ProductSearchResult): void => {
     const parentId = parent.id
     if (!parentId) return
-    const childVariations = products.filter((p) => p.parent_id === parentId)
+    const allKnownProducts = isMemoryInitialized ? useMemoryCatalogStore.getState().products : products
+    const childVariations = allKnownProducts.filter((p) => p.parent_id === parentId)
     if (onToggleParentWithVariations) {
       onToggleParentWithVariations(parent, childVariations)
     } else if (onToggleSelect) {
@@ -546,6 +649,16 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
     columnWidths.stock +
     (showActions ? columnWidths.actions : 0)
 
+  const isAllCurrentVisibleSelected =
+    isAllVisibleSelected !== undefined
+      ? isAllVisibleSelected
+      : visibleProducts.length > 0 &&
+        visibleProducts.every((p) => p.id !== undefined && selectedIds?.has(p.id))
+
+  const handleToggleSelectAllVisible = (): void => {
+    onSelectAllVisible?.(visibleProducts)
+  }
+
   const memoizedTable = React.useMemo(
     () => (
       <div
@@ -583,7 +696,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                   className="py-1 px-1 text-center border-r border-slate-200 dark:border-slate-700 cursor-pointer select-none hover:bg-slate-200/70 dark:hover:bg-slate-700/60 transition-colors"
                   onClick={(e) => {
                     if ((e.target as HTMLElement).tagName !== 'INPUT') {
-                      onSelectAllVisible?.()
+                      handleToggleSelectAllVisible()
                     }
                   }}
                   title="Seleccionar / deseleccionar todos los visibles"
@@ -591,8 +704,8 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                   <div className="w-full h-full flex items-center justify-center">
                     <input
                       type="checkbox"
-                      checked={isAllVisibleSelected && products.length > 0}
-                      onChange={onSelectAllVisible || (() => {})}
+                      checked={isAllCurrentVisibleSelected && visibleProducts.length > 0}
+                      onChange={handleToggleSelectAllVisible}
                       aria-label="Seleccionar todos los productos visibles"
                       className="w-4 h-4 rounded text-lilac-600 focus:ring-lilac-500 cursor-pointer accent-lilac-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
                       title="Seleccionar / deseleccionar todos los visibles"
@@ -709,7 +822,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
                       description={`No se encontraron productos coincidentes para "${searchQuery}".`}
                       action={{
                         label: 'Limpiar búsqueda',
-                        onClick: handleClearSearch
+                        onClick: () => handleQueryChange('')
                       }}
                     />
                   ) : context === 'modal' && !config.modalAutoLoad ? (
@@ -969,7 +1082,7 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
     [
       totalColumnsWidth,
       enableMultiSelect,
-      isAllVisibleSelected,
+      isAllCurrentVisibleSelected,
       products.length,
       onSelectAllVisible,
       columnWidths,
@@ -997,8 +1110,8 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
       toggleParentCollapse,
       isLoadingMore,
       hasMore,
-      handleClearSearch,
-      handleScroll
+      handleScroll,
+      handleQueryChange
     ]
   )
 
@@ -1006,28 +1119,15 @@ export const ProductSearch: React.FC<ProductSearchProps> = ({
     <div className="flex-1 flex flex-col h-full bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden select-none">
       {/* Search Input Bar */}
       <div className={`${isModal ? 'p-2' : 'p-2.5'} border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center gap-2.5`}>
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            ref={searchInputRef}
-            type="text"
-            value={localInputValue}
-            onChange={handleInputChange}
-            placeholder={placeholder}
-            autoFocus={autoFocus}
-            onKeyDown={handleInputKeyDown}
-            className={`w-full pl-9 pr-4 ${isModal ? 'py-1.5 text-sm' : 'py-1.5 text-xs'} bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-lilac-500 focus:bg-white dark:focus:bg-slate-800 rounded-xl text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500 transition-all`}
-          />
-          {localInputValue && (
-            <button
-              type="button"
-              onClick={handleClearSearch}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500 dark:text-slate-300 hover:text-slate-700 dark:hover:text-white px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors cursor-pointer"
-            >
-              Limpiar
-            </button>
-          )}
-        </div>
+        <IsolatedSearchInput
+          value={searchQuery}
+          onChangeQuery={handleQueryChange}
+          onKeyDown={handleInputKeyDown}
+          placeholder={placeholder}
+          autoFocus={autoFocus}
+          isModal={isModal}
+          inputRef={searchInputRef}
+        />
 
         <div className="text-xs text-slate-400 whitespace-nowrap hidden sm:flex items-center gap-1.5 font-medium">
           <span>Mostrando:</span>
