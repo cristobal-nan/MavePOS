@@ -5,6 +5,7 @@ import { CatalogView } from '../renderer/src/views/CatalogView'
 import { ProductSearchModal } from '../renderer/src/components/ProductSearchModal'
 import { ProductFormModal } from '../renderer/src/components/ProductFormModal'
 import { ProductSearch } from '../renderer/src/components/ProductSearch'
+import { useMemoryCatalogStore } from '../renderer/src/store/memoryCatalogStore'
 import { ProductSearchResult } from '@shared/types'
 
 // Mock stores
@@ -92,12 +93,24 @@ vi.mock('../renderer/src/store/catalogStore', () => ({
   )
 }))
 
-vi.mock('../renderer/src/store/memoryCatalogStore', () => ({
-  useMemoryCatalogStore: () => ({
+vi.mock('../renderer/src/store/memoryCatalogStore', () => {
+  const state = {
     isInitialized: false,
-    searchLocal: vi.fn()
-  })
-}))
+    searchLocal: vi.fn().mockReturnValue([]),
+    products: [],
+    idIndex: new Map(),
+    totalCount: 0
+  }
+  return {
+    useMemoryCatalogStore: Object.assign(
+      (selector?: any) => (typeof selector === 'function' ? selector(state) : state),
+      {
+        getState: () => state,
+        setState: vi.fn()
+      }
+    )
+  }
+})
 
 vi.mock('../renderer/src/store/uiStore', () => ({
   useUIStore: () => ({
@@ -224,5 +237,24 @@ describe('Auditoría UI Pantalla 2: Catálogo y Productos (CatalogView y modales
 
     expect(html).toContain('placeholder="Buscar productos al instante..."')
     expect(html).toContain('type="text"')
+  })
+
+  it('CatalogView utiliza el catálogo en memoria RAM cuando está inicializado', () => {
+    const memStore = useMemoryCatalogStore.getState()
+    memStore.isInitialized = true
+    memStore.totalCount = 350
+    memStore.products = [
+      { id: 200, code: 'P-200', name: 'Producto Post Límite', sale_price: 1000, stock: 10, product_type: 'simple' }
+    ]
+    memStore.idIndex.set(200, memStore.products[0])
+
+    const html = renderToStaticMarkup(React.createElement(CatalogView))
+    expect(html).toContain('350 productos')
+
+    // Reset
+    memStore.isInitialized = false
+    memStore.totalCount = 0
+    memStore.products = []
+    memStore.idIndex.clear()
   })
 })

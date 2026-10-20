@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { ProductSearchResult } from '@shared/types'
 import { useCatalogStore } from '../store/catalogStore'
+import { useMemoryCatalogStore } from '../store/memoryCatalogStore'
 import { useUIStore } from '../store/uiStore'
 import { useInventoryStore } from '../store/inventoryStore'
 import { ProductSearch } from '../components/ProductSearch'
@@ -62,6 +63,20 @@ export const CatalogView: React.FC = () => {
       fetchProducts: s.fetchProducts,
       bulkDeleteProducts: s.bulkDeleteProducts,
       seedSampleData: s.seedSampleData
+    }))
+  )
+
+  const {
+    idIndex: memoryIdIndex,
+    products: memoryProducts,
+    totalCount: memoryTotalCount,
+    isInitialized: isMemoryInitialized
+  } = useMemoryCatalogStore(
+    useShallow((s) => ({
+      idIndex: s.idIndex,
+      products: s.products,
+      totalCount: s.totalCount,
+      isInitialized: s.isInitialized
     }))
   )
 
@@ -221,20 +236,55 @@ export const CatalogView: React.FC = () => {
     })
   }
 
-  const handleSelectAllVisible = (): void => {
-    const visibleIds = products.map((p) => p.id).filter((id): id is number => typeof id === 'number')
-    const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedProductIds.has(id))
+  const handleSelectAllVisible = (visibleList?: ProductSearchResult[]): void => {
+    const targetItems =
+      visibleList && visibleList.length > 0
+        ? visibleList
+        : isMemoryInitialized
+        ? memoryProducts
+        : products
 
-    if (allSelected) {
-      setSelectedProductIds(new Set())
-    } else {
-      setSelectedProductIds(new Set(visibleIds))
-    }
+    const visibleIds = targetItems
+      .map((p) => p.id)
+      .filter((id): id is number => typeof id === 'number')
+
+    if (visibleIds.length === 0) return
+
+    const allSelected = visibleIds.every((id) => selectedProductIds.has(id))
+
+    setSelectedProductIds((prev) => {
+      const next = new Set(prev)
+      if (allSelected) {
+        visibleIds.forEach((id) => next.delete(id))
+      } else {
+        visibleIds.forEach((id) => next.add(id))
+      }
+      return next
+    })
   }
 
   const handleDeselectAll = (): void => {
     setSelectedProductIds(new Set())
   }
+
+  const selectedProductsList = React.useMemo(() => {
+    if (selectedProductIds.size === 0) return []
+    const list: ProductSearchResult[] = []
+    for (const id of selectedProductIds) {
+      const p = memoryIdIndex?.get(id) || products.find((item) => item.id === id)
+      if (p) {
+        list.push(p)
+      }
+    }
+    return list
+  }, [selectedProductIds, memoryIdIndex, products])
+
+  const totalCatalogCount = isMemoryInitialized ? memoryTotalCount : products.length
+  const isAllVisibleSelected =
+    totalCatalogCount > 0 &&
+    (isMemoryInitialized ? memoryProducts : products).every(
+      (p) => p.id && selectedProductIds.has(p.id)
+    )
 
   const handleBulkDelete = (): void => {
     if (selectedProductIds.size === 0) return
@@ -252,9 +302,6 @@ export const CatalogView: React.FC = () => {
     await bulkDeleteProducts(Array.from(selectedProductIds))
     setSelectedProductIds(new Set())
   }
-
-  const selectedProductsList = products.filter((p) => p.id && selectedProductIds.has(p.id))
-  const isAllVisibleSelected = products.length > 0 && products.every((p) => p.id && selectedProductIds.has(p.id))
 
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-900 overflow-hidden select-none">
@@ -328,7 +375,7 @@ export const CatalogView: React.FC = () => {
           icon={Layers}
           badge={
             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-lilac-100 text-lilac-800 dark:bg-slate-800 dark:text-lilac-300 tabular-nums border border-lilac-200/60 dark:border-slate-700">
-              {products.length} productos
+              {totalCatalogCount} productos
             </span>
           }
           primaryAction={
@@ -383,7 +430,7 @@ export const CatalogView: React.FC = () => {
             ) : null}
           </button>
 
-          {products.length === 0 && (
+          {totalCatalogCount === 0 && (
             <button
               onClick={() => seedSampleData()}
               className="px-3 py-2 bg-emerald-50 dark:bg-slate-800 hover:bg-emerald-100 dark:hover:bg-slate-750 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 animate-pulse cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lilac-500"
