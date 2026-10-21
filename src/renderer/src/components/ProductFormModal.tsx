@@ -24,6 +24,7 @@ interface VariationRow {
   id?: number
   attributeValue: string
   code: string
+  packageSize?: string
   salePrice: string
   costPrice: string
   stock: string
@@ -121,6 +122,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [selectedSupplierIds, setSelectedSupplierIds] = useState<Set<number>>(new Set())
   const [stock, setStock] = useState('0')
   const [minStock, setMinStock] = useState('5')
+  const [packageSize, setPackageSize] = useState('10')
 
   // Variable product fields
   const [attributeName, setAttributeName] = useState('Color')
@@ -131,6 +133,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
   const [parentSalePrice, setParentSalePrice] = useState('')
   const [parentCostPrice, setParentCostPrice] = useState('')
   const [parentMinStock, setParentMinStock] = useState('5')
+  const [parentPackageSize, setParentPackageSize] = useState('10')
 
   const initialParentSnapshot = useRef<{
     parentName: string
@@ -140,6 +143,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     salePrice: string
     costPrice: string
     minStock: string
+    packageSize: string
   } | null>(null)
 
   const [isConfirmParentModalOpen, setIsConfirmParentModalOpen] = useState(false)
@@ -228,6 +232,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setAttributeValue(product.attribute_value || '')
       setStock(product.stock !== undefined ? product.stock.toString() : '0')
       setMinStock(product.min_stock !== undefined ? product.min_stock.toString() : '5')
+      setPackageSize(product.package_size !== undefined && product.package_size !== null ? product.package_size.toString() : '10')
       setSelectedCategoryId(product.category_id || null)
 
       // Resolve suppliers
@@ -241,6 +246,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             const pSale = parentProd.sale_price ? parentProd.sale_price.toLocaleString('es-CL') : (product.sale_price ? product.sale_price.toLocaleString('es-CL') : '')
             const pCost = parentProd.cost_price ? parentProd.cost_price.toLocaleString('es-CL') : (product.cost_price ? product.cost_price.toLocaleString('es-CL') : '')
             const pMinStock = parentProd.min_stock !== undefined && parentProd.min_stock !== null ? parentProd.min_stock.toString() : (product.min_stock !== undefined ? product.min_stock.toString() : '5')
+            const pPackSize = parentProd.package_size !== undefined && parentProd.package_size !== null ? parentProd.package_size.toString() : '10'
             const pCat = parentProd.category_id || product.category_id || null
             const pAttr = parentProd.attribute_name || 'Color'
             const pSups = parentProd.supplier_ids && parentProd.supplier_ids.length > 0 ? parentProd.supplier_ids : supIds
@@ -252,6 +258,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             setParentSalePrice(pSale)
             setParentCostPrice(pCost)
             setParentMinStock(pMinStock)
+            setParentPackageSize(pPackSize)
 
             initialParentSnapshot.current = {
               parentName: parentProd.name,
@@ -260,7 +267,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               supplierIds: Array.from(new Set(pSups)).sort((a, b) => a - b),
               salePrice: pSale,
               costPrice: pCost,
-              minStock: pMinStock
+              minStock: pMinStock,
+              packageSize: pPackSize
             }
           }
         })
@@ -277,6 +285,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         const pSale = product.sale_price ? product.sale_price.toLocaleString('es-CL') : ''
         const pCost = product.cost_price ? product.cost_price.toLocaleString('es-CL') : ''
         const pMinStock = product.min_stock !== undefined ? product.min_stock.toString() : '5'
+        const pPackSize = product.package_size !== undefined && product.package_size !== null ? product.package_size.toString() : '10'
         const pCat = product.category_id || null
         const pAttr = product.attribute_name || 'Color'
         const pSups = product.supplier_ids || supIds || []
@@ -285,6 +294,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         setParentSalePrice(pSale)
         setParentCostPrice(pCost)
         setParentMinStock(pMinStock)
+        setParentPackageSize(pPackSize)
+        setPackageSize(pPackSize)
 
         initialParentSnapshot.current = {
           parentName: product.name,
@@ -293,7 +304,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           supplierIds: Array.from(new Set(pSups)).sort((a, b) => a - b),
           salePrice: pSale,
           costPrice: pCost,
-          minStock: pMinStock
+          minStock: pMinStock,
+          packageSize: pPackSize
         }
 
         getVariations(product.id).then((vars) => {
@@ -301,6 +313,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
             id: v.id,
             attributeValue: v.attribute_value || '',
             code: v.code || '',
+            packageSize: v.package_size !== undefined && v.package_size !== null ? v.package_size.toString() : '10',
             salePrice: v.sale_price ? v.sale_price.toLocaleString('es-CL') : '',
             costPrice: v.cost_price ? v.cost_price.toLocaleString('es-CL') : '',
             stock: v.stock.toString(),
@@ -327,9 +340,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       setAttributeName('Color')
       setStock('0')
       setMinStock('5')
+      setPackageSize('10')
       setParentSalePrice('')
       setParentCostPrice('')
       setParentMinStock('5')
+      setParentPackageSize('10')
       initialParentSnapshot.current = null
       initialVariationsSnapshot.current = []
       setIsConfirmParentModalOpen(false)
@@ -409,9 +424,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     const hasCost = v.costPrice.trim() !== '' && v.costPrice !== (costPrice || '')
     const hasMinStock = v.minStock.trim() !== ''
     const hasSale = v.salePrice.trim() !== '' && v.salePrice !== (salePrice || '')
+    const hasPack = v.packageSize !== undefined && v.packageSize.trim() !== '' && v.packageSize.trim() !== '10'
     const isSavedInDb = Boolean(v.id)
 
-    return !hasAttr && !hasCode && !hasStock && !hasCost && !hasMinStock && !hasSale && !isSavedInDb
+    return !hasAttr && !hasCode && !hasStock && !hasCost && !hasMinStock && !hasSale && !hasPack && !isSavedInDb
   }
 
   // Intento de eliminar el producto/variación principal que se está editando
@@ -481,8 +497,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       const initialCost = product.cost_price || null
       const costChanged = currentCost !== initialCost
       const minChanged = (parseInt(minStock, 10) || 0) !== (product.min_stock !== undefined ? product.min_stock : 5)
+      const packChanged = (parseInt(packageSize, 10) || 10) !== (product.package_size || 10)
       const parentChanged = getParentChanges().length > 0
-      return codeChanged || attrChanged || saleChanged || costChanged || minChanged || parentChanged
+      return codeChanged || attrChanged || saleChanged || costChanged || minChanged || packChanged || parentChanged
     }
 
     if (productType === 'simple') {
@@ -493,13 +510,14 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       const initialCost = product.cost_price || null
       const costChanged = currentCost !== initialCost
       const minChanged = (parseInt(minStock, 10) || 0) !== (product.min_stock !== undefined ? product.min_stock : 5)
+      const packChanged = (parseInt(packageSize, 10) || 10) !== (product.package_size || 10)
       const catChanged = selectedCategoryId !== (product.category_id || null)
 
       const initialSups = Array.from(new Set(product.supplier_ids || product.suppliers?.map((s) => s.id) || [])).sort((a, b) => a - b)
       const currentSups = Array.from(selectedSupplierIds).sort((a, b) => a - b)
       const supsChanged = initialSups.length !== currentSups.length || initialSups.some((id, idx) => id !== currentSups[idx])
 
-      return codeChanged || nameChanged || saleChanged || costChanged || minChanged || catChanged || supsChanged
+      return codeChanged || nameChanged || saleChanged || costChanged || minChanged || packChanged || catChanged || supsChanged
     }
 
     if (productType === 'variable') {
@@ -529,6 +547,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         const initCost = init.costPrice.trim() ? parseCLP(init.costPrice) : null
         if (curCost !== initCost) return true
         if ((parseInt(v.minStock, 10) || 0) !== (parseInt(init.minStock, 10) || 0)) return true
+        if ((parseInt(v.packageSize || '10', 10) || 10) !== (parseInt(init.packageSize || '10', 10) || 10)) return true
       }
     }
 
@@ -678,7 +697,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           category_id: selectedCategoryId,
           supplier_ids: Array.from(selectedSupplierIds),
           stock: product?.stock ?? 0,
-          min_stock: parseInt(minStock, 10) || 0
+          min_stock: parseInt(minStock, 10) || 0,
+          package_size: parseInt(packageSize, 10) > 0 ? parseInt(packageSize, 10) : 10
         })
       } else if (productType === 'variable') {
         if (!name.trim()) {
@@ -720,7 +740,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           supplier_ids: Array.from(selectedSupplierIds),
           attribute_name: attributeName.trim() || 'Color',
           sale_price: 0,
-          stock: 0
+          stock: 0,
+          package_size: parseInt(parentPackageSize, 10) > 0 ? parseInt(parentPackageSize, 10) : 10
         }
 
         const variationsInput: ProductInput[] = nonBlankVariations.map((v) => ({
@@ -734,6 +755,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
           cost_price: v.costPrice.trim() ? parseCLP(v.costPrice) : null,
           stock: parseInt(v.stock, 10) || 0,
           min_stock: v.minStock.trim() ? (parseInt(v.minStock, 10) || 0) : (minStock ? parseInt(minStock, 10) || 5 : 5),
+          package_size: parseInt(v.packageSize || '10', 10) > 0 ? parseInt(v.packageSize || '10', 10) : 10,
           category_id: selectedCategoryId,
           supplier_ids: Array.from(selectedSupplierIds)
         }))
@@ -766,6 +788,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       {
         attributeValue: '',
         code: '',
+        packageSize: packageSize || parentPackageSize || '10',
         salePrice: salePrice || '',
         costPrice: costPrice || '',
         stock: '',
@@ -885,6 +908,16 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
     }
   }
 
+  const handleParentPackageSizeChange = (valStr: string): void => {
+    setParentPackageSize(valStr)
+
+    const currentVarPack = parseInt(packageSize, 10) || 10
+    const initialParentPack = initialParentSnapshot.current ? parseInt(initialParentSnapshot.current.packageSize, 10) || 10 : 10
+    if (currentVarPack === 10 || currentVarPack === initialParentPack) {
+      setPackageSize(valStr)
+    }
+  }
+
   const getParentChanges = (): { field: string; from: string; to: string }[] => {
     if (!initialParentSnapshot.current) return []
     const initial = initialParentSnapshot.current
@@ -968,6 +1001,16 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
       })
     }
 
+    const parsedParentPack = parseInt(parentPackageSize, 10) || 10
+    const initialParentPack = parseInt(initial.packageSize, 10) || 10
+    if (parsedParentPack !== initialParentPack) {
+      changes.push({
+        field: 'Tamaño de Paquete General',
+        from: `${initialParentPack} un.`,
+        to: `${parsedParentPack} un.`
+      })
+    }
+
     return changes
   }
 
@@ -993,6 +1036,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         sale_price: parsedParentSalePrice,
         cost_price: parsedParentCostPrice,
         min_stock: parsedParentMinStock,
+        package_size: parseInt(parentPackageSize, 10) > 0 ? parseInt(parentPackageSize, 10) : 10,
         sync_variations: syncVariations
       })
 
@@ -1015,7 +1059,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         category_id: finalCategoryId,
         supplier_ids: supplierIdsArray,
         stock: parseInt(stock, 10) || 0,
-        min_stock: parseInt(minStock, 10) >= 0 ? parseInt(minStock, 10) : parsedParentMinStock
+        min_stock: parseInt(minStock, 10) >= 0 ? parseInt(minStock, 10) : parsedParentMinStock,
+        package_size: parseInt(packageSize, 10) > 0 ? parseInt(packageSize, 10) : (parseInt(parentPackageSize, 10) > 0 ? parseInt(parentPackageSize, 10) : 10)
       }
 
       await saveProduct(variationInput)
@@ -1115,7 +1160,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         category_id: finalCategoryId,
         supplier_ids: supplierIdsArray,
         stock: parsedStock,
-        min_stock: parsedMinStock
+        min_stock: parsedMinStock,
+        package_size: parseInt(packageSize, 10) > 0 ? parseInt(packageSize, 10) : 10
       }
 
       setIsSubmitting(true)
@@ -1194,7 +1240,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         supplier_ids: supplierIdsArray,
         attribute_name: attributeName.trim() || 'Color',
         sale_price: 0,
-        stock: 0
+        stock: 0,
+        package_size: parseInt(parentPackageSize, 10) > 0 ? parseInt(parentPackageSize, 10) : 10
       }
 
       const variationsInput: ProductInput[] = variations.map((v) => ({
@@ -1208,6 +1255,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
         cost_price: v.costPrice.trim() ? parseCLP(v.costPrice) : null,
         stock: parseInt(v.stock, 10) || 0,
         min_stock: v.minStock.trim() ? (parseInt(v.minStock, 10) || 0) : (minStock ? parseInt(minStock, 10) || 5 : 5),
+        package_size: parseInt(v.packageSize || '10', 10) > 0 ? parseInt(v.packageSize || '10', 10) : 10,
         category_id: finalCategoryId,
         supplier_ids: supplierIdsArray
       }))
@@ -1315,8 +1363,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 {/* Nombre Padre y Atributo */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1">
-                      Nombre del Producto Padre *
+                    <label className="h-5 text-[11px] font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center whitespace-nowrap overflow-hidden" title="Nombre del Producto Padre">
+                      <span className="truncate">Nombre del Producto Padre *</span>
                     </label>
                     <input
                       type="text"
@@ -1327,8 +1375,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1">
-                      Atributo General
+                    <label className="h-5 text-[11px] font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center whitespace-nowrap overflow-hidden" title="Atributo General">
+                      <span className="truncate">Atributo General</span>
                     </label>
                     <input
                       type="text"
@@ -1355,11 +1403,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 />
 
                 {/* Precios e Inventario Mínimo Generales del Padre */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-slate-300 dark:border-slate-700">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-slate-300 dark:border-slate-700">
                   <div>
-                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
-                      <DollarSign className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
-                      <span>Precio de Venta Base (CLP)</span>
+                    <label className="h-5 text-[11px] font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1 whitespace-nowrap overflow-hidden" title="Precio de Venta Base (CLP)">
+                      <DollarSign className="w-3 h-3 text-lilac-600 dark:text-lilac-400 shrink-0" />
+                      <span className="truncate">Precio Venta Base (CLP)</span>
                     </label>
                     <input
                       type="text"
@@ -1368,15 +1416,15 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       placeholder="Ej: 3.500"
                       className="w-full px-3 py-2 text-sm font-bold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
-                    <span className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 block font-medium">
+                    <span className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 block font-medium truncate">
                       Precio general para las variaciones.
                     </span>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
-                      <DollarSign className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-                      <span>Precio de Costo Base (CLP)</span>
+                    <label className="h-5 text-[11px] font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1 whitespace-nowrap overflow-hidden" title="Precio de Costo Base (CLP)">
+                      <DollarSign className="w-3 h-3 text-slate-500 dark:text-slate-400 shrink-0" />
+                      <span className="truncate">Precio Costo Base (CLP)</span>
                     </label>
                     <input
                       type="text"
@@ -1385,15 +1433,15 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       placeholder="Opcional"
                       className="w-full px-3 py-2 text-sm font-medium text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
-                    <span className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 block font-medium">
+                    <span className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 block font-medium truncate">
                       Costo base general.
                     </span>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
-                      <AlertTriangle className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-                      <span>Inv. Mínimo General</span>
+                    <label className="h-5 text-[11px] font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1 whitespace-nowrap overflow-hidden" title="Inventario Mínimo General">
+                      <AlertTriangle className="w-3 h-3 text-slate-500 dark:text-slate-400 shrink-0" />
+                      <span className="truncate">Inv. Mínimo General</span>
                     </label>
                     <input
                       type="number"
@@ -1403,8 +1451,26 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       placeholder="5"
                       className="w-full px-3 py-2 text-sm font-medium text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
-                    <span className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 block font-medium">
+                    <span className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 block font-medium truncate">
                       Alerta stock bajo para variaciones.
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="h-5 text-[11px] font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1 whitespace-nowrap overflow-hidden" title="Tamaño de Paquete Base">
+                      <Boxes className="w-3 h-3 text-slate-500 dark:text-slate-400 shrink-0" />
+                      <span className="truncate">Tamaño Paquete Base</span>
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={parentPackageSize}
+                      onChange={(e) => handleParentPackageSizeChange(e.target.value)}
+                      placeholder="10"
+                      className="w-full px-3 py-2 text-sm font-medium text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                    />
+                    <span className="text-[10px] text-slate-600 dark:text-slate-400 mt-1 block font-medium truncate">
+                      Unidades por paquete general.
                     </span>
                   </div>
                 </div>
@@ -1425,8 +1491,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   {/* Código de barras / SKU (Editable) */}
                   <div>
-                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1">
-                      Código de Barras / SKU *
+                    <label className="h-5 text-[11px] font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center whitespace-nowrap overflow-hidden" title="Código de Barras / SKU *">
+                      <span className="truncate">Código de Barras / SKU *</span>
                     </label>
                     <div className="relative">
                       {codeConflictName && (
@@ -1463,8 +1529,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
 
                   {/* Valor del Atributo */}
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1">
-                      Valor de la Variación ({attributeName || 'Atributo'}) *
+                    <label className="h-5 text-[11px] font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center whitespace-nowrap overflow-hidden" title={`Valor de la Variación (${attributeName || 'Atributo'}) *`}>
+                      <span className="truncate">Valor de la Variación ({attributeName || 'Atributo'}) *</span>
                     </label>
                     <input
                       ref={attributeValueInputRef}
@@ -1477,12 +1543,12 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                   </div>
                 </div>
 
-                {/* Precios e Inventario (4 Columnas) */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-slate-300 dark:border-slate-700 shadow-2xs">
+                {/* Precios e Inventario (5 Columnas) */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-slate-300 dark:border-slate-700 shadow-2xs">
                   <div>
-                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
-                      <DollarSign className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
-                      <span>Precio de Venta (CLP) *</span>
+                    <label className="h-5 text-[11px] font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1 whitespace-nowrap overflow-hidden" title="Precio de Venta (CLP) *">
+                      <DollarSign className="w-3 h-3 text-lilac-600 dark:text-lilac-400 shrink-0" />
+                      <span className="truncate">P. Venta (CLP) *</span>
                     </label>
                     <input
                       type="text"
@@ -1496,9 +1562,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
-                      <DollarSign className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-                      <span>Precio Costo (CLP)</span>
+                    <label className="h-5 text-[11px] font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1 whitespace-nowrap overflow-hidden" title="Precio Costo (CLP)">
+                      <DollarSign className="w-3 h-3 text-slate-500 dark:text-slate-400 shrink-0" />
+                      <span className="truncate">P. Costo (CLP)</span>
                     </label>
                     <input
                       type="text"
@@ -1512,9 +1578,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
-                      <Boxes className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
-                      <span>Existencia (Stock)</span>
+                    <label className="h-5 text-[11px] font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1 whitespace-nowrap overflow-hidden" title="Existencia (Stock)">
+                      <Boxes className="w-3 h-3 text-lilac-600 dark:text-lilac-400 shrink-0" />
+                      <span className="truncate">Existencia (Stock)</span>
                     </label>
                     {product ? (
                       <div
@@ -1540,15 +1606,29 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     )}
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
-                      <AlertTriangle className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-                      <span>Inv. Mínimo (Alerta)</span>
+                    <label className="h-5 text-[11px] font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1 whitespace-nowrap overflow-hidden" title="Inventario Mínimo (Alerta)">
+                      <AlertTriangle className="w-3 h-3 text-slate-500 dark:text-slate-400 shrink-0" />
+                      <span className="truncate">Inv. Mínimo (Alerta)</span>
                     </label>
                     <input
                       type="number"
                       value={minStock}
                       onChange={(e) => setMinStock(e.target.value)}
                       min="0"
+                      className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-medium text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="h-5 text-[11px] font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1 whitespace-nowrap overflow-hidden" title="Tamaño de Paquete (unidades)">
+                      <Boxes className="w-3 h-3 text-slate-500 dark:text-slate-400 shrink-0" />
+                      <span className="truncate">Tamaño Paquete</span>
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={packageSize}
+                      onChange={(e) => setPackageSize(e.target.value)}
+                      placeholder="10"
                       className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-medium text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
                   </div>
@@ -1570,8 +1650,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
               {/* Fila 1: Código (1/3) + Nombre (2/3) */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1">
-                    Código de Barras / SKU * {product ? '(Editable)' : ''}
+                  <label className="h-5 text-[11px] font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center whitespace-nowrap overflow-hidden" title="Código de Barras / SKU *">
+                    <span className="truncate">Código de Barras / SKU * {product ? '(Editable)' : ''}</span>
                   </label>
                   <div className="relative">
                     {codeConflictName && (
@@ -1612,8 +1692,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1">
-                    Nombre del Producto *
+                  <label className="h-5 text-[11px] font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center whitespace-nowrap overflow-hidden" title="Nombre del Producto *">
+                    <span className="truncate">Nombre del Producto *</span>
                   </label>
                   <input
                     ref={nameInputRef}
@@ -1640,12 +1720,12 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 title="Proveedor/es del producto"
               />
 
-              {/* Fila 4: Bloque Unificado de 4 Columnas: Precios e Inventario */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-slate-300 dark:border-slate-700 shadow-2xs">
+              {/* Fila 4: Bloque Unificado de 5 Columnas: Precios e Inventario */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-slate-300 dark:border-slate-700 shadow-2xs">
                 <div>
-                  <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
-                    <DollarSign className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
-                    <span>Precio de Venta (CLP) *</span>
+                  <label className="h-5 text-[11px] font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1 whitespace-nowrap overflow-hidden" title="Precio de Venta (CLP) *">
+                    <DollarSign className="w-3 h-3 text-lilac-600 dark:text-lilac-400 shrink-0" />
+                    <span className="truncate">P. Venta (CLP) *</span>
                   </label>
                   <input
                     type="text"
@@ -1660,9 +1740,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
-                    <DollarSign className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-                    <span>Precio Costo (CLP)</span>
+                  <label className="h-5 text-[11px] font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1 whitespace-nowrap overflow-hidden" title="Precio Costo (CLP)">
+                    <DollarSign className="w-3 h-3 text-slate-500 dark:text-slate-400 shrink-0" />
+                    <span className="truncate">P. Costo (CLP)</span>
                   </label>
                   <input
                     type="text"
@@ -1677,9 +1757,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
-                    <Boxes className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
-                    <span>Existencia (Stock)</span>
+                  <label className="h-5 text-[11px] font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1 whitespace-nowrap overflow-hidden" title="Existencia (Stock)">
+                    <Boxes className="w-3 h-3 text-lilac-600 dark:text-lilac-400 shrink-0" />
+                    <span className="truncate">Existencia (Stock)</span>
                   </label>
                   {product ? (
                     <div
@@ -1706,15 +1786,30 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
-                    <AlertTriangle className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-                    <span>Inv. Mínimo (Alerta)</span>
+                  <label className="h-5 text-[11px] font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1 whitespace-nowrap overflow-hidden" title="Inventario Mínimo (Alerta)">
+                    <AlertTriangle className="w-3 h-3 text-slate-500 dark:text-slate-400 shrink-0" />
+                    <span className="truncate">Inv. Mínimo (Alerta)</span>
                   </label>
                   <input
                     type="number"
                     value={minStock}
                     onChange={(e) => setMinStock(e.target.value)}
                     min="0"
+                    className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-medium text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="h-5 text-[11px] font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1 whitespace-nowrap overflow-hidden" title="Tamaño de Paquete (unidades)">
+                    <Boxes className="w-3 h-3 text-slate-500 dark:text-slate-400 shrink-0" />
+                    <span className="truncate">Tamaño Paquete</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={packageSize}
+                    onChange={(e) => setPackageSize(e.target.value)}
+                    placeholder="10"
                     className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 font-medium text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                   />
                 </div>
@@ -1736,8 +1831,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                 {/* Nombre General y Atributo */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1">
-                      Nombre General del Producto Variable *
+                    <label className="h-5 text-[11px] font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center whitespace-nowrap overflow-hidden" title="Nombre General del Producto Variable *">
+                      <span className="truncate">Nombre General del Producto Variable *</span>
                     </label>
                     <input
                       ref={nameInputRef}
@@ -1749,8 +1844,8 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1">
-                      Atributo Diferenciador *
+                    <label className="h-5 text-[11px] font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center whitespace-nowrap overflow-hidden" title="Atributo Diferenciador *">
+                      <span className="truncate">Atributo Diferenciador *</span>
                     </label>
                     <input
                       type="text"
@@ -1788,11 +1883,11 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-1">
                     <div>
-                      <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
-                        <DollarSign className="w-3.5 h-3.5 text-lilac-600 dark:text-lilac-400" />
-                        <span>Precio Venta Base (CLP)</span>
+                      <label className="h-5 text-[11px] font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1 whitespace-nowrap overflow-hidden" title="Precio de Venta Base (CLP)">
+                        <DollarSign className="w-3 h-3 text-lilac-600 dark:text-lilac-400 shrink-0" />
+                        <span className="truncate">Precio Venta Base (CLP)</span>
                       </label>
                       <input
                         type="text"
@@ -1806,9 +1901,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
-                        <DollarSign className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-                        <span>Precio Costo Base (CLP)</span>
+                      <label className="h-5 text-[11px] font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1 whitespace-nowrap overflow-hidden" title="Precio de Costo Base (CLP)">
+                        <DollarSign className="w-3 h-3 text-slate-500 dark:text-slate-400 shrink-0" />
+                        <span className="truncate">Precio Costo Base (CLP)</span>
                       </label>
                       <input
                         type="text"
@@ -1822,9 +1917,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1">
-                        <AlertTriangle className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
-                        <span>Inv. Mínimo General</span>
+                      <label className="h-5 text-[11px] font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1 whitespace-nowrap overflow-hidden" title="Inventario Mínimo General">
+                        <AlertTriangle className="w-3 h-3 text-slate-500 dark:text-slate-400 shrink-0" />
+                        <span className="truncate">Inv. Mínimo General</span>
                       </label>
                       <input
                         type="number"
@@ -1832,6 +1927,23 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                         value={minStock}
                         onChange={(e) => setMinStock(e.target.value)}
                         placeholder="5"
+                        className="w-full px-3 py-2 text-sm font-medium text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="h-5 text-[11px] font-bold text-slate-900 dark:text-slate-200 mb-1 flex items-center gap-1 whitespace-nowrap overflow-hidden" title="Tamaño de Paquete Base">
+                        <Boxes className="w-3 h-3 text-slate-500 dark:text-slate-400 shrink-0" />
+                        <span className="truncate">Tamaño Paquete Base</span>
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={parentPackageSize}
+                        onChange={(e) => {
+                          setParentPackageSize(e.target.value)
+                          setPackageSize(e.target.value)
+                        }}
+                        placeholder="10"
                         className="w-full px-3 py-2 text-sm font-medium text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500"
                       />
                     </div>
@@ -2008,6 +2120,17 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({
                               min="0"
                               placeholder="Stock Mínimo"
                               className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-left shadow-2xs"
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <input
+                              type="number"
+                              value={v.packageSize ?? '10'}
+                              onChange={(e) => handleVariationChange(idx, 'packageSize', e.target.value)}
+                              min="1"
+                              placeholder="Paquete (10)"
+                              className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-slate-900 focus:bg-white dark:focus:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:border-lilac-500 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-left shadow-2xs"
+                              title="Tamaño de paquete (unidades)"
                             />
                           </div>
                           <button
