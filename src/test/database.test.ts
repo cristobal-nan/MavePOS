@@ -470,4 +470,108 @@ describe('Fase 2: Datos, Esquema, Servicios y Backup', () => {
       expect(settingsService.get('printer_type')).toBeNull()
     })
   })
+
+  describe('Atributo package_size (Tamaño de Paquete)', () => {
+    it('migración 14 añade la columna package_size con valor por defecto 10', () => {
+      const migration = db.prepare('SELECT * FROM schema_migrations WHERE version = 14').get() as any
+      expect(migration).toBeDefined()
+      expect(migration.version).toBe(14)
+
+      const columns = db.prepare("PRAGMA table_info('products')").all() as any[]
+      const packCol = columns.find((c) => c.name === 'package_size')
+      expect(packCol).toBeDefined()
+      expect(packCol.dflt_value).toBe('10')
+    })
+
+    it('asigna package_size = 10 por defecto al crear un producto simple sin especificarlo', () => {
+      const prod = productService.upsertProduct({
+        code: 'PACK-DEF-1',
+        name: 'Hilo Perlé',
+        sale_price: 2500,
+        stock: 20
+      })
+
+      expect(prod.package_size).toBe(10)
+      const fromDb = productService.getProductByCode('PACK-DEF-1')
+      expect(fromDb?.package_size).toBe(10)
+    })
+
+    it('permite guardar y editar un package_size personalizado en producto simple', () => {
+      const prod = productService.upsertProduct({
+        code: 'PACK-CUSTOM-1',
+        name: 'Caja Agujas',
+        sale_price: 5000,
+        package_size: 24
+      })
+
+      expect(prod.package_size).toBe(24)
+
+      const updated = productService.upsertProduct({
+        id: prod.id,
+        code: 'PACK-CUSTOM-1',
+        name: 'Caja Agujas Pack Grande',
+        package_size: 48
+      })
+
+      expect(updated.package_size).toBe(48)
+      expect(productService.getProductByCode('PACK-CUSTOM-1')?.package_size).toBe(48)
+    })
+
+    it('actualiza el package_size en cascada a todas las variaciones al sincronizar el padre', () => {
+      const { parent, variations } = productService.saveVariableProduct(
+        {
+          name: 'Algodón Rústico',
+          product_type: 'variable',
+          package_size: 10
+        },
+        [
+          {
+            code: 'VAR-P1',
+            attribute_name: 'Color',
+            attribute_value: 'Azul',
+            sale_price: 3500,
+            package_size: 10
+          },
+          {
+            code: 'VAR-P2',
+            attribute_name: 'Color',
+            attribute_value: 'Rojo',
+            sale_price: 3500,
+            package_size: 10
+          }
+        ]
+      )
+
+      expect(parent.package_size).toBe(10)
+      expect(variations[0].package_size).toBe(10)
+      expect(variations[1].package_size).toBe(10)
+
+      // Actualizar el padre a package_size = 12 con sync_variations = true
+      productService.upsertProduct({
+        id: parent.id,
+        name: 'Algodón Rústico',
+        product_type: 'variable',
+        package_size: 12,
+        sync_variations: true
+      })
+
+      const varsAfter = productService.getVariations(parent.id!)
+      expect(varsAfter[0].package_size).toBe(12)
+      expect(varsAfter[1].package_size).toBe(12)
+
+      // Modificar una variación individualmente a package_size = 6
+      productService.upsertProduct({
+        id: varsAfter[0].id,
+        parent_id: parent.id,
+        code: 'VAR-P1',
+        name: 'Algodón Rústico Azul',
+        product_type: 'variation',
+        package_size: 6
+      })
+
+      const varsIndividual = productService.getVariations(parent.id!)
+      expect(varsIndividual.find((v) => v.code === 'VAR-P1')?.package_size).toBe(6)
+      expect(varsIndividual.find((v) => v.code === 'VAR-P2')?.package_size).toBe(12)
+    })
+  })
 })

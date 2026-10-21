@@ -594,4 +594,53 @@ describe('Fase 10: Importación de Catálogo desde Excel (.xlsx)', () => {
       expect(movements[0].delta).toBe(35) // 55 - 20 = 35
     })
   })
+
+  describe('Importación y Exportación con Tamaño de Paquete (package_size)', () => {
+    it('detecta encabezado de Tamaño de Paquete en previewExcel', () => {
+      createTestWorkbook([
+        ['Código', 'Producto', 'P. Venta', 'Existencia', 'Tamaño Paquete'],
+        ['PROD-PACK-1', 'Lana Test', '2000', '10', '12']
+      ])
+
+      const preview = excelService.parseExcelFile(tempFilePath)
+      expect(preview.detectedMapping.package_size).toBe('Tamaño Paquete')
+    })
+
+    it('importa tamaño de paquete correctamente y asigna 10 si la columna no existe', () => {
+      createTestWorkbook([
+        ['Código', 'Producto', 'P. Venta', 'Existencia', 'Tamaño Paquete'],
+        ['PROD-P12', 'Producto Pack 12', '3000', '20', '12'],
+        ['PROD-PDEF', 'Producto Sin Pack Valido', '4000', '15', '0']
+      ])
+
+      const report = excelService.importExcel(tempFilePath)
+      expect(report.createdCount).toBe(2)
+
+      const p12 = productService.getProductByCode('PROD-P12')
+      expect(p12?.package_size).toBe(12)
+
+      const pDef = productService.getProductByCode('PROD-PDEF')
+      expect(pDef?.package_size).toBe(10) // 0 o inválido se convierte en 10
+    })
+
+    it('incluye columna "Tamaño Paquete" en la exportación del catálogo', () => {
+      productService.upsertProduct({
+        code: 'EXP-PACK-1',
+        name: 'Pack Producto Exportar',
+        sale_price: 1500,
+        package_size: 25
+      })
+
+      const exportResult = excelService.exportProducts(tempFilePath)
+      expect(exportResult.totalExported).toBeGreaterThanOrEqual(1)
+
+      const wb = XLSX.readFile(tempFilePath)
+      const sheet = wb.Sheets[wb.SheetNames[0]]
+      const rows = XLSX.utils.sheet_to_json<any>(sheet)
+      const exportedItem = rows.find((r) => r['Código'] === 'EXP-PACK-1')
+
+      expect(exportedItem).toBeDefined()
+      expect(exportedItem['Tamaño Paquete']).toBe(25)
+    })
+  })
 })
