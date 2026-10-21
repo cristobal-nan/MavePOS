@@ -19,6 +19,7 @@ import { formatCLP } from './utils/formatters'
 import { Store, Loader2 } from 'lucide-react'
 import { useSalesStore } from './store/salesStore'
 import { useSettingsStore } from './store/settingsStore'
+import { useLicenseStore } from './store/licenseStore'
 
 export const App: React.FC = () => {
   const { activeTab, setActiveTab, openCloseModal } = useUIStore()
@@ -49,11 +50,12 @@ export const App: React.FC = () => {
     useCatalogStore.getState().setSearchQuery('')
   }, [activeTab])
 
-  // Check active cash session & load saved theme and surface mode on app startup
+  // Check active cash session, load saved theme, surface mode & license on app startup
   useEffect(() => {
     checkCurrentSession()
     useUIStore.getState().loadTheme()
     useUIStore.getState().loadSurfaceMode()
+    useLicenseStore.getState().loadLicense()
   }, [checkCurrentSession])
 
   // Sincronizar información de la última venta al iniciar sesión
