@@ -19,6 +19,7 @@ export const INITIAL_SCHEMA = `
     parent_id INTEGER NULL REFERENCES products(id) ON DELETE CASCADE,
     attribute_name TEXT NULL,
     attribute_value TEXT NULL,
+    package_size INTEGER NOT NULL DEFAULT 10,
     sale_price INTEGER NOT NULL DEFAULT 0,
     cost_price INTEGER NULL,
     category_id INTEGER NULL REFERENCES categories(id) ON DELETE SET NULL,
@@ -80,6 +81,25 @@ export const INITIAL_SCHEMA = `
     transfer_difference INTEGER NULL DEFAULT 0
   );
 
+  CREATE TABLE IF NOT EXISTS customers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    rut TEXT NULL UNIQUE,
+    name TEXT NOT NULL,
+    search_name TEXT NOT NULL,
+    phone TEXT NULL,
+    email TEXT NULL,
+    address TEXT NULL,
+    credit_limit INTEGER NOT NULL DEFAULT 0,
+    current_balance INTEGER NOT NULL DEFAULT 0,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_customers_rut ON customers(rut);
+  CREATE INDEX IF NOT EXISTS idx_customers_search_name ON customers(search_name);
+  CREATE INDEX IF NOT EXISTS idx_customers_active ON customers(active);
+
   CREATE TABLE IF NOT EXISTS sales (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     folio INTEGER NULL UNIQUE,
@@ -90,6 +110,7 @@ export const INITIAL_SCHEMA = `
     change_amount INTEGER NOT NULL DEFAULT 0,
     cash_session_id INTEGER NULL REFERENCES cash_sessions(id) ON DELETE SET NULL,
     exchange_parent_id INTEGER NULL REFERENCES sales(id) ON DELETE SET NULL,
+    customer_id INTEGER NULL REFERENCES customers(id) ON DELETE SET NULL,
     created_at TEXT NOT NULL,
     completed_at TEXT NULL
   );
@@ -98,6 +119,7 @@ export const INITIAL_SCHEMA = `
   CREATE INDEX IF NOT EXISTS idx_sales_ticket_number ON sales(ticket_number);
   CREATE INDEX IF NOT EXISTS idx_sales_session_ticket ON sales(cash_session_id, ticket_number);
   CREATE INDEX IF NOT EXISTS idx_sales_exchange_parent ON sales(exchange_parent_id);
+  CREATE INDEX IF NOT EXISTS idx_sales_customer ON sales(customer_id);
   CREATE INDEX IF NOT EXISTS idx_sales_status ON sales(status);
   CREATE INDEX IF NOT EXISTS idx_sales_created ON sales(created_at);
 
@@ -117,11 +139,30 @@ export const INITIAL_SCHEMA = `
   CREATE TABLE IF NOT EXISTS sale_payments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     sale_id INTEGER NOT NULL REFERENCES sales(id) ON DELETE CASCADE,
-    method TEXT NOT NULL CHECK(method IN ('cash', 'card', 'transfer')),
+    method TEXT NOT NULL CHECK(method IN ('cash', 'card', 'transfer', 'credito')),
     amount INTEGER NOT NULL
   );
 
   CREATE INDEX IF NOT EXISTS idx_sale_payments_sale ON sale_payments(sale_id);
+
+  CREATE TABLE IF NOT EXISTS customer_credit_movements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    movement_type TEXT NOT NULL CHECK(movement_type IN ('cargo_venta', 'abono', 'ajuste')),
+    amount INTEGER NOT NULL,
+    previous_balance INTEGER NOT NULL,
+    new_balance INTEGER NOT NULL,
+    sale_folio INTEGER NULL REFERENCES sales(folio) ON DELETE SET NULL,
+    cash_session_id INTEGER NULL REFERENCES cash_sessions(id) ON DELETE SET NULL,
+    payment_method TEXT NULL,
+    notes TEXT NULL,
+    created_at TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_ccm_customer ON customer_credit_movements(customer_id);
+  CREATE INDEX IF NOT EXISTS idx_ccm_created ON customer_credit_movements(created_at);
+  CREATE INDEX IF NOT EXISTS idx_ccm_sale_folio ON customer_credit_movements(sale_folio);
+  CREATE INDEX IF NOT EXISTS idx_ccm_cash_session ON customer_credit_movements(cash_session_id);
 
   CREATE TABLE IF NOT EXISTS inventory_movements (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -140,7 +181,7 @@ export const INITIAL_SCHEMA = `
   CREATE TABLE IF NOT EXISTS cash_movements (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     cash_session_id INTEGER NOT NULL REFERENCES cash_sessions(id) ON DELETE CASCADE,
-    type TEXT NOT NULL CHECK(type IN ('salida')),
+    type TEXT NOT NULL CHECK(type IN ('salida', 'ingreso')),
     amount INTEGER NOT NULL,
     reason TEXT NOT NULL,
     created_at TEXT NOT NULL

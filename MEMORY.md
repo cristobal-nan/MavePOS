@@ -3,14 +3,15 @@
 Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo que ya no aporte.
 
 ## Estado actual
-- Versión 1.0.10 activa en desarrollo (365 tests pasando al 100% en 34 suites, 0 errores de TypeScript).
-- Motor de Licenciamiento Backend (Etapa 1, Issue 01) completado: identificación de hardware (`machine_id` canónico `MAVE-XXXX-XXXX-XXXX`), verificación criptográfica offline HMAC-SHA256, persistencia en SQLite (`licenseService`) y contratos IPC seguros en preload (`window.api.license`).
+- Versión 1.0.10 activa en desarrollo (0 errores de TypeScript, suites de licencia e interfaz validadas al 100%).
+- Motor de Licenciamiento Backend (Issue 01), Generador Visual (Issue 02) e Interfaz de Activación F6 (Issue 03) completados: subpestaña canónica "Licencia" en Configuración, copia rápida de `machine_id` para WhatsApp, validación en tiempo real con cero layout shift (`h-6`), activación reactiva en `useLicenseStore` y persistencia en SQLite.
 - Transición arquitectónica POS+ERP aprobada (ADR-0008 a ADR-0012): matriz comercial ortogonal (POS/ERP x Monocaja/Multicaja), licenciamiento offline atado a hardware (`machine_id`), sincronización multi-tienda asíncrona vía Google Drive (carpeta compartida de 1 TB), aislamiento modular en `src/modules/erp/` y Bodega Centralizadora con Guías de Transferencia.
 - Auditoría UI completada al 100% en todas las pantallas (`F1` a `F6`) con arquitectura canónica (`ViewHeader`, `SubTabs`, `EmptyState`) y cero layout shift.
 - Motor de catálogo vendible en memoria RAM (`memoryCatalogStore`) con respuesta a 0 ms y write-through en SQLite tanto para Ventas (F1), Catálogo (F2) y Modal (F10).
 
 ## Decisiones (y por qué)
 - **Licenciamiento offline atado a Hardware:** HMAC-SHA256 con payload Base64URL y firma Hex. Si la base de datos se clona a otra PC (`hardware_mismatch`), el sistema revoca automáticamente el modo ERP en SQLite y regresa a POS estándar.
+- **UI de Licencia con Cero Layout Shift:** Espacio reservado permanente (`h-6`) para estados de validación en vivo; tiñe borde del input (`border-emerald-500` / `border-rose-500`) sin alterar alturas ni empujar el botón de activación.
 - **Lectura ultra-rápida de Machine ID en Windows:** Consulta directa al registro (`reg query HKLM\SOFTWARE\Microsoft\Cryptography /v MachineGuid`, <15ms) con fallback a CIM y variable de entorno `MAVE_MACHINE_UUID` para testing determinista.
 - **Componentes canónicos (`ViewHeader`, `SubTabs`, `EmptyState`):** Unificación dimensional, accesibilidad ARIA completa (`tablist`, `tab`, `dialog`), soporte de teclado y cero layout shift.
 - **Catálogo en RAM + Write-Through:** Búsqueda y escáner HID instantáneos sin consultar SQLite en cada tecla; SQLite y el store se sincronizan atómicamente.
@@ -25,7 +26,7 @@ Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo qu
 - **Formato Git:** Commits directos en español, sin prefijos (`feat:`, etc.) y sin mezclar capas; mantener en working tree hasta indicación expresa.
 
 ## Próximos pasos
-- Etapa 1: UI de Activación de Licencias en Configuración F6 (Issue 03) y Modelo/Servicio de Clientes (Issue 04).
+- Etapa 1: Modelo/Servicio de Clientes y RUT chileno (Issue 04) y Directorio de Clientes UI (Issue 05).
 - Etapa 2: Gestor de Bodega y Sincronización Multi-Tienda vía Google Drive.
 - Etapa 3: Conector Multicaja en Red Local (Servidor LAN y Terminales cliente).
 - Etapa 4: Compras a Proveedores y Cotizaciones / Preventas.

@@ -39,7 +39,13 @@ import {
   ImportExcelOptions,
   LicenseStatus,
   LicenseValidationResult,
-  ActivateLicenseResult
+  ActivateLicenseResult,
+  Customer,
+  CustomerInput,
+  CustomerCreditMovement,
+  CustomerStatement,
+  CreditMovementInput,
+  CustomerSearchOptions
 } from '../shared/types'
 
 // Domain API interfaces
@@ -164,6 +170,16 @@ export interface LicenseAPI {
   deactivate: () => Promise<{ success: boolean }>
 }
 
+export interface CustomersAPI {
+  getCustomers: (options?: CustomerSearchOptions) => Promise<Customer[]>
+  getCustomerById: (id: number) => Promise<Customer | null>
+  getCustomerByRut: (rut: string) => Promise<Customer | null>
+  saveCustomer: (input: CustomerInput) => Promise<Customer>
+  deleteCustomer: (id: number) => Promise<boolean>
+  addCreditMovement: (input: CreditMovementInput) => Promise<CustomerCreditMovement>
+  getStatement: (customerId: number) => Promise<CustomerStatement>
+}
+
 export interface WindowAPI {
   // Domain Namespaces
   catalog: CatalogAPI
@@ -174,6 +190,7 @@ export interface WindowAPI {
   devices: DevicesAPI
   system: SystemAPI
   license: LicenseAPI
+  customers: CustomersAPI
 
   // Backward compatibility flat methods
   minimize: () => void
@@ -426,6 +443,16 @@ const license: LicenseAPI = {
   deactivate: () => ipcRenderer.invoke('license:deactivate')
 }
 
+const customers: CustomersAPI = {
+  getCustomers: (options) => ipcRenderer.invoke('customers:getCustomers', options),
+  getCustomerById: (id) => ipcRenderer.invoke('customers:getCustomerById', id),
+  getCustomerByRut: (rut) => ipcRenderer.invoke('customers:getCustomerByRut', rut),
+  saveCustomer: (input) => ipcRenderer.invoke('customers:saveCustomer', input),
+  deleteCustomer: (id) => ipcRenderer.invoke('customers:deleteCustomer', id),
+  addCreditMovement: (input) => ipcRenderer.invoke('customers:addCreditMovement', input),
+  getStatement: (customerId) => ipcRenderer.invoke('customers:getStatement', customerId)
+}
+
 const api: WindowAPI = {
   // Namespaces
   catalog,
@@ -436,6 +463,7 @@ const api: WindowAPI = {
   devices,
   system,
   license,
+  customers,
 
   // Flat aliases for backward compatibility
   minimize: system.minimize,

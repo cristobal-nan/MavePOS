@@ -1,6 +1,6 @@
 // Shared types between Main and Renderer processes
 
-export type PaymentMethod = 'cash' | 'card' | 'transfer'
+export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'credito'
 export type SaleStatus = 'pending' | 'completed' | 'cancelled'
 export type MovementType = 'venta' | 'devolucion' | 'ajuste' | 'importacion' | 'inicial'
 
@@ -112,6 +112,7 @@ export interface Sale {
   cash_session_id: number | null
   exchange_parent_id?: number | null
   exchange_parent_folio?: number | null
+  customer_id?: number | null
   created_at: string
   completed_at: string | null
 }
@@ -172,6 +173,7 @@ export interface CompleteSaleInput {
   folio?: number
   ticket_number?: number
   cashSessionId: number
+  customerId?: number | null
   items: {
     product_code: string
     name: string
@@ -678,6 +680,74 @@ export interface ActivateLicenseResult {
   topology?: 'single' | 'multi'
   status?: LicenseStatus
 }
+
+// ----------------------------------------------------
+// Etapa 1: Gestión de Clientes y Cuentas por Cobrar
+// ----------------------------------------------------
+
+export type CreditMovementType = 'cargo_venta' | 'abono' | 'ajuste'
+
+export interface Customer {
+  id: number
+  rut: string | null
+  name: string
+  search_name: string
+  phone: string | null
+  email: string | null
+  address: string | null
+  credit_limit: number
+  current_balance: number
+  active: number
+  created_at: string
+  updated_at: string
+}
+
+export interface CustomerInput {
+  id?: number
+  rut?: string | null
+  name: string
+  phone?: string | null
+  email?: string | null
+  address?: string | null
+  credit_limit?: number
+}
+
+export interface CustomerCreditMovement {
+  id: number
+  customer_id: number
+  movement_type: CreditMovementType
+  amount: number
+  previous_balance: number
+  new_balance: number
+  sale_folio: number | null
+  cash_session_id: number | null
+  payment_method: string | null
+  notes: string | null
+  created_at: string
+}
+
+export interface CustomerStatement {
+  customer: Customer
+  movements: CustomerCreditMovement[]
+  totalCharged: number
+  totalPaid: number
+}
+
+export interface CreditMovementInput {
+  customerId: number
+  movementType: CreditMovementType
+  amount: number
+  saleFolio?: number | null
+  cashSessionId?: number | null
+  paymentMethod?: string | null
+  notes?: string | null
+}
+
+export interface CustomerSearchOptions {
+  query?: string
+  onlyActive?: boolean
+}
+
 
 
 

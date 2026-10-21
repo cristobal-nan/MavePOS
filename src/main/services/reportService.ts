@@ -327,7 +327,8 @@ export class ReportService {
     const labels: Record<PaymentMethod, string> = {
       cash: 'Efectivo',
       card: 'Tarjeta',
-      transfer: 'Transferencia'
+      transfer: 'Transferencia',
+      credito: 'Crédito'
     }
 
     const methods: PaymentMethod[] = ['cash', 'card', 'transfer']

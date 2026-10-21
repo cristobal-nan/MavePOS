@@ -311,6 +311,112 @@ const MIGRATIONS: Migration[] = [
         db.exec('ALTER TABLE sales ADD COLUMN change_amount INTEGER NOT NULL DEFAULT 0;')
       }
     }
+  },
+  {
+    version: 14,
+    up: (db) => {
+      const cols = db.pragma('table_info(products)') as { name: string }[]
+      const colNames = new Set(cols.map((c) => c.name))
+
+      if (!colNames.has('package_size')) {
+        db.exec('ALTER TABLE products ADD COLUMN package_size INTEGER NOT NULL DEFAULT 10;')
+      }
+      db.exec('UPDATE products SET package_size = 10 WHERE package_size IS NULL OR package_size <= 0;')
+    }
+  },
+  {
+    version: 15,
+    up: (db) => {
+      // 1. Tabla customers
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS customers (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          rut TEXT NULL UNIQUE,
+          name TEXT NOT NULL,
+          search_name TEXT NOT NULL,
+          phone TEXT NULL,
+          email TEXT NULL,
+          address TEXT NULL,
+          credit_limit INTEGER NOT NULL DEFAULT 0,
+          current_balance INTEGER NOT NULL DEFAULT 0,
+          active INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_customers_rut ON customers(rut);
+        CREATE INDEX IF NOT EXISTS idx_customers_search_name ON customers(search_name);
+        CREATE INDEX IF NOT EXISTS idx_customers_active ON customers(active);
+      `)
+
+      // 2. Tabla customer_credit_movements
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS customer_credit_movements (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+          movement_type TEXT NOT NULL CHECK(movement_type IN ('cargo_venta', 'abono', 'ajuste')),
+          amount INTEGER NOT NULL,
+          previous_balance INTEGER NOT NULL,
+          new_balance INTEGER NOT NULL,
+          sale_folio INTEGER NULL REFERENCES sales(folio) ON DELETE SET NULL,
+          cash_session_id INTEGER NULL REFERENCES cash_sessions(id) ON DELETE SET NULL,
+          payment_method TEXT NULL,
+          notes TEXT NULL,
+          created_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_ccm_customer ON customer_credit_movements(customer_id);
+        CREATE INDEX IF NOT EXISTS idx_ccm_created ON customer_credit_movements(created_at);
+        CREATE INDEX IF NOT EXISTS idx_ccm_sale_folio ON customer_credit_movements(sale_folio);
+        CREATE INDEX IF NOT EXISTS idx_ccm_cash_session ON customer_credit_movements(cash_session_id);
+      `)
+
+      // 3. Columna customer_id en sales
+      const salesCols = db.pragma('table_info(sales)') as { name: string }[]
+      const salesColNames = new Set(salesCols.map((c) => c.name))
+      if (!salesColNames.has('customer_id')) {
+        db.exec('ALTER TABLE sales ADD COLUMN customer_id INTEGER NULL REFERENCES customers(id) ON DELETE SET NULL;')
+        db.exec('CREATE INDEX IF NOT EXISTS idx_sales_customer ON sales(customer_id);')
+      }
+
+      // 4. Actualizar CHECK constraint en sale_payments para permitir 'credito'
+      db.pragma('foreign_keys = OFF')
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS sale_payments_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          sale_id INTEGER NOT NULL REFERENCES sales(id) ON DELETE CASCADE,
+          method TEXT NOT NULL CHECK(method IN ('cash', 'card', 'transfer', 'credito')),
+          amount INTEGER NOT NULL
+        );
+
+        INSERT INTO sale_payments_new (id, sale_id, method, amount)
+        SELECT id, sale_id, method, amount FROM sale_payments;
+
+        DROP TABLE sale_payments;
+        ALTER TABLE sale_payments_new RENAME TO sale_payments;
+        CREATE INDEX IF NOT EXISTS idx_sale_payments_sale ON sale_payments(sale_id);
+      `)
+
+      // 5. Actualizar CHECK constraint en cash_movements para permitir 'ingreso'
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS cash_movements_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          cash_session_id INTEGER NOT NULL REFERENCES cash_sessions(id) ON DELETE CASCADE,
+          type TEXT NOT NULL CHECK(type IN ('salida', 'ingreso')),
+          amount INTEGER NOT NULL,
+          reason TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        );
+
+        INSERT INTO cash_movements_new (id, cash_session_id, type, amount, reason, created_at)
+        SELECT id, cash_session_id, type, amount, reason, created_at FROM cash_movements;
+
+        DROP TABLE cash_movements;
+        ALTER TABLE cash_movements_new RENAME TO cash_movements;
+        CREATE INDEX IF NOT EXISTS idx_cash_movements_session ON cash_movements(cash_session_id);
+      `)
+      db.pragma('foreign_keys = ON')
+    }
   }
 ]
 

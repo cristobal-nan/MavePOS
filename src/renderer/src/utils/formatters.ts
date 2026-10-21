@@ -122,7 +122,8 @@ export function formatPaymentMethods(payments: { method: string; amount: number 
   const methodNames: Record<string, string> = {
     cash: 'Efectivo',
     card: 'Tarjeta',
-    transfer: 'Transferencia'
+    transfer: 'Transferencia',
+    credito: 'Crédito'
   }
 
   if (active.length === 1) {
