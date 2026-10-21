@@ -9,6 +9,7 @@ import {
   Keyboard,
   Palette,
   AlertTriangle,
+  KeyRound,
   Save,
   Loader2,
   CheckCircle2
@@ -21,6 +22,7 @@ import { InventorySettingsTab } from './settings/InventorySettingsTab'
 import { BackupSettingsTab } from './settings/BackupSettingsTab'
 import { ShortcutsTab } from './settings/ShortcutsTab'
 import { DangerZoneTab } from './settings/DangerZoneTab'
+import { LicenseSettingsTab } from './settings/LicenseSettingsTab'
 import { UnsavedChangesModal } from './settings/UnsavedChangesModal'
 import { useSettingsStore, PendingNavigation } from '../store/settingsStore'
 import { useUIStore } from '../store/uiStore'
@@ -35,6 +37,7 @@ type SettingsSubTab =
   | 'inventory'
   | 'backups'
   | 'shortcuts'
+  | 'license'
   | 'danger'
 
 const CONFIGURABLE_TABS: SettingsSubTab[] = ['business', 'printers', 'cash', 'inventory']
@@ -47,6 +50,7 @@ const SETTINGS_SUBTABS: SubTabItem<SettingsSubTab>[] = [
   { id: 'inventory', label: 'Inventario', icon: Boxes },
   { id: 'backups', label: 'Respaldos', icon: HardDrive },
   { id: 'shortcuts', label: 'Atajos de Teclado', icon: Keyboard },
+  { id: 'license', label: 'Licencia', icon: KeyRound },
   { id: 'danger', label: 'Mantenimiento', icon: AlertTriangle }
 ]
 
@@ -135,6 +139,7 @@ export const SettingsView: React.FC = () => {
         {activeSubTab === 'inventory' && <InventorySettingsTab />}
         {activeSubTab === 'backups' && <BackupSettingsTab />}
         {activeSubTab === 'shortcuts' && <ShortcutsTab />}
+        {activeSubTab === 'license' && <LicenseSettingsTab />}
         {activeSubTab === 'danger' && <DangerZoneTab />}
       </div>
 
