@@ -91,6 +91,7 @@ describe('Auditoría UI Pantalla 7: Configuración (SettingsView y UnsavedChange
     expect(html).toContain('Inventario')
     expect(html).toContain('Respaldos')
     expect(html).toContain('Atajos de Teclado')
+    expect(html).toContain('Licencia')
     expect(html).toContain('Mantenimiento')
   })
 
