@@ -3,7 +3,8 @@
 Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo que ya no aporte.
 
 ## Estado actual
-- Versión 1.0.10 activa en desarrollo (0 errores de TypeScript, suites de licencia e interfaz validadas al 100%).
+- Versión 1.0.10 activa en desarrollo (0 errores de TypeScript, 391 tests pasando al 100% en 37 suites).
+- Modelo de Datos y Servicio de Clientes (Issue 04): Migración v15 (tablas `customers` y `customer_credit_movements`, columna `sales.customer_id`, métodos `credito` e `ingreso`), validador universal chileno Módulo 11 (`rut.ts`), `CustomerService` con operaciones atómicas y cartola histórica, e IPC tipado en `preload`.
 - Motor de Licenciamiento Backend (Issue 01), Generador Visual (Issue 02) e Interfaz de Activación F6 (Issue 03) completados: subpestaña canónica "Licencia" en Configuración, copia rápida de `machine_id` para WhatsApp, validación en tiempo real con cero layout shift (`h-6`), activación reactiva en `useLicenseStore` y persistencia en SQLite.
 - Transición arquitectónica POS+ERP aprobada (ADR-0008 a ADR-0012): matriz comercial ortogonal (POS/ERP x Monocaja/Multicaja), licenciamiento offline atado a hardware (`machine_id`), sincronización multi-tienda asíncrona vía Google Drive (carpeta compartida de 1 TB), aislamiento modular en `src/modules/erp/` y Bodega Centralizadora con Guías de Transferencia.
 - Auditoría UI completada al 100% en todas las pantallas (`F1` a `F6`) con arquitectura canónica (`ViewHeader`, `SubTabs`, `EmptyState`) y cero layout shift.
@@ -26,7 +27,7 @@ Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo qu
 - **Formato Git:** Commits directos en español, sin prefijos (`feat:`, etc.) y sin mezclar capas; mantener en working tree hasta indicación expresa.
 
 ## Próximos pasos
-- Etapa 1: Modelo/Servicio de Clientes y RUT chileno (Issue 04) y Directorio de Clientes UI (Issue 05).
+- Etapa 1: Directorio y Ficha de Clientes UI (Issue 05), Cobro a Crédito en Checkout (Issue 06) y Abonos en Caja con Comprobante Térmico (Issue 07).
 - Etapa 2: Gestor de Bodega y Sincronización Multi-Tienda vía Google Drive.
 - Etapa 3: Conector Multicaja en Red Local (Servidor LAN y Terminales cliente).
 - Etapa 4: Compras a Proveedores y Cotizaciones / Preventas.
