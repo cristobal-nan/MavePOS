@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Generador de Licencias Offline — POS Mave</title>
+  <style>
+    :root {
+      --bg: #0F172A;
+      --card-bg: #1E293B;
+      --border: #334155;
+      --text: #F8FAFC;
+      --text-muted: #94A3B8;
+      --primary: #8B5CF6;
+      --primary-hover: #7C3AED;
+      --success: #10B981;
+      --danger: #EF4444;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 680px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+
+    .header {
+      margin-bottom: 1.75rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.25rem;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.6rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: rgba(139, 92, 246, 0.15);
+      color: #A78BFA;
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    p.subtitle {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+      color: var(--text);
+    }
+
+    .input-wrapper {
+      position: relative;
+    }
+
+    input[type="text"], select {
+      width: 100%;
+      padding: 0.65rem 0.85rem;
+      background: #0F172A;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    input[type="text"]:focus, select:focus {
+      border-color: var(--primary);
+    }
+
+    input.mono {
+      font-family: var(--mono);
+      letter-spacing: 0.05em;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: background-color 0.15s ease, opacity 0.15s ease;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #FFFFFF;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn-secondary {
+      background: #334155;
+      color: var(--text);
+      font-size: 0.85rem;
+      padding: 0.5rem 0.85rem;
+      width: auto;
+    }
+
+    .btn-secondary:hover {
+      background: #475569;
+    }
+
+    .error-msg {
+      color: var(--danger);
+      font-size: 0.8rem;
+      margin-top: 0.35rem;
+      display: none;
+    }
+
+    .result-section {
+      margin-top: 1.75rem;
+      border-top: 1px solid var(--border);
+      padding-top: 1.5rem;
+      display: none;
+    }
+
+    .result-card {
+      background: #0F172A;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.6rem;
+    }
+
+    .result-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+
+    .key-display {
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      word-break: break-all;
+      line-height: 1.4;
+      color: #A78BFA;
+      user-select: all;
+    }
+
+    .blocks-display {
+      font-family: var(--mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      word-break: break-all;
+      margin-top: 0.4rem;
+      line-height: 1.5;
+    }
+
+    .copy-feedback {
+      font-size: 0.8rem;
+      color: var(--success);
+      margin-left: 0.5rem;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <span class="badge">Herramienta Privada de Autor</span>
+      <h1>Generador de Licencias Offline</h1>
+      <p class="subtitle">Emisión criptográfica de claves atadas a hardware (HMAC-SHA256)</p>
+    </div>
+
+    <form id="licenseForm">
+      <div class="form-group">
+        <label for="machineId">Código de Máquina del Cliente (Machine ID)</label>
+        <input
+          type="text"
+          id="machineId"
+          class="mono"
+          placeholder="MAVE-XXXX-XXXX-XXXX"
+          required
+          autocomplete="off"
+          spellcheck="false"
+        >
+        <div id="machineIdError" class="error-msg">Formato inválido. Debe ser MAVE-XXXX-XXXX-XXXX</div>
+      </div>
+
+      <div class="grid-2">
+        <div class="form-group">
+          <label for="edition">Edición Funcional</label>
+          <select id="edition">
+            <option value="pos">POS Estándar (Básico)</option>
+            <option value="erp" selected>POS + ERP (Avanzado)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="topology">Topología de Red</label>
+          <select id="topology">
+            <option value="single" selected>Monocaja (1 PC)</option>
+            <option value="multi">Multicaja (Red Local)</option>
+          </select>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary">
+        Generar Clave de Activación
+      </button>
+    </form>
+
+    <div id="resultSection" class="result-section">
+      <div class="result-card">
+        <div class="result-header">
+          <span class="result-title">Clave de Activación Generada</span>
+          <div>
+            <span id="copyFeedback" class="copy-feedback">¡Copiado!</span>
+            <button id="copyBtn" class="btn btn-secondary" type="button">
+              Copiar Clave
+            </button>
+          </div>
+        </div>
+        <div id="licenseKeyOutput" class="key-display"></div>
+        <div id="signatureBlocksOutput" class="blocks-display"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const MASTER_LICENSE_SECRET = 'MAVE_POS_OFFLINE_LICENSE_MASTER_SECRET_KEY_2026_V1';
+    const MACHINE_ID_REGEX = /^MAVE-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/;
+
+    function formatHexBlocks(hex) {
+      if (!hex || typeof hex !== 'string') return '';
+      const clean = hex.trim().replace(/[^A-Fa-f0-9]/g, '').toUpperCase();
+      const blocks = [];
+      for (let i = 0; i < clean.length; i += 4) {
+        blocks.push(clean.slice(i, i + 4));
+      }
+      return blocks.join('-');
+    }
+
+    function base64UrlEncode(str) {
+      const bytes = new TextEncoder().encode(str);
+      let binary = '';
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+
+    function bufferToHex(buffer) {
+      const bytes = new Uint8Array(buffer);
+      let hex = '';
+      for (let i = 0; i < bytes.length; i++) {
+        hex += bytes[i].toString(16).padStart(2, '0');
+      }
+      return hex.toUpperCase();
+    }
+
+    async function generateLicense(payload) {
+      const jsonStr = JSON.stringify(payload);
+      const encodedPayload = base64UrlEncode(jsonStr);
+
+      const encoder = new TextEncoder();
+      const keyData = encoder.encode(MASTER_LICENSE_SECRET);
+      const cryptoKey = await crypto.subtle.importKey(
+        'raw',
+        keyData,
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+      );
+
+      const sigBuffer = await crypto.subtle.sign(
+        'HMAC',
+        cryptoKey,
+        encoder.encode(encodedPayload)
+      );
+
+      const signatureHex = bufferToHex(sigBuffer);
+      return {
+        key: `${encodedPayload}.${signatureHex}`,
+        signatureHex: signatureHex
+      };
+    }
+
+    const form = document.getElementById('licenseForm');
+    const machineIdInput = document.getElementById('machineId');
+    const machineIdError = document.getElementById('machineIdError');
+    const editionSelect = document.getElementById('edition');
+    const topologySelect = document.getElementById('topology');
+    const resultSection = document.getElementById('resultSection');
+    const licenseKeyOutput = document.getElementById('licenseKeyOutput');
+    const signatureBlocksOutput = document.getElementById('signatureBlocksOutput');
+    const copyBtn = document.getElementById('copyBtn');
+    const copyFeedback = document.getElementById('copyFeedback');
+
+    let currentGeneratedKey = '';
+
+    machineIdInput.addEventListener('input', (e) => {
+      e.target.value = e.target.value.toUpperCase();
+      machineIdError.style.display = 'none';
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const mid = machineIdInput.value.trim().toUpperCase();
+
+      if (!MACHINE_ID_REGEX.test(mid)) {
+        machineIdError.style.display = 'block';
+        return;
+      }
+
+      const payload = {
+        machineId: mid,
+        edition: editionSelect.value,
+        topology: topologySelect.value,
+        issuedAt: new Date().toISOString().slice(0, 10)
+      };
+
+      try {
+        const { key, signatureHex } = await generateLicense(payload);
+        currentGeneratedKey = key;
+        licenseKeyOutput.textContent = key;
+        signatureBlocksOutput.textContent = 'Firma: ' + formatHexBlocks(signatureHex);
+        resultSection.style.display = 'block';
+        copyFeedback.style.display = 'none';
+      } catch (err) {
+        alert('Error firmando la licencia: ' + err.message);
+      }
+    });
+
+    copyBtn.addEventListener('click', async () => {
+      if (!currentGeneratedKey) return;
+      try {
+        await navigator.clipboard.writeText(currentGeneratedKey);
+        copyFeedback.style.display = 'inline';
+        setTimeout(() => {
+          copyFeedback.style.display = 'none';
+        }, 2500);
+      } catch (err) {
+        prompt('Copia manualmente la clave:', currentGeneratedKey);
+      }
+    });
+  </script>
+</body>
+</html>
