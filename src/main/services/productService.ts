@@ -187,6 +187,7 @@ export class ProductService {
     const costPrice = input.cost_price !== undefined ? input.cost_price : null
     const stock = input.stock !== undefined ? input.stock : 0
     const minStock = input.min_stock !== undefined ? input.min_stock : 0
+    const packageSize = input.package_size !== undefined && input.package_size > 0 ? Math.round(input.package_size) : 10
     const categoryId = input.category_id || null
     const salePrice = input.sale_price !== undefined ? input.sale_price : 0
 
@@ -257,6 +258,7 @@ export class ProductService {
             parent_id = ?,
             attribute_name = ?,
             attribute_value = ?,
+            package_size = ?,
             sale_price = ?,
             cost_price = ?,
             category_id = ?,
@@ -273,6 +275,7 @@ export class ProductService {
           parentId,
           attributeName,
           attributeValue,
+          packageSize,
           salePrice,
           costPrice,
           categoryId,
@@ -290,6 +293,10 @@ export class ProductService {
 
         // Si es un producto variable padre y cambió su nombre o categoría, sincronizar sus variaciones activas
         if (productType === 'variable') {
+          if (input.sync_variations) {
+            // Actualizar tamaño de paquete en lote a todas sus variaciones hijas al sincronizar
+            this.db.prepare('UPDATE products SET package_size = ?, updated_at = ? WHERE parent_id = ? AND active = 1').run(packageSize, now, targetId)
+          }
           const children = this.db
             .prepare('SELECT id, attribute_value FROM products WHERE parent_id = ? AND active = 1')
             .all(targetId) as { id: number; attribute_value: string | null }[]
@@ -344,9 +351,9 @@ export class ProductService {
       const result = this.db.prepare(`
         INSERT INTO products (
           code, name, search_name, product_type, parent_id,
-          attribute_name, attribute_value, sale_price, cost_price,
+          attribute_name, attribute_value, package_size, sale_price, cost_price,
           category_id, stock, min_stock, active, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
       `).run(
         trimmedCode,
         trimmedName,
@@ -355,6 +362,7 @@ export class ProductService {
         parentId,
         attributeName,
         attributeValue,
+        packageSize,
         salePrice,
         costPrice,
         categoryId,
@@ -431,6 +439,7 @@ export class ProductService {
       for (const varInput of variationsInput) {
         const saved = this.upsertProduct({
           ...varInput,
+          name: varInput.name || `${parentInput.name} ${varInput.attribute_value || ''}`.trim(),
           product_type: 'variation',
           parent_id: parent.id,
           attribute_name: varInput.attribute_name || parentInput.attribute_name,
@@ -575,10 +584,10 @@ export class ProductService {
       const insertParentStmt = this.db.prepare(`
         INSERT INTO products (
           code, name, search_name, product_type, parent_id, attribute_name, attribute_value,
-          sale_price, cost_price, category_id, stock, min_stock, active, created_at, updated_at
+          package_size, sale_price, cost_price, category_id, stock, min_stock, active, created_at, updated_at
         ) VALUES (
           NULL, ?, ?, 'variable', NULL, ?, NULL,
-          0, NULL, ?, 0, 0, 1, ?, ?
+          10, 0, NULL, ?, 0, 0, 1, ?, ?
         )
       `)
 
@@ -702,6 +711,7 @@ export class ProductService {
         p.parent_id,
         p.attribute_name,
         p.attribute_value,
+        p.package_size,
         p.sale_price,
         p.cost_price,
         p.category_id,

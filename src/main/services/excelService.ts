@@ -107,7 +107,21 @@ export class ExcelService {
       parent_name: ['PRODUCTO PADRE', 'PADRE', 'PARENT', 'PRODUCTO_PADRE', 'PARENT PRODUCT'],
       attribute_name: ['ATRIBUTO', 'TIPO ATRIBUTO', 'ATTRIBUTE', 'NOMBRE ATRIBUTO'],
       attribute_value: ['VALOR ATRIBUTO', 'VALOR_ATRIBUTO', 'VALOR', 'ATTRIBUTE VALUE'],
-      suppliers: ['PROVEEDORES', 'PROVEEDOR', 'SUPPLIERS', 'SUPPLIER']
+      suppliers: ['PROVEEDORES', 'PROVEEDOR', 'SUPPLIERS', 'SUPPLIER'],
+      package_size: [
+        'TAMAÑO PAQUETE',
+        'TAMANO PAQUETE',
+        'TAMAÑO_PAQUETE',
+        'TAMANO_PAQUETE',
+        'PAQUETE',
+        'PACK',
+        'PACKAGE SIZE',
+        'PACKAGE_SIZE',
+        'UNIDADES PAQUETE',
+        'UNIDADES POR PAQUETE',
+        'UNID PAQUETE',
+        'CANT PAQUETE'
+      ]
     }
 
     const cleanHeader = (s: string): string =>
@@ -220,6 +234,7 @@ export class ExcelService {
     const attrValIdx = mapping.attribute_value ? headers.indexOf(mapping.attribute_value) : -1
     const prodTypeIdx = mapping.product_type ? headers.indexOf(mapping.product_type) : -1
     const suppliersIdx = mapping.suppliers ? headers.indexOf(mapping.suppliers) : -1
+    const packageSizeIdx = mapping.package_size ? headers.indexOf(mapping.package_size) : -1
 
     const updateStock = options?.updateStock ?? true
     const duplicateCodeAction = options?.duplicateCodeAction ?? 'create_only'
@@ -270,7 +285,7 @@ export class ExcelService {
       `)
 
       const findProductStmt = this.db.prepare(`
-        SELECT id, name, stock, sale_price, cost_price, min_stock, category_id, product_type, parent_id
+        SELECT id, name, stock, sale_price, cost_price, min_stock, category_id, product_type, parent_id, package_size
         FROM products
         WHERE code = ? COLLATE NOCASE AND active = 1
       `)
@@ -278,20 +293,20 @@ export class ExcelService {
       const insertVariableStmt = this.db.prepare(`
         INSERT INTO products (
           name, search_name, product_type, parent_id, attribute_name, attribute_value,
-          sale_price, cost_price, category_id, stock, min_stock, active, created_at, updated_at
+          sale_price, cost_price, category_id, stock, min_stock, package_size, active, created_at, updated_at
         ) VALUES (
           ?, ?, 'variable', NULL, ?, NULL,
-          0, 0, ?, 0, 0, 1, ?, ?
+          0, 0, ?, 0, 0, ?, 1, ?, ?
         )
       `)
 
       const insertProductStmt = this.db.prepare(`
         INSERT INTO products (
           code, name, search_name, product_type, parent_id, attribute_name, attribute_value,
-          sale_price, cost_price, category_id, stock, min_stock, active, created_at, updated_at
+          sale_price, cost_price, category_id, stock, min_stock, package_size, active, created_at, updated_at
         ) VALUES (
           ?, ?, ?, ?, ?, ?, ?,
-          ?, ?, ?, ?, ?, 1, ?, ?
+          ?, ?, ?, ?, ?, ?, 1, ?, ?
         )
       `)
 
@@ -308,6 +323,7 @@ export class ExcelService {
           category_id = ?,
           stock = ?,
           min_stock = ?,
+          package_size = ?,
           active = 1,
           updated_at = ?
         WHERE id = ?
@@ -389,6 +405,8 @@ export class ExcelService {
           : null
         const stock = parseCLP(stockIdx >= 0 ? row[stockIdx] : 0, 0)
         const minStock = Math.max(0, parseCLP(minStockIdx >= 0 ? row[minStockIdx] : 0, 0))
+        const rawPackageSize = packageSizeIdx >= 0 ? parseCLP(row[packageSizeIdx], 10) : 10
+        const rowPackageSize = rawPackageSize > 0 ? rawPackageSize : 10
 
         // Extract Department (Category Level 1)
         let categoryId: number | null = null
@@ -430,7 +448,7 @@ export class ExcelService {
           if (variablesMap.has(normParent)) {
             actualParentId = variablesMap.get(normParent)!
           } else {
-            const varRes = insertVariableStmt.run(parentName, normParent, attrName || 'Variante', categoryId, now, now)
+            const varRes = insertVariableStmt.run(parentName, normParent, attrName || 'Variante', categoryId, rowPackageSize, now, now)
             actualParentId = Number(varRes.lastInsertRowid)
             variablesMap.set(normParent, actualParentId)
           }
@@ -439,7 +457,7 @@ export class ExcelService {
         }
 
         const searchName = normalizeSearchName(name)
-        const existing = findProductStmt.get(code) as { id: number; name: string; stock: number; parent_id: number | null } | undefined
+        const existing = findProductStmt.get(code) as { id: number; name: string; stock: number; parent_id: number | null; package_size?: number } | undefined
         let targetProductId: number
 
         if (existing) {
@@ -456,6 +474,7 @@ export class ExcelService {
           targetProductId = existing.id
           // Determinar existencia: si updateStock es true, usa el valor del Excel; si es false, conserva existing.stock
           const targetStock = updateStock ? stock : existing.stock
+          const targetPackageSize = packageSizeIdx >= 0 ? rowPackageSize : (existing.package_size ?? 10)
 
           updateProductStmt.run(
             name,
@@ -469,6 +488,7 @@ export class ExcelService {
             categoryId,
             targetStock,
             minStock,
+            targetPackageSize,
             now,
             existing.id
           )
@@ -498,6 +518,7 @@ export class ExcelService {
             categoryId,
             stock,
             minStock,
+            rowPackageSize,
             now,
             now
           )
@@ -579,6 +600,7 @@ export class ExcelService {
           p.parent_id,
           p.attribute_name,
           p.attribute_value,
+          p.package_size,
           p.sale_price,
           p.cost_price,
           p.stock,
@@ -616,6 +638,7 @@ export class ExcelService {
         'Producto Padre': p.parent_product_name || '',
         Atributo: p.attribute_name || '',
         'Valor Atributo': p.attribute_value || '',
+        'Tamaño Paquete': p.package_size ?? 10,
         'P. Costo': p.cost_price ?? 0,
         'P. Venta': p.sale_price,
         Existencia: p.stock,
