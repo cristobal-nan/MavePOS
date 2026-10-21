@@ -30,6 +30,7 @@ export interface Product {
   parent_id: number | null
   attribute_name: string | null
   attribute_value: string | null
+  package_size?: number
   sale_price: number
   cost_price: number | null
   category_id: number | null
@@ -52,6 +53,7 @@ export interface ProductInput {
   parent_id?: number | null
   attribute_name?: string | null
   attribute_value?: string | null
+  package_size?: number
   sale_price?: number
   cost_price?: number | null
   category_id?: number | null
@@ -426,6 +428,7 @@ export interface ExcelColumnMapping {
   sale_price: string
   stock: string
   min_stock?: string
+  package_size?: string
   department?: string
   product_type?: string
   parent_name?: string
@@ -628,5 +631,53 @@ export const DEFAULT_CATALOG_CONFIG: CatalogConfig = {
   modalInitialLimit: 150,
   modalScrollBatch: 150
 }
+
+// ----------------------------------------------------
+// Etapa 1: Licenciamiento Offline y Ediciones
+// ----------------------------------------------------
+
+export type AppEdition = 'pos' | 'erp'
+export type AppTopology = 'single' | 'multi' | 'monocaja' | 'multicaja_servidor' | 'multicaja_terminal'
+
+export interface LicensePayload {
+  machineId: string
+  edition: AppEdition
+  topology: 'single' | 'multi'
+  issuedAt?: string
+  maxRegisters?: number
+}
+
+export type LicenseValidationErrorCode =
+  | 'invalid_format'
+  | 'invalid_signature'
+  | 'hardware_mismatch'
+  | 'unknown_edition'
+  | 'unknown_topology'
+
+export interface LicenseValidationResult {
+  valid: boolean
+  error?: LicenseValidationErrorCode
+  message?: string
+  payload?: LicensePayload
+}
+
+export interface LicenseStatus {
+  machineId: string
+  edition: AppEdition
+  topology: 'single' | 'multi'
+  isActivated: boolean
+  licenseKey: string | null
+  activatedAt?: string | null
+}
+
+export interface ActivateLicenseResult {
+  success: boolean
+  error?: LicenseValidationErrorCode
+  message?: string
+  edition?: AppEdition
+  topology?: 'single' | 'multi'
+  status?: LicenseStatus
+}
+
 
 

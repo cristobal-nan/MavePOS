@@ -36,7 +36,10 @@ import {
   PrinterConfig,
   PrintResult,
   ExportExcelResult,
-  ImportExcelOptions
+  ImportExcelOptions,
+  LicenseStatus,
+  LicenseValidationResult,
+  ActivateLicenseResult
 } from '../shared/types'
 
 // Domain API interfaces
@@ -153,6 +156,14 @@ export interface SystemAPI {
   restoreBackup: (backupFilePath: string) => Promise<{ ok: boolean }>
 }
 
+export interface LicenseAPI {
+  getMachineId: () => Promise<string>
+  getStatus: () => Promise<LicenseStatus>
+  validateKey: (key: string) => Promise<LicenseValidationResult>
+  activate: (key: string) => Promise<ActivateLicenseResult>
+  deactivate: () => Promise<{ success: boolean }>
+}
+
 export interface WindowAPI {
   // Domain Namespaces
   catalog: CatalogAPI
@@ -162,6 +173,7 @@ export interface WindowAPI {
   reports: ReportsAPI
   devices: DevicesAPI
   system: SystemAPI
+  license: LicenseAPI
 
   // Backward compatibility flat methods
   minimize: () => void
@@ -406,6 +418,14 @@ const system: SystemAPI = {
   restoreBackup: (backupFilePath) => ipcRenderer.invoke('backup:restore', backupFilePath)
 }
 
+const license: LicenseAPI = {
+  getMachineId: () => ipcRenderer.invoke('license:getMachineId'),
+  getStatus: () => ipcRenderer.invoke('license:getStatus'),
+  validateKey: (key: string) => ipcRenderer.invoke('license:validateKey', key),
+  activate: (key: string) => ipcRenderer.invoke('license:activate', key),
+  deactivate: () => ipcRenderer.invoke('license:deactivate')
+}
+
 const api: WindowAPI = {
   // Namespaces
   catalog,
@@ -415,6 +435,7 @@ const api: WindowAPI = {
   reports,
   devices,
   system,
+  license,
 
   // Flat aliases for backward compatibility
   minimize: system.minimize,

@@ -10,6 +10,7 @@ import { ExcelService } from './services/excelService'
 import { SupplierService } from './services/supplierService'
 import { ReportService } from './services/reportService'
 import { PrinterService } from './services/printerService'
+import { LicenseService } from './services/licenseService'
 
 import { registerCatalogIpc } from './ipc/catalogIpc'
 import { registerSalesIpc } from './ipc/salesIpc'
@@ -18,6 +19,7 @@ import { registerInventoryIpc } from './ipc/inventoryIpc'
 import { registerReportsIpc } from './ipc/reportsIpc'
 import { registerDevicesIpc } from './ipc/devicesIpc'
 import { registerSystemIpc } from './ipc/systemIpc'
+import { registerLicenseIpc } from './ipc/licenseIpc'
 
 export function registerIpcHandlers(mainWindow: BrowserWindow): {
   productService: ProductService
@@ -30,6 +32,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
   supplierService: SupplierService
   reportService: ReportService
   printerService: PrinterService
+  licenseService: LicenseService
 } {
   const db = getDatabase()
   const productService = new ProductService(db)
@@ -42,6 +45,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
   const supplierService = new SupplierService(db)
   const reportService = new ReportService(db)
   const printerService = new PrinterService(db, settingsService)
+  const licenseService = new LicenseService(db, settingsService)
 
   // Register domain IPC modules
   registerCatalogIpc(productService, supplierService, excelService, mainWindow)
@@ -51,6 +55,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
   registerReportsIpc(reportService)
   registerDevicesIpc(printerService, mainWindow)
   registerSystemIpc(mainWindow, settingsService, backupService)
+  registerLicenseIpc(licenseService)
 
   return {
     productService,
@@ -62,6 +67,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): {
     excelService,
     supplierService,
     reportService,
-    printerService
+    printerService,
+    licenseService
   }
 }
