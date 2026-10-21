@@ -3,36 +3,29 @@
 Memoria del proyecto entre sesiones. Máximo ~50 líneas: resume o elimina lo que ya no aporte.
 
 ## Estado actual
-- Versión 1.0.10 activa en desarrollo (instalador 1.0.9 generado en `dist/`, 327 tests pasando al 100% en 32 suites, 0 errores de TypeScript).
-- Auditoría UI completada al 100% (Fase 0 a Fase 8 de `AUDITORIA_UI.md`) en todas las pantallas (`F1` a `F6`).
-- Persistencia de monto entregado (`cash_paid`) y vuelto (`change_amount`) en tabla `sales` (migración v13), visualización en modal de detalle de historial y reflejo en boletas térmicas (impresión inmediata y reimpresión histórica).
-- Arquitectura canónica consolidada: `ViewHeader`, `SubTabs`, `EmptyState` en todas las vistas principales y secundarias.
-- Paleta dual estricta: Modo Claro y Slate Profundo (`#0F172A`, `#1E293B`, `#334155`), tickets térmicos blancos inmutables.
+- Versión 1.0.10 activa en desarrollo (365 tests pasando al 100% en 34 suites, 0 errores de TypeScript).
+- Motor de Licenciamiento Backend (Etapa 1, Issue 01) completado: identificación de hardware (`machine_id` canónico `MAVE-XXXX-XXXX-XXXX`), verificación criptográfica offline HMAC-SHA256, persistencia en SQLite (`licenseService`) y contratos IPC seguros en preload (`window.api.license`).
+- Transición arquitectónica POS+ERP aprobada (ADR-0008 a ADR-0012): matriz comercial ortogonal (POS/ERP x Monocaja/Multicaja), licenciamiento offline atado a hardware (`machine_id`), sincronización multi-tienda asíncrona vía Google Drive (carpeta compartida de 1 TB), aislamiento modular en `src/modules/erp/` y Bodega Centralizadora con Guías de Transferencia.
+- Auditoría UI completada al 100% en todas las pantallas (`F1` a `F6`) con arquitectura canónica (`ViewHeader`, `SubTabs`, `EmptyState`) y cero layout shift.
 - Motor de catálogo vendible en memoria RAM (`memoryCatalogStore`) con respuesta a 0 ms y write-through en SQLite tanto para Ventas (F1), Catálogo (F2) y Modal (F10).
-- Desacople total de input en `ProductSearch`: estado local síncrono para el texto y `startTransition` + tabla memoizada para renderizar sin tildar el cuadro en PCs de bajos recursos.
-- Flujo de arqueo y corte de caja ultra ágil: navegación secuencial de arriba a abajo con la tecla `Enter` y auto-selección de texto (`.select()`).
-- Respaldo dual al salir: SQLite `.db` e inventario Excel `.xlsx` (`${prefix}_${DD-MM-YYYY}_${HH-mm}.xlsx`) en `Documentos\Inventarios POS` (personalizable en Respaldos). Fecha estándar chilena `DD-MM-YYYY` en exportaciones Excel.
 
 ## Decisiones (y por qué)
-- **Componentes canónicos (`ViewHeader`, `SubTabs`, `EmptyState`):** Unificación dimensional, accesibilidad ARIA completa (`tablist`, `tab`, `dialog`), soporte de teclado (flechas, Home, End, Escape) y cero layout shift.
+- **Licenciamiento offline atado a Hardware:** HMAC-SHA256 con payload Base64URL y firma Hex. Si la base de datos se clona a otra PC (`hardware_mismatch`), el sistema revoca automáticamente el modo ERP en SQLite y regresa a POS estándar.
+- **Lectura ultra-rápida de Machine ID en Windows:** Consulta directa al registro (`reg query HKLM\SOFTWARE\Microsoft\Cryptography /v MachineGuid`, <15ms) con fallback a CIM y variable de entorno `MAVE_MACHINE_UUID` para testing determinista.
+- **Componentes canónicos (`ViewHeader`, `SubTabs`, `EmptyState`):** Unificación dimensional, accesibilidad ARIA completa (`tablist`, `tab`, `dialog`), soporte de teclado y cero layout shift.
 - **Catálogo en RAM + Write-Through:** Búsqueda y escáner HID instantáneos sin consultar SQLite en cada tecla; SQLite y el store se sincronizan atómicamente.
-- **Input desacoplado y tabla memoizada:** El cuadro de texto se actualiza a 0 ms sin esperar el re-renderizado de 150 filas; `startTransition` prioriza las pulsaciones de teclado e interrumpe el dibujo de la tabla si el usuario sigue escribiendo.
 - **Stock bloqueado en edición de producto:** Prohibido editar stock en formulario de producto; solo muta por ajuste, venta, devolución o importación para asegurar auditoría en Kardex.
 - **Folio global vs Ticket de turno:** Folio histórico incremental único; ticket de turno reinicia en 1 por sesión para flujo amigable de caja.
-- **Cero Layout Shift estricto:** Modales, tarjetas de KPI y tablas con geometrías fijas y espacio reservado para cálculos reactivos y skeletons de carga.
-- **Formato numérico universal:** Todo monto en pesos chilenos, cantidad, porcentaje, existencia o folio utiliza clases `tabular-nums font-mono`.
-- **Búsqueda RAM sin ordenar por tecla:** `memoryCatalogStore.products` se mantiene siempre en orden canónico (`compareCanonical` = ORDER BY de SQLite); `searchLocal` recorre y corta al límite con soporte de filtros (categoría, proveedor, tipo). Con RAM lista, tanto modal como catálogo NO consultan SQLite (`fetchProducts` retorna sin activar `isLoading`), eliminando cualquier parpadeo de carga.
 
 ## Aprendizajes y errores a evitar
-- **Rendimiento en PCs lentos:** Aislar el `<input>` en un subcomponente independiente (`IsolatedSearchInput`) con micro-debounce de 100ms y flush inmediato en Enter/Clear. Esto evita que el ciclo de re-renderizado de la tabla y búsqueda en RAM sature el hilo principal de JS durante el tecleo o borrado rápido con Backspace.
+- **Node runtime en tests:** Ejecutar vitest vía `npm run test` (usa `ELECTRON_RUN_AS_NODE=1 electron`) para compatibilidad nativa con `better-sqlite3` compilado para Electron.
 - **Tests unitarios `.ts` sin JSX:** En archivos `.ts`, usar exclusivamente `React.createElement` (sin JSX) para evitar fallos de esbuild en node al correr Vitest.
-- **Selección masiva y Catálogo en RAM:** En operaciones masivas de catálogo (categoría, agrupar como variable, borrado o exportar), `selectedProductsList` debe resolver IDs desde `memoryCatalogStore.idIndex` (O(1)) para no truncarse a los precargados (`catalog_initial_limit`). "Seleccionar todos" debe alternar la lista visible real de `ProductSearch`.
-- **Pulso de cajón monodisparo (Pin 2):** Prohibido concatenar en un mismo buffer Pin 2 (`ESC p 0`) y Pin 5 (`ESC p 1`); la pausa intermedia de 500ms provoca que el solenoide físico vuelva a sonar (doble golpe). Se utiliza exclusivamente el pulso estándar único Pin 2 (`1b 70 00 19 fa`) y debounce de 800ms.
-- **Validaciones en inputs:** Avisos en la misma línea del label o borde teñido, jamás añadir líneas abajo que expandan tarjetas o modales.
 - **Tokens temáticos:** Usar exclusivamente `lilac-*` de `themes.ts`; prohibido quemar clases fijas (`purple-*`, HEX) para no romper temas ni modo oscuro.
 - **No compilar `.exe` autónomamente:** `npm run build:win` se ejecuta estrictamente bajo demanda del usuario, avanzando la versión al siguiente parche tras empaquetar.
 - **Formato Git:** Commits directos en español, sin prefijos (`feat:`, etc.) y sin mezclar capas; mantener en working tree hasta indicación expresa.
 
 ## Próximos pasos
-- Consolidar commits atómicos en git cuando el usuario lo solicite.
-- Pruebas finales en hardware físico con escáner HID en modo continuo y térmicas ESC/POS.
+- Etapa 1: UI de Activación de Licencias en Configuración F6 (Issue 03) y Modelo/Servicio de Clientes (Issue 04).
+- Etapa 2: Gestor de Bodega y Sincronización Multi-Tienda vía Google Drive.
+- Etapa 3: Conector Multicaja en Red Local (Servidor LAN y Terminales cliente).
+- Etapa 4: Compras a Proveedores y Cotizaciones / Preventas.
